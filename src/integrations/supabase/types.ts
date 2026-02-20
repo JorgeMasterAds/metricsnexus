@@ -14,7 +14,296 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversions: {
+        Row: {
+          amount: number
+          click_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          is_order_bump: boolean
+          paid_at: string | null
+          platform: string
+          product_name: string | null
+          raw_payload: Json | null
+          smart_link_id: string | null
+          status: string
+          transaction_id: string
+          user_id: string | null
+          variant_id: string | null
+        }
+        Insert: {
+          amount?: number
+          click_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          is_order_bump?: boolean
+          paid_at?: string | null
+          platform: string
+          product_name?: string | null
+          raw_payload?: Json | null
+          smart_link_id?: string | null
+          status?: string
+          transaction_id: string
+          user_id?: string | null
+          variant_id?: string | null
+        }
+        Update: {
+          amount?: number
+          click_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          is_order_bump?: boolean
+          paid_at?: string | null
+          platform?: string
+          product_name?: string | null
+          raw_payload?: Json | null
+          smart_link_id?: string | null
+          status?: string
+          transaction_id?: string
+          user_id?: string | null
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversions_smart_link_id_fkey"
+            columns: ["smart_link_id"]
+            isOneToOne: false
+            referencedRelation: "smart_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversions_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          cakto_webhook_secret: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          hotmart_webhook_secret: string | null
+          id: string
+          integration_platform: string | null
+          updated_at: string
+        }
+        Insert: {
+          cakto_webhook_secret?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          hotmart_webhook_secret?: string | null
+          id: string
+          integration_platform?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cakto_webhook_secret?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          hotmart_webhook_secret?: string | null
+          id?: string
+          integration_platform?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      smart_links: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      variants: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          smart_link_id: string
+          updated_at: string
+          url: string
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          smart_link_id: string
+          updated_at?: string
+          url: string
+          user_id: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          smart_link_id?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variants_smart_link_id_fkey"
+            columns: ["smart_link_id"]
+            isOneToOne: false
+            referencedRelation: "smart_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      views: {
+        Row: {
+          click_id: string
+          created_at: string
+          device: string | null
+          id: string
+          ip_hash: string | null
+          referer: string | null
+          smart_link_id: string
+          user_agent: string | null
+          user_id: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          variant_id: string
+        }
+        Insert: {
+          click_id: string
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip_hash?: string | null
+          referer?: string | null
+          smart_link_id: string
+          user_agent?: string | null
+          user_id: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          variant_id: string
+        }
+        Update: {
+          click_id?: string
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip_hash?: string | null
+          referer?: string | null
+          smart_link_id?: string
+          user_agent?: string | null
+          user_id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "views_smart_link_id_fkey"
+            columns: ["smart_link_id"]
+            isOneToOne: false
+            referencedRelation: "smart_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "views_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_logs: {
+        Row: {
+          attributed_click_id: string | null
+          attributed_variant_id: string | null
+          created_at: string
+          event_type: string | null
+          id: string
+          ignore_reason: string | null
+          is_attributed: boolean
+          platform: string
+          raw_payload: Json | null
+          status: string
+          transaction_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attributed_click_id?: string | null
+          attributed_variant_id?: string | null
+          created_at?: string
+          event_type?: string | null
+          id?: string
+          ignore_reason?: string | null
+          is_attributed?: boolean
+          platform: string
+          raw_payload?: Json | null
+          status?: string
+          transaction_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attributed_click_id?: string | null
+          attributed_variant_id?: string | null
+          created_at?: string
+          event_type?: string | null
+          id?: string
+          ignore_reason?: string | null
+          is_attributed?: boolean
+          platform?: string
+          raw_payload?: Json | null
+          status?: string
+          transaction_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
