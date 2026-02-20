@@ -5,18 +5,19 @@ import {
   BarChart3,
   GitBranch,
   Settings,
-  Shield,
-  Heart,
+  Webhook,
   LogOut,
-  ChevronLeft,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 const navItems = [
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
   { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
-  { icon: Heart, label: "System Health", path: "/system-health" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
+  { icon: Settings, label: "Configurações", path: "/settings" },
 ];
 
 interface DashboardLayoutProps {
@@ -28,70 +29,93 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const SidebarContent = () => (
+    <>
+      <Link to="/dashboard" className="flex items-center gap-2 px-3 mb-8">
+        <Activity className="h-5 w-5 text-primary" />
+        <span className="font-bold tracking-tight">
+          Nexus <span className="gradient-text">Metrics</span>
+        </span>
+      </Link>
+
+      <nav className="flex-1 space-y-1">
+        {navItems.map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                active
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <item.icon className={cn("h-4 w-4", active && "text-primary")} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-sidebar-border pt-4 mt-4">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors w-full"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex flex-col w-60 border-r border-border/50 bg-sidebar p-4">
-        <Link to="/" className="flex items-center gap-2 px-3 mb-8">
-          <Activity className="h-5 w-5 text-primary" />
-          <span className="font-bold tracking-tight">
-            Nexus <span className="gradient-text">Metrics</span>
-          </span>
-        </Link>
-
-        <nav className="flex-1 space-y-1">
-          {navItems.map((item) => {
-            const active = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                  active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <item.icon className={cn("h-4 w-4", active && "text-primary")} />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="border-t border-sidebar-border pt-4 mt-4">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="h-8 w-8 rounded-full gradient-bg flex items-center justify-center text-xs font-bold text-primary-foreground">
-              N
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">Demo User</div>
-              <div className="text-xs text-muted-foreground truncate">demo@nexus.io</div>
-            </div>
-          </div>
-        </div>
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-60 border-r border-border/50 bg-sidebar p-4 sticky top-0 h-screen">
+        <SidebarContent />
       </aside>
 
+      {/* Mobile Sidebar Overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+          <aside className="relative flex flex-col w-60 h-full border-r border-border/50 bg-sidebar p-4">
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+
       {/* Main */}
-      <main className="flex-1 flex flex-col min-h-screen">
+      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Header */}
-        <header className="h-14 border-b border-border/50 flex items-center justify-between px-6 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
+        <header className="h-14 border-b border-border/50 flex items-center justify-between px-4 lg:px-6 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
           <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="lg:hidden">
-              <Activity className="h-5 w-5 text-primary" />
-            </Link>
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="lg:hidden p-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <div>
               <h1 className="text-sm font-semibold">{title}</h1>
-              {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+              {subtitle && <p className="text-xs text-muted-foreground hidden sm:block">{subtitle}</p>}
             </div>
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
 
         {/* Content */}
-        <div className="flex-1 p-6 overflow-auto">
+        <div className="flex-1 p-4 lg:p-6 overflow-auto">
           {children}
         </div>
       </main>
