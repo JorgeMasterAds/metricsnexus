@@ -13,9 +13,18 @@ import Dashboard from "./pages/Dashboard";
 import SmartLinks from "./pages/SmartLinks";
 import WebhookLogs from "./pages/WebhookLogs";
 import Settings from "./pages/Settings";
+import UtmReport from "./pages/UtmReport";
+import UnattributedSales from "./pages/UnattributedSales";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000,
+      retry: 1,
+    },
+  },
+});
 
 function AppRoutes() {
   const [session, setSession] = useState<Session | null>(null);
@@ -40,14 +49,19 @@ function AppRoutes() {
     );
   }
 
+  const Protected = ({ children }: { children: React.ReactNode }) =>
+    session ? <>{children}</> : <Navigate to="/auth" replace />;
+
   return (
     <Routes>
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/auth" element={session ? <Navigate to="/dashboard" replace /> : <Auth />} />
-      <Route path="/dashboard" element={session ? <Dashboard /> : <Navigate to="/auth" replace />} />
-      <Route path="/smart-links" element={session ? <SmartLinks /> : <Navigate to="/auth" replace />} />
-      <Route path="/webhook-logs" element={session ? <WebhookLogs /> : <Navigate to="/auth" replace />} />
-      <Route path="/settings" element={session ? <Settings /> : <Navigate to="/auth" replace />} />
+      <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+      <Route path="/smart-links" element={<Protected><SmartLinks /></Protected>} />
+      <Route path="/utm-report" element={<Protected><UtmReport /></Protected>} />
+      <Route path="/unattributed" element={<Protected><UnattributedSales /></Protected>} />
+      <Route path="/webhook-logs" element={<Protected><WebhookLogs /></Protected>} />
+      <Route path="/settings" element={<Protected><Settings /></Protected>} />
       <Route path="/" element={<Navigate to={session ? "/dashboard" : "/auth"} replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

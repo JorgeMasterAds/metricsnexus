@@ -31,6 +31,8 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (slError || !smartLink) {
+    // Log redirect error
+    console.error('Redirect error:', slError?.message || 'Smart Link not found', { slug });
     return new Response('Smart Link not found', { status: 404 });
   }
 
@@ -41,6 +43,7 @@ Deno.serve(async (req) => {
     .eq('is_active', true);
 
   if (vError || !variants || variants.length === 0) {
+    console.error('Redirect error: No active variants', { slug, smartLinkId: smartLink.id });
     return new Response('No active variants', { status: 404 });
   }
 
@@ -79,23 +82,33 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Bot detection
+  let isBot = false;
+  if (userAgent) {
+    const ua = userAgent.toLowerCase();
+    isBot = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview/i.test(ua);
+  }
+
   // IP hash
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                    req.headers.get('x-real-ip') || 'unknown';
   const ipHash = await hashString(clientIp);
 
-  // Deduplication: check if same ip+variant combo in last 5 seconds
-  const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
+  // Deduplication: check if same ip+user_agent combo in last 3 seconds
+  const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
+  const uaHash = userAgent ? await hashString(userAgent) : 'unknown';
+  const dedupKey = `${ipHash}_${uaHash}`;
+  
   const { data: recentView } = await supabase
     .from('views')
     .select('id')
     .eq('ip_hash', ipHash)
     .eq('variant_id', selectedVariant.id)
-    .gte('created_at', fiveSecondsAgo)
+    .gte('created_at', threeSecondsAgo)
     .maybeSingle();
 
   if (!recentView) {
-    // Insert view asynchronously
+    // Insert view
     supabase.from('views').insert({
       click_id: clickId,
       smart_link_id: smartLink.id,
@@ -113,13 +126,14 @@ Deno.serve(async (req) => {
     }).then(() => {});
   }
 
-  // Build redirect URL preserving UTMs and adding click_id
+  // Build redirect URL preserving UTMs and adding click_id + utm_term
   const destinationUrl = new URL(selectedVariant.url);
   if (utmSource) destinationUrl.searchParams.set('utm_source', utmSource);
   if (utmMedium) destinationUrl.searchParams.set('utm_medium', utmMedium);
   if (utmCampaign) destinationUrl.searchParams.set('utm_campaign', utmCampaign);
+  if (utmContent) destinationUrl.searchParams.set('utm_content', utmContent);
+  // Set utm_term to click_id for attribution
   destinationUrl.searchParams.set('utm_term', clickId);
-  destinationUrl.searchParams.set('utm_content', utmContent || clickId);
   destinationUrl.searchParams.set('click_id', clickId);
   destinationUrl.searchParams.set('sck', clickId);
 

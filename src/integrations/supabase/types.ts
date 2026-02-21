@@ -87,8 +87,10 @@ export type Database = {
         Row: {
           cakto_webhook_secret: string | null
           created_at: string
+          custom_domain: string | null
           email: string | null
           full_name: string | null
+          gamification_goal: number
           hotmart_webhook_secret: string | null
           id: string
           integration_platform: string | null
@@ -97,8 +99,10 @@ export type Database = {
         Insert: {
           cakto_webhook_secret?: string | null
           created_at?: string
+          custom_domain?: string | null
           email?: string | null
           full_name?: string | null
+          gamification_goal?: number
           hotmart_webhook_secret?: string | null
           id: string
           integration_platform?: string | null
@@ -107,8 +111,10 @@ export type Database = {
         Update: {
           cakto_webhook_secret?: string | null
           created_at?: string
+          custom_domain?: string | null
           email?: string | null
           full_name?: string | null
+          gamification_goal?: number
           hotmart_webhook_secret?: string | null
           id?: string
           integration_platform?: string | null
