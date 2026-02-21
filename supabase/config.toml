@@ -12,10 +12,7 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
-[functions.check-subscription]
-verify_jwt = false
-
-[functions.create-checkout]
+[functions.check-user-limit]
 verify_jwt = false
 
 [functions.customer-portal]
