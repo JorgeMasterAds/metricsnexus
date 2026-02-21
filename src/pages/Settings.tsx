@@ -6,13 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { Copy, Crown } from "lucide-react";
-import { useSubscription, PLAN_PRICES } from "@/hooks/useSubscription";
+import { Copy } from "lucide-react";
 
 export default function Settings() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { subscribed, planType, subscriptionEnd } = useSubscription();
 
   const { data: user } = useQuery({
     queryKey: ["auth-user"],
@@ -46,7 +44,7 @@ export default function Settings() {
       setFullName(profile.full_name || "");
       setHotmartSecret(profile.hotmart_webhook_secret || "");
       setCaktoSecret(profile.cakto_webhook_secret || "");
-      setCustomDomain((profile as any).custom_domain || "");
+      setCustomDomain(profile.custom_domain || "");
     }
     if (user) {
       setEmail(user.email || "");
@@ -70,7 +68,7 @@ export default function Settings() {
         hotmart_webhook_secret: hotmartSecret,
         cakto_webhook_secret: caktoSecret,
         custom_domain: customDomain || null,
-      } as any).eq("id", user?.id);
+      }).eq("id", user?.id);
       if (error) throw error;
       if (email !== user?.email) {
         const { error: emailErr } = await supabase.auth.updateUser({ email });
@@ -113,28 +111,6 @@ export default function Settings() {
     toast({ title: "Funcionalidade em desenvolvimento", description: "Entre em contato com o suporte para excluir sua conta." });
   };
 
-  const handleCheckout = async (priceId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId },
-      });
-      if (error) throw error;
-      if (data?.url) window.open(data.url, "_blank");
-    } catch (err: any) {
-      toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" });
-    }
-  };
-
-  const handleManageSubscription = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke("customer-portal");
-      if (error) throw error;
-      if (data?.url) window.open(data.url, "_blank");
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
-  };
-
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/webhook`;
 
@@ -146,59 +122,6 @@ export default function Settings() {
   return (
     <DashboardLayout title="Configurações" subtitle="Gerencie sua conta e integrações">
       <div className="max-w-2xl space-y-6">
-        {/* Subscription / Plans */}
-        <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Crown className="h-4 w-4 text-warning" />
-            <h2 className="text-sm font-semibold">Plano</h2>
-          </div>
-          {subscribed && planType ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full">Ativo</span>
-                <span className="text-sm font-medium capitalize">{planType}</span>
-              </div>
-              {subscriptionEnd && (
-                <p className="text-xs text-muted-foreground">
-                  Renova em: {new Date(subscriptionEnd).toLocaleDateString("pt-BR")}
-                </p>
-              )}
-              <Button variant="outline" size="sm" onClick={handleManageSubscription}>
-                Gerenciar assinatura
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {Object.entries(PLAN_PRICES).map(([key, plan]) => (
-                <div
-                  key={key}
-                  className={`rounded-lg border p-4 space-y-3 ${
-                    key === "ouro" ? "border-warning/50 bg-warning/5" : "border-border/50"
-                  }`}
-                >
-                  <div>
-                    <h3 className="text-sm font-semibold">{plan.name}</h3>
-                    <p className="text-lg font-bold">{plan.price}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
-                  </div>
-                  <ul className="space-y-1">
-                    {plan.features.map((f, i) => (
-                      <li key={i} className="text-xs text-muted-foreground">✓ {f}</li>
-                    ))}
-                  </ul>
-                  <Button
-                    size="sm"
-                    className={key === "ouro" ? "gradient-bg border-0 text-primary-foreground w-full" : "w-full"}
-                    variant={key === "ouro" ? "default" : "outline"}
-                    onClick={() => handleCheckout(plan.priceId)}
-                  >
-                    Assinar
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Profile */}
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
           <h2 className="text-sm font-semibold mb-4">Perfil</h2>
@@ -248,7 +171,6 @@ export default function Settings() {
                 <p className="text-xs text-destructive">Formato inválido. Use: tracker.meudominio.com</p>
               )}
             </div>
-            {/* Fixed tutorial always visible */}
             <div className="rounded-lg bg-muted/30 border border-border/30 p-4 space-y-2">
               <p className="text-xs font-medium text-foreground">Para usar seu próprio subdomínio:</p>
               <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside">

@@ -26,6 +26,14 @@ export default function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else if (mode === "register") {
+        // Check user limit before registration
+        const { data: limitData, error: limitError } = await supabase.functions.invoke("check-user-limit");
+        if (limitError) throw limitError;
+        if (!limitData?.canRegister) {
+          toast({ title: "Limite de usuários atingido", description: `O sistema suporta no máximo ${limitData?.maxUsers || 10} usuários.`, variant: "destructive" });
+          setLoading(false);
+          return;
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import SmartLinkModal from "@/components/SmartLinkModal";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import { exportToCsv } from "@/lib/csv";
-import { useSubscription, PLAN_LIMITS } from "@/hooks/useSubscription";
+import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
 
 export default function SmartLinks() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -21,13 +21,9 @@ export default function SmartLinks() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { subscribed, planType } = useSubscription();
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
-
-  const maxLinks = PLAN_LIMITS[planType || "bronze"] || 5;
-  const canCreate = !subscribed ? false : true;
 
   const { data: smartLinks = [], isLoading } = useQuery({
     queryKey: ["smart-links"],
@@ -41,7 +37,7 @@ export default function SmartLinks() {
     },
   });
 
-  const atLimit = smartLinks.length >= maxLinks;
+  const atLimit = smartLinks.length >= MAX_SMART_LINKS;
 
   const { data: views = [] } = useQuery({
     queryKey: ["sl-views", since, until],
@@ -136,12 +132,8 @@ export default function SmartLinks() {
   };
 
   const handleNewClick = () => {
-    if (!subscribed) {
-      toast({ title: "Assine um plano", description: "Vá em Configurações para escolher seu plano.", variant: "destructive" });
-      return;
-    }
     if (atLimit) {
-      toast({ title: "Limite atingido", description: `Você atingiu o limite do seu plano (${maxLinks} Smart Links). Faça upgrade para criar mais.`, variant: "destructive" });
+      toast({ title: "Limite atingido", description: `Você atingiu o limite de ${MAX_SMART_LINKS} Smart Links.`, variant: "destructive" });
       return;
     }
     setEditingLink(null);
@@ -151,7 +143,7 @@ export default function SmartLinks() {
   return (
     <DashboardLayout
       title="Smart Links"
-      subtitle={`${smartLinks.length}/${maxLinks} Smart Links usados`}
+      subtitle={`${smartLinks.length}/${MAX_SMART_LINKS} Smart Links usados`}
       actions={
         <div className="flex items-center gap-2">
           <DateFilter value={dateRange} onChange={setDateRange} />
@@ -174,18 +166,9 @@ export default function SmartLinks() {
         />
       )}
 
-      {/* Plan limit banner */}
-      {subscribed && atLimit && (
-        <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 text-xs text-warning flex items-center justify-between">
-          <span>Você atingiu o limite do seu plano ({maxLinks} Smart Links).</span>
-          <a href="/settings" className="underline font-medium">Fazer upgrade</a>
-        </div>
-      )}
-
-      {!subscribed && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 mb-4 text-xs text-destructive flex items-center justify-between">
-          <span>Assine um plano para criar Smart Links.</span>
-          <a href="/settings" className="underline font-medium">Ver planos</a>
+      {atLimit && (
+        <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 text-xs text-warning">
+          Você atingiu o limite de {MAX_SMART_LINKS} Smart Links.
         </div>
       )}
 
