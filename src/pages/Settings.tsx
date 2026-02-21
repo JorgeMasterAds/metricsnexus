@@ -6,11 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { Copy } from "lucide-react";
+import { Copy, Crown } from "lucide-react";
+import { useSubscription, PLAN_PRICES } from "@/hooks/useSubscription";
 
 export default function Settings() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { subscribed, planType, subscriptionEnd } = useSubscription();
 
   const { data: user } = useQuery({
     queryKey: ["auth-user"],
@@ -35,7 +37,6 @@ export default function Settings() {
   const [hotmartSecret, setHotmartSecret] = useState("");
   const [caktoSecret, setCaktoSecret] = useState("");
   const [customDomain, setCustomDomain] = useState("");
-  const [gamificationGoal, setGamificationGoal] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -46,7 +47,6 @@ export default function Settings() {
       setHotmartSecret(profile.hotmart_webhook_secret || "");
       setCaktoSecret(profile.cakto_webhook_secret || "");
       setCustomDomain((profile as any).custom_domain || "");
-      setGamificationGoal(String((profile as any).gamification_goal || 1000000));
     }
     if (user) {
       setEmail(user.email || "");
@@ -54,7 +54,7 @@ export default function Settings() {
   }, [profile, user]);
 
   const isValidDomain = (domain: string) => {
-    if (!domain) return true; // empty is ok
+    if (!domain) return true;
     return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain.toLowerCase());
   };
 
@@ -70,7 +70,6 @@ export default function Settings() {
         hotmart_webhook_secret: hotmartSecret,
         cakto_webhook_secret: caktoSecret,
         custom_domain: customDomain || null,
-        gamification_goal: Number(gamificationGoal) || 1000000,
       } as any).eq("id", user?.id);
       if (error) throw error;
       if (email !== user?.email) {
@@ -114,6 +113,28 @@ export default function Settings() {
     toast({ title: "Funcionalidade em desenvolvimento", description: "Entre em contato com o suporte para excluir sua conta." });
   };
 
+  const handleCheckout = async (priceId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId },
+      });
+      if (error) throw error;
+      if (data?.url) window.open(data.url, "_blank");
+    } catch (err: any) {
+      toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      if (error) throw error;
+      if (data?.url) window.open(data.url, "_blank");
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/webhook`;
 
@@ -125,6 +146,59 @@ export default function Settings() {
   return (
     <DashboardLayout title="Configurações" subtitle="Gerencie sua conta e integrações">
       <div className="max-w-2xl space-y-6">
+        {/* Subscription / Plans */}
+        <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Crown className="h-4 w-4 text-warning" />
+            <h2 className="text-sm font-semibold">Plano</h2>
+          </div>
+          {subscribed && planType ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full">Ativo</span>
+                <span className="text-sm font-medium capitalize">{planType}</span>
+              </div>
+              {subscriptionEnd && (
+                <p className="text-xs text-muted-foreground">
+                  Renova em: {new Date(subscriptionEnd).toLocaleDateString("pt-BR")}
+                </p>
+              )}
+              <Button variant="outline" size="sm" onClick={handleManageSubscription}>
+                Gerenciar assinatura
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {Object.entries(PLAN_PRICES).map(([key, plan]) => (
+                <div
+                  key={key}
+                  className={`rounded-lg border p-4 space-y-3 ${
+                    key === "ouro" ? "border-warning/50 bg-warning/5" : "border-border/50"
+                  }`}
+                >
+                  <div>
+                    <h3 className="text-sm font-semibold">{plan.name}</h3>
+                    <p className="text-lg font-bold">{plan.price}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                  </div>
+                  <ul className="space-y-1">
+                    {plan.features.map((f, i) => (
+                      <li key={i} className="text-xs text-muted-foreground">✓ {f}</li>
+                    ))}
+                  </ul>
+                  <Button
+                    size="sm"
+                    className={key === "ouro" ? "gradient-bg border-0 text-primary-foreground w-full" : "w-full"}
+                    variant={key === "ouro" ? "default" : "outline"}
+                    onClick={() => handleCheckout(plan.priceId)}
+                  >
+                    Assinar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Profile */}
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
           <h2 className="text-sm font-semibold mb-4">Perfil</h2>
@@ -174,48 +248,39 @@ export default function Settings() {
                 <p className="text-xs text-destructive">Formato inválido. Use: tracker.meudominio.com</p>
               )}
             </div>
-            {customDomain && isValidDomain(customDomain) && (
-              <div className="rounded-lg bg-muted/30 border border-border/30 p-4 space-y-2">
-                <p className="text-xs font-medium text-foreground">Configuração DNS necessária:</p>
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  <p>Crie um registro <strong>CNAME</strong> no seu provedor de DNS:</p>
-                  <div className="bg-background/50 rounded p-2 font-mono text-xs">
-                    <div>Tipo: CNAME</div>
-                    <div>Nome: {customDomain.split('.')[0]}</div>
-                    <div>Valor: {projectId}.supabase.co</div>
+            {/* Fixed tutorial always visible */}
+            <div className="rounded-lg bg-muted/30 border border-border/30 p-4 space-y-2">
+              <p className="text-xs font-medium text-foreground">Para usar seu próprio subdomínio:</p>
+              <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside">
+                <li>Acesse seu provedor DNS.</li>
+                <li>
+                  Crie um registro <strong>CNAME</strong>:
+                  <div className="bg-background/50 rounded p-2 font-mono text-xs mt-1 ml-4">
+                    <div>Nome: <strong>tracker</strong></div>
+                    <div>Apontando para: <strong>{projectId}.supabase.co</strong></div>
                   </div>
-                  <p className="text-warning">⚠️ HTTPS é obrigatório. O certificado SSL será provisionado automaticamente após a propagação DNS.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Gamification Goal */}
-        <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-          <h2 className="text-sm font-semibold mb-1">Meta de Faturamento</h2>
-          <p className="text-xs text-muted-foreground mb-4">Defina sua meta para a barra de gamificação</p>
-          <div className="space-y-1.5">
-            <Label>Meta (R$)</Label>
-            <Input
-              type="number"
-              value={gamificationGoal}
-              onChange={(e) => setGamificationGoal(e.target.value)}
-              placeholder="1000000"
-            />
+                </li>
+                <li>Aguarde propagação (até 48h).</li>
+                <li>Certifique-se de que responde via HTTPS.</li>
+              </ol>
+              <p className="text-warning text-xs">⚠️ O domínio deve responder via HTTPS para funcionar corretamente.</p>
+            </div>
           </div>
         </div>
 
         {/* Webhook URL */}
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
           <h2 className="text-sm font-semibold mb-1">URL do Webhook</h2>
-          <p className="text-xs text-muted-foreground mb-4">Use esta URL única na Hotmart ou Cakto. A plataforma é detectada automaticamente pelo payload.</p>
+          <p className="text-xs text-muted-foreground mb-4">Utilize esta URL na sua plataforma de vendas.</p>
           <div className="flex items-center gap-2">
             <Input readOnly value={webhookUrl} className="font-mono text-xs" />
             <Button variant="outline" size="sm" onClick={() => copy(webhookUrl)}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Opcionalmente, envie o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> para validação extra.
+          </p>
         </div>
 
         {/* Integration secrets */}
@@ -224,12 +289,12 @@ export default function Settings() {
           <p className="text-xs text-muted-foreground mb-4">Configure secrets para validação dos webhooks (opcional)</p>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Hotmart Webhook Secret</Label>
-              <Input value={hotmartSecret} onChange={(e) => setHotmartSecret(e.target.value)} placeholder="hottok da Hotmart" />
+              <Label>Webhook Secret (Hotmart / Cakto)</Label>
+              <Input value={hotmartSecret} onChange={(e) => setHotmartSecret(e.target.value)} placeholder="Secret do webhook" />
             </div>
             <div className="space-y-1.5">
-              <Label>Cakto Webhook Secret</Label>
-              <Input value={caktoSecret} onChange={(e) => setCaktoSecret(e.target.value)} placeholder="Secret da Cakto" />
+              <Label>Secret alternativo</Label>
+              <Input value={caktoSecret} onChange={(e) => setCaktoSecret(e.target.value)} placeholder="Secret alternativo" />
             </div>
           </div>
         </div>

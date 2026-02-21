@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
 
   if (slError || !smartLink) {
     // Log redirect error
-    console.error('Redirect error:', slError?.message || 'Smart Link not found', { slug });
+    await supabase.from('redirect_errors').insert({
+      slug,
+      status_code: 404,
+      error_message: slError?.message || 'Smart Link not found',
+    });
     return new Response('Smart Link not found', { status: 404 });
   }
 
@@ -43,7 +47,12 @@ Deno.serve(async (req) => {
     .eq('is_active', true);
 
   if (vError || !variants || variants.length === 0) {
-    console.error('Redirect error: No active variants', { slug, smartLinkId: smartLink.id });
+    await supabase.from('redirect_errors').insert({
+      slug,
+      smart_link_id: smartLink.id,
+      status_code: 404,
+      error_message: 'No active variants',
+    });
     return new Response('No active variants', { status: 404 });
   }
 
@@ -85,8 +94,7 @@ Deno.serve(async (req) => {
   // Bot detection
   let isBot = false;
   if (userAgent) {
-    const ua = userAgent.toLowerCase();
-    isBot = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview/i.test(ua);
+    isBot = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview/i.test(userAgent);
   }
 
   // IP hash
@@ -94,21 +102,21 @@ Deno.serve(async (req) => {
                    req.headers.get('x-real-ip') || 'unknown';
   const ipHash = await hashString(clientIp);
 
-  // Deduplication: check if same ip+user_agent combo in last 3 seconds
-  const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
-  const uaHash = userAgent ? await hashString(userAgent) : 'unknown';
-  const dedupKey = `${ipHash}_${uaHash}`;
+  // Deduplication: check if same ip+user_agent combo in last 2 seconds (anti-fraud)
+  const twoSecondsAgo = new Date(Date.now() - 2000).toISOString();
   
   const { data: recentView } = await supabase
     .from('views')
     .select('id')
     .eq('ip_hash', ipHash)
     .eq('variant_id', selectedVariant.id)
-    .gte('created_at', threeSecondsAgo)
+    .gte('created_at', twoSecondsAgo)
     .maybeSingle();
 
+  const isSuspect = !!recentView || isBot;
+
   if (!recentView) {
-    // Insert view
+    // Insert view (fire and forget)
     supabase.from('views').insert({
       click_id: clickId,
       smart_link_id: smartLink.id,
@@ -123,6 +131,16 @@ Deno.serve(async (req) => {
       utm_campaign: utmCampaign,
       utm_term: utmTerm,
       utm_content: utmContent,
+      is_suspect: isSuspect,
+    }).then(() => {});
+
+    // Update daily_metrics
+    const today = new Date().toISOString().split('T')[0];
+    supabase.rpc('upsert_daily_metric_view', {
+      p_date: today,
+      p_user_id: smartLink.user_id,
+      p_smart_link_id: smartLink.id,
+      p_variant_id: selectedVariant.id,
     }).then(() => {});
   }
 
