@@ -2,8 +2,11 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
+import { Button } from "@/components/ui/button";
+import { exportToCsv } from "@/lib/csv";
 
 const STATUS_COLOR: Record<string, string> = {
   approved: "bg-success/20 text-success",
@@ -11,18 +14,27 @@ const STATUS_COLOR: Record<string, string> = {
   duplicate: "bg-yellow-500/20 text-yellow-400",
   error: "bg-destructive/20 text-destructive",
   received: "bg-blue-500/20 text-blue-400",
+  refunded: "bg-orange-500/20 text-orange-400",
+  chargedback: "bg-destructive/20 text-destructive",
+  canceled: "bg-muted text-muted-foreground",
 };
 
 export default function WebhookLogs() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [platform, setPlatform] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+
+  const since = dateRange.from.toISOString();
+  const until = dateRange.to.toISOString();
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ["webhook-logs", platform],
+    queryKey: ["webhook-logs", platform, since, until],
     queryFn: async () => {
       let q = supabase
         .from("webhook_logs")
         .select("*")
+        .gte("created_at", since)
+        .lte("created_at", until)
         .order("created_at", { ascending: false })
         .limit(200);
       if (platform !== "all") q = q.eq("platform", platform);
@@ -37,28 +49,50 @@ export default function WebhookLogs() {
       title="Webhook Logs"
       subtitle="Histórico de webhooks recebidos"
       actions={
-        <div className="flex gap-1">
-          {["all", "hotmart", "cakto"].map((p) => (
-            <button
-              key={p}
-              onClick={() => setPlatform(p)}
-              className={`px-3 py-1.5 text-xs rounded-lg capitalize transition-colors ${
-                platform === p ? "gradient-bg text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
-            >
-              {p === "all" ? "Todos" : p}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {["all", "hotmart", "cakto"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPlatform(p)}
+                className={`px-3 py-1.5 text-xs rounded-lg capitalize transition-colors ${
+                  platform === p ? "gradient-bg text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-accent"
+                }`}
+              >
+                {p === "all" ? "Todos" : p}
+              </button>
+            ))}
+          </div>
+          <DateFilter value={dateRange} onChange={setDateRange} />
         </div>
       }
     >
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs gap-1.5"
+          onClick={() => exportToCsv(logs.map((l: any) => ({
+            data: new Date(l.created_at).toLocaleString("pt-BR"),
+            plataforma: l.platform,
+            evento: l.event_type,
+            transaction_id: l.transaction_id,
+            status: l.status,
+            atribuido: l.is_attributed ? "Sim" : "Não",
+            motivo: l.ignore_reason,
+          })), "webhook-logs")}
+        >
+          <Download className="h-3.5 w-3.5" /> CSV
+        </Button>
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
         </div>
       ) : logs.length === 0 ? (
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center text-muted-foreground text-sm">
-          Nenhum webhook recebido ainda.
+          Nenhum webhook recebido no período.
         </div>
       ) : (
         <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
@@ -90,9 +124,7 @@ export default function WebhookLogs() {
                       <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">
                         {new Date(log.created_at).toLocaleString("pt-BR")}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs capitalize font-medium">{log.platform}</span>
-                      </td>
+                      <td className="px-4 py-3"><span className="text-xs capitalize font-medium">{log.platform}</span></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{log.event_type || "—"}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{log.transaction_id || "—"}</td>
                       <td className="px-4 py-3">

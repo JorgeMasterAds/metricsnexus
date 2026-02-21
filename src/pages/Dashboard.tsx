@@ -4,50 +4,44 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { MousePointerClick, TrendingUp, DollarSign, BarChart3 } from "lucide-react";
+import { MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download } from "lucide-react";
 import MetricCard from "@/components/MetricCard";
+import GamificationBar from "@/components/GamificationBar";
+import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import { useState } from "react";
-
-const DAYS = [
-  { label: "7 dias", value: 7 },
-  { label: "30 dias", value: 30 },
-  { label: "90 dias", value: 90 },
-];
+import { Button } from "@/components/ui/button";
+import { exportToCsv } from "@/lib/csv";
 
 export default function Dashboard() {
-  const [days, setDays] = useState(7);
-
-  const { data: user } = useQuery({
-    queryKey: ["current-user"],
-    queryFn: async () => {
-      const { data } = await supabase.auth.getUser();
-      return data.user;
-    },
-  });
-
-  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+  const since = dateRange.from.toISOString();
+  const until = dateRange.to.toISOString();
 
   const { data: views = [] } = useQuery({
-    queryKey: ["dash-views", days],
+    queryKey: ["dash-views", since, until],
     queryFn: async () => {
       const { data } = await supabase
         .from("views")
         .select("id, created_at, smart_link_id, variant_id")
-        .gte("created_at", since);
+        .gte("created_at", since)
+        .lte("created_at", until);
       return data || [];
     },
+    staleTime: 30000,
   });
 
   const { data: conversions = [] } = useQuery({
-    queryKey: ["dash-conversions", days],
+    queryKey: ["dash-conversions", since, until],
     queryFn: async () => {
       const { data } = await supabase
         .from("conversions")
-        .select("id, amount, is_order_bump, created_at, smart_link_id, variant_id")
+        .select("id, amount, is_order_bump, created_at, smart_link_id, variant_id, status")
         .eq("status", "approved")
-        .gte("created_at", since);
+        .gte("created_at", since)
+        .lte("created_at", until);
       return data || [];
     },
+    staleTime: 30000,
   });
 
   const { data: smartLinks = [] } = useQuery({
@@ -55,61 +49,46 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data } = await supabase
         .from("smart_links")
-        .select("id, name, slug, is_active, variants(id, name, url, weight, is_active)")
+        .select("id, name, slug, is_active, created_at, variants(id, name, url, weight, is_active)")
         .order("created_at", { ascending: false });
       return data || [];
     },
   });
 
-  // Aggregate totals
   const totalViews = views.length;
   const totalSales = conversions.length;
-  const totalRevenue = conversions.reduce((s, c) => s + Number(c.amount), 0);
+  const totalRevenue = conversions.reduce((s, c: any) => s + Number(c.amount), 0);
   const convRate = totalViews > 0 ? (totalSales / totalViews) * 100 : 0;
+  const avgTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
 
-  // Build chart data by day
-  const chartData = buildChartData(views, conversions, days);
+  const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000));
+  const chartData = buildChartData(views, conversions, dateRange.from, days);
 
-  // Per smart-link stats
   const linkStats = smartLinks.map((link: any) => {
     const linkViews = views.filter((v: any) => v.smart_link_id === link.id).length;
     const linkConv = conversions.filter((c: any) => c.smart_link_id === link.id);
     const linkRevenue = linkConv.reduce((s: number, c: any) => s + Number(c.amount), 0);
-    return { ...link, views: linkViews, sales: linkConv.length, revenue: linkRevenue };
+    const linkRate = linkViews > 0 ? (linkConv.length / linkViews) * 100 : 0;
+    const linkTicket = linkConv.length > 0 ? linkRevenue / linkConv.length : 0;
+    return { ...link, views: linkViews, sales: linkConv.length, revenue: linkRevenue, rate: linkRate, ticket: linkTicket };
   });
 
   return (
     <DashboardLayout
       title="Dashboard"
       subtitle="Visão geral dos seus experimentos"
-      actions={
-        <div className="flex gap-1">
-          {DAYS.map((d) => (
-            <button
-              key={d.value}
-              onClick={() => setDays(d.value)}
-              className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                days === d.value
-                  ? "gradient-bg text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
-      }
+      actions={<DateFilter value={dateRange} onChange={setDateRange} />}
     >
+      {/* Gamification */}
+      <GamificationBar since={since} until={until} />
+
       {/* Metric cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard label="Total Views" value={totalViews.toLocaleString("pt-BR")} icon={MousePointerClick} />
         <MetricCard label="Vendas" value={totalSales.toLocaleString("pt-BR")} icon={TrendingUp} />
-        <MetricCard label="Taxa de Conversão" value={`${convRate.toFixed(2)}%`} icon={BarChart3} />
-        <MetricCard
-          label="Faturamento"
-          value={`R$ ${totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          icon={DollarSign}
-        />
+        <MetricCard label="Taxa Conv." value={`${convRate.toFixed(2)}%`} icon={BarChart3} />
+        <MetricCard label="Faturamento" value={`R$ ${totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} icon={DollarSign} />
+        <MetricCard label="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} icon={Ticket} />
       </div>
 
       {/* Chart */}
@@ -151,8 +130,20 @@ export default function Dashboard() {
 
       {/* Smart Links table */}
       <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/50">
+        <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Smart Links</h3>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5"
+            onClick={() => exportToCsv(linkStats.map((l: any) => ({
+              nome: l.name, slug: l.slug, views: l.views, vendas: l.sales,
+              receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", ticket: l.ticket.toFixed(2),
+              status: l.is_active ? "Ativo" : "Pausado",
+            })), "smart-links")}
+          >
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
         </div>
         {smartLinks.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground text-sm">
@@ -164,34 +155,33 @@ export default function Dashboard() {
               <thead>
                 <tr className="border-b border-border/30">
                   <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Nome</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Slug</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Views</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Conv.</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
+                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Taxa</th>
+                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Criação</th>
                 </tr>
               </thead>
               <tbody>
                 {linkStats.map((link: any) => (
                   <tr key={link.id} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="font-medium">{link.name}</div>
-                      <div className="text-xs text-muted-foreground">/{link.slug}</div>
-                    </td>
+                    <td className="px-5 py-4 font-medium text-sm">{link.name}</td>
+                    <td className="px-5 py-4 text-xs text-muted-foreground font-mono">/{link.slug}</td>
                     <td className="text-right px-5 py-4 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
                     <td className="text-right px-5 py-4 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
-                    <td className="text-right px-5 py-4 font-mono text-xs text-success">
-                      {link.views > 0 ? ((link.sales / link.views) * 100).toFixed(2) : "0.00"}%
-                    </td>
-                    <td className="text-right px-5 py-4 font-mono text-xs">
-                      R$ {link.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </td>
+                    <td className="text-right px-5 py-4 font-mono text-xs">R$ {link.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="text-right px-5 py-4 font-mono text-xs text-success">{link.rate.toFixed(2)}%</td>
+                    <td className="text-right px-5 py-4 font-mono text-xs">R$ {link.ticket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                     <td className="text-right px-5 py-4">
                       <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-success" : "bg-muted-foreground"}`} />
                         {link.is_active ? "Ativo" : "Pausado"}
                       </span>
                     </td>
+                    <td className="px-5 py-4 text-xs text-muted-foreground">{new Date(link.created_at).toLocaleDateString("pt-BR")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -203,10 +193,10 @@ export default function Dashboard() {
   );
 }
 
-function buildChartData(views: any[], conversions: any[], days: number) {
+function buildChartData(views: any[], conversions: any[], startDate: Date, days: number) {
   const result: { date: string; views: number; sales: number }[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000);
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startDate.getTime() + i * 86400000);
     const dateStr = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
     const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
     const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString();
