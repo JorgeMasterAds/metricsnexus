@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import { SubscriptionProvider } from "@/hooks/useSubscription";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -14,7 +15,6 @@ import SmartLinks from "./pages/SmartLinks";
 import WebhookLogs from "./pages/WebhookLogs";
 import Settings from "./pages/Settings";
 import UtmReport from "./pages/UtmReport";
-import UnattributedSales from "./pages/UnattributedSales";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -59,7 +59,6 @@ function AppRoutes() {
       <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
       <Route path="/smart-links" element={<Protected><SmartLinks /></Protected>} />
       <Route path="/utm-report" element={<Protected><UtmReport /></Protected>} />
-      <Route path="/unattributed" element={<Protected><UnattributedSales /></Protected>} />
       <Route path="/webhook-logs" element={<Protected><WebhookLogs /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />
       <Route path="/" element={<Navigate to={session ? "/dashboard" : "/auth"} replace />} />
@@ -71,11 +70,13 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <SubscriptionProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </SubscriptionProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

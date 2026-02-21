@@ -9,7 +9,6 @@ import {
   LogOut,
   Menu,
   FileBarChart,
-  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,7 +18,6 @@ const navItems = [
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
   { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
   { icon: FileBarChart, label: "Relatório UTM", path: "/utm-report" },
-  { icon: AlertCircle, label: "Não Atribuídas", path: "/unattributed" },
   { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
   { icon: Settings, label: "Configurações", path: "/settings" },
 ];

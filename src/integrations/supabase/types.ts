@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversion_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          raw_payload: Json | null
+          transaction_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          raw_payload?: Json | null
+          transaction_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          raw_payload?: Json | null
+          transaction_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       conversions: {
         Row: {
           amount: number
@@ -83,6 +110,39 @@ export type Database = {
           },
         ]
       }
+      daily_metrics: {
+        Row: {
+          conversions: number
+          date: string
+          id: string
+          revenue: number
+          smart_link_id: string | null
+          user_id: string
+          variant_id: string | null
+          views: number
+        }
+        Insert: {
+          conversions?: number
+          date: string
+          id?: string
+          revenue?: number
+          smart_link_id?: string | null
+          user_id: string
+          variant_id?: string | null
+          views?: number
+        }
+        Update: {
+          conversions?: number
+          date?: string
+          id?: string
+          revenue?: number
+          smart_link_id?: string | null
+          user_id?: string
+          variant_id?: string | null
+          views?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           cakto_webhook_secret: string | null
@@ -122,6 +182,36 @@ export type Database = {
         }
         Relationships: []
       }
+      redirect_errors: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          slug: string | null
+          smart_link_id: string | null
+          status_code: number
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          slug?: string | null
+          smart_link_id?: string | null
+          status_code: number
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          slug?: string | null
+          smart_link_id?: string | null
+          status_code?: number
+          variant_id?: string | null
+        }
+        Relationships: []
+      }
       smart_links: {
         Row: {
           created_at: string
@@ -147,6 +237,42 @@ export type Database = {
           is_active?: boolean
           name?: string
           slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          id: string
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -203,6 +329,7 @@ export type Database = {
           device: string | null
           id: string
           ip_hash: string | null
+          is_suspect: boolean | null
           referer: string | null
           smart_link_id: string
           user_agent: string | null
@@ -220,6 +347,7 @@ export type Database = {
           device?: string | null
           id?: string
           ip_hash?: string | null
+          is_suspect?: boolean | null
           referer?: string | null
           smart_link_id: string
           user_agent?: string | null
@@ -237,6 +365,7 @@ export type Database = {
           device?: string | null
           id?: string
           ip_hash?: string | null
+          is_suspect?: boolean | null
           referer?: string | null
           smart_link_id?: string
           user_agent?: string | null
@@ -318,7 +447,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      plan_type: "bronze" | "prata" | "ouro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -445,6 +574,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      plan_type: ["bronze", "prata", "ouro"],
+    },
   },
 } as const

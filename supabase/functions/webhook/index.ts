@@ -2,13 +2,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-hotmart-hottok, x-cakto-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
 };
 
 // Simple in-memory rate limiting
 const ipRequests = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 30; // max requests per minute per IP
-const RATE_WINDOW = 60000; // 1 minute
+const RATE_LIMIT = 30;
+const RATE_WINDOW = 60000;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -30,7 +30,6 @@ Deno.serve(async (req) => {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  // Rate limiting
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                    req.headers.get('x-real-ip') || 'unknown';
   if (!checkRateLimit(clientIp)) {
@@ -52,7 +51,31 @@ Deno.serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  // Auto-detect platform from payload structure
+  // Validate x-webhook-secret header
+  const webhookSecret = req.headers.get('x-webhook-secret');
+  if (webhookSecret) {
+    // Check if any user has this secret configured
+    const { data: secretMatch } = await supabase
+      .from('profiles')
+      .select('id')
+      .or(`hotmart_webhook_secret.eq.${webhookSecret},cakto_webhook_secret.eq.${webhookSecret}`)
+      .maybeSingle();
+    
+    if (!secretMatch) {
+      const logEntry = {
+        platform: 'unknown',
+        raw_payload: rawPayload,
+        status: 'error',
+        ignore_reason: 'Invalid x-webhook-secret header',
+      };
+      await supabase.from('webhook_logs').insert(logEntry);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   const platform = detectPlatform(rawPayload);
 
   let logEntry: Record<string, unknown> = {
@@ -61,7 +84,7 @@ Deno.serve(async (req) => {
     status: 'received',
   };
 
-  // Validate webhook secret per platform
+  // Also validate platform-specific secrets
   const secretValid = await validateSecret(platform, req, supabase);
   if (secretValid === false) {
     logEntry.status = 'error';
@@ -107,14 +130,12 @@ Deno.serve(async (req) => {
 
 function detectPlatform(payload: Record<string, unknown>): string {
   const data = payload as any;
-  // Hotmart: has event like PURCHASE_APPROVED and data.purchase
   if (data.event && typeof data.event === 'string' && data.event.startsWith('PURCHASE')) {
     return 'hotmart';
   }
   if (data.data?.purchase) {
     return 'hotmart';
   }
-  // Cakto: has data.amount or event=purchase_approved (lowercase)
   if (data.event === 'purchase_approved' || data.data?.status === 'paid' || data.data?.amount !== undefined) {
     return 'cakto';
   }
@@ -126,12 +147,9 @@ async function validateSecret(
   req: Request,
   supabase: ReturnType<typeof createClient>
 ): Promise<boolean | null> {
-  // Get all profiles with secrets configured (we check against the user who owns the attributed click)
-  // For now, validate against header if present
   if (platform === 'hotmart') {
     const hottok = req.headers.get('x-hotmart-hottok');
-    if (!hottok) return null; // No secret sent, allow (optional validation)
-    // Check if any user has this secret
+    if (!hottok) return null;
     const { data } = await supabase
       .from('profiles')
       .select('id')
@@ -156,7 +174,6 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
   const data = payload as any;
   const event = data.event;
 
-  // Handle negative events (update existing conversion status)
   const negativeEvents: Record<string, string> = {
     'PURCHASE_REFUNDED': 'refunded',
     'PURCHASE_CHARGEBACK': 'chargedback',
@@ -166,15 +183,30 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
 
   if (negativeEvents[event]) {
     const purchase = data.data?.purchase;
-    if (purchase?.transaction) {
+    const transactionId = purchase?.transaction;
+    if (transactionId) {
       await supabase
         .from('conversions')
         .update({ status: negativeEvents[event] })
-        .eq('transaction_id', purchase.transaction);
+        .eq('transaction_id', transactionId);
+      
+      // Audit log
+      const clickId = extractClickId(purchase || {});
+      let userId = null;
+      if (clickId) {
+        const { data: view } = await supabase.from('views').select('user_id').eq('click_id', clickId).maybeSingle();
+        userId = view?.user_id || null;
+      }
+      await supabase.from('conversion_events').insert({
+        transaction_id: transactionId,
+        event_type: negativeEvents[event],
+        user_id: userId,
+        raw_payload: payload,
+      });
     }
     return {
       event_type: event,
-      transaction_id: purchase?.transaction,
+      transaction_id: transactionId,
       status: negativeEvents[event],
       attributed_click_id: extractClickId(purchase || {}),
       is_attributed: !!extractClickId(purchase || {}),
@@ -205,7 +237,6 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
 
   const clickId = extractClickId(purchase);
 
-  // Check duplicate
   const { data: existing } = await supabase
     .from('conversions')
     .select('id')
@@ -223,7 +254,6 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
     };
   }
 
-  // Find view for attribution and inherit UTMs
   let smartLinkId = null;
   let variantId = null;
   let userId = null;
@@ -256,6 +286,43 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
     raw_payload: payload,
   });
 
+  // Audit log
+  await supabase.from('conversion_events').insert({
+    transaction_id: transactionId,
+    event_type: 'approved',
+    user_id: userId,
+    raw_payload: payload,
+  });
+
+  // Update daily metrics
+  if (userId && smartLinkId && variantId) {
+    const today = new Date().toISOString().split('T')[0];
+    const { data: existing } = await supabase
+      .from('daily_metrics')
+      .select('id, conversions, revenue')
+      .eq('date', today)
+      .eq('user_id', userId)
+      .eq('smart_link_id', smartLinkId)
+      .eq('variant_id', variantId)
+      .maybeSingle();
+    
+    if (existing) {
+      await supabase.from('daily_metrics').update({
+        conversions: existing.conversions + 1,
+        revenue: Number(existing.revenue) + Number(amount),
+      }).eq('id', existing.id);
+    } else {
+      await supabase.from('daily_metrics').insert({
+        date: today,
+        user_id: userId,
+        smart_link_id: smartLinkId,
+        variant_id: variantId,
+        conversions: 1,
+        revenue: amount,
+      });
+    }
+  }
+
   return {
     event_type: event,
     transaction_id: transactionId,
@@ -270,7 +337,6 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
   const event = data.event;
   const status = data.data?.status;
 
-  // Handle negative statuses (update existing conversion)
   const negativeStatuses: Record<string, string> = {
     'refunded': 'refunded',
     'canceled': 'canceled',
@@ -285,6 +351,19 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
         .from('conversions')
         .update({ status: negativeStatuses[status] })
         .eq('transaction_id', String(transactionId));
+      
+      const clickId = extractClickId(orderData);
+      let userId = null;
+      if (clickId) {
+        const { data: view } = await supabase.from('views').select('user_id').eq('click_id', clickId).maybeSingle();
+        userId = view?.user_id || null;
+      }
+      await supabase.from('conversion_events').insert({
+        transaction_id: String(transactionId),
+        event_type: negativeStatuses[status],
+        user_id: userId,
+        raw_payload: payload,
+      });
     }
     return {
       event_type: event || status,
@@ -317,7 +396,6 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
 
   const clickId = extractClickId(orderData);
 
-  // Check duplicate
   const { data: existing } = await supabase
     .from('conversions')
     .select('id')
@@ -335,7 +413,6 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
     };
   }
 
-  // Find view for attribution
   let smartLinkId = null;
   let variantId = null;
   let userId = null;
@@ -367,6 +444,43 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
     paid_at: paidAt,
     raw_payload: payload,
   });
+
+  // Audit log
+  await supabase.from('conversion_events').insert({
+    transaction_id: String(transactionId),
+    event_type: 'approved',
+    user_id: userId,
+    raw_payload: payload,
+  });
+
+  // Update daily metrics
+  if (userId && smartLinkId && variantId) {
+    const today = new Date().toISOString().split('T')[0];
+    const { data: existingMetric } = await supabase
+      .from('daily_metrics')
+      .select('id, conversions, revenue')
+      .eq('date', today)
+      .eq('user_id', userId)
+      .eq('smart_link_id', smartLinkId)
+      .eq('variant_id', variantId)
+      .maybeSingle();
+    
+    if (existingMetric) {
+      await supabase.from('daily_metrics').update({
+        conversions: existingMetric.conversions + 1,
+        revenue: Number(existingMetric.revenue) + Number(amount),
+      }).eq('id', existingMetric.id);
+    } else {
+      await supabase.from('daily_metrics').insert({
+        date: today,
+        user_id: userId,
+        smart_link_id: smartLinkId,
+        variant_id: variantId,
+        conversions: 1,
+        revenue: amount,
+      });
+    }
+  }
 
   return {
     event_type: event,

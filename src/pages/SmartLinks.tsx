@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import SmartLinkModal from "@/components/SmartLinkModal";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import { exportToCsv } from "@/lib/csv";
+import { useSubscription, PLAN_LIMITS } from "@/hooks/useSubscription";
 
 export default function SmartLinks() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -20,9 +21,13 @@ export default function SmartLinks() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { subscribed, planType } = useSubscription();
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
+
+  const maxLinks = PLAN_LIMITS[planType || "bronze"] || 5;
+  const canCreate = !subscribed ? false : true;
 
   const { data: smartLinks = [], isLoading } = useQuery({
     queryKey: ["smart-links"],
@@ -35,6 +40,8 @@ export default function SmartLinks() {
       return data || [];
     },
   });
+
+  const atLimit = smartLinks.length >= maxLinks;
 
   const { data: views = [] } = useQuery({
     queryKey: ["sl-views", since, until],
@@ -100,7 +107,6 @@ export default function SmartLinks() {
     mutationFn: async ({ id, is_active, smartLinkId }: { id: string; is_active: boolean; smartLinkId: string }) => {
       const { error } = await supabase.from("variants").update({ is_active }).eq("id", id);
       if (error) throw error;
-      // Redistribute weights among active variants
       const { data: activeVariants } = await supabase
         .from("variants")
         .select("id")
@@ -129,17 +135,30 @@ export default function SmartLinks() {
     toast({ title: "Link copiado!" });
   };
 
+  const handleNewClick = () => {
+    if (!subscribed) {
+      toast({ title: "Assine um plano", description: "Vá em Configurações para escolher seu plano.", variant: "destructive" });
+      return;
+    }
+    if (atLimit) {
+      toast({ title: "Limite atingido", description: `Você atingiu o limite do seu plano (${maxLinks} Smart Links). Faça upgrade para criar mais.`, variant: "destructive" });
+      return;
+    }
+    setEditingLink(null);
+    setShowModal(true);
+  };
+
   return (
     <DashboardLayout
       title="Smart Links"
-      subtitle="Crie e gerencie seus links de distribuição"
+      subtitle={`${smartLinks.length}/${maxLinks} Smart Links usados`}
       actions={
         <div className="flex items-center gap-2">
           <DateFilter value={dateRange} onChange={setDateRange} />
           <Button
             size="sm"
             className="gradient-bg border-0 text-primary-foreground hover:opacity-90"
-            onClick={() => { setEditingLink(null); setShowModal(true); }}
+            onClick={handleNewClick}
           >
             <Plus className="h-4 w-4 mr-1" />
             Novo
@@ -155,6 +174,21 @@ export default function SmartLinks() {
         />
       )}
 
+      {/* Plan limit banner */}
+      {subscribed && atLimit && (
+        <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 text-xs text-warning flex items-center justify-between">
+          <span>Você atingiu o limite do seu plano ({maxLinks} Smart Links).</span>
+          <a href="/settings" className="underline font-medium">Fazer upgrade</a>
+        </div>
+      )}
+
+      {!subscribed && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 mb-4 text-xs text-destructive flex items-center justify-between">
+          <span>Assine um plano para criar Smart Links.</span>
+          <a href="/settings" className="underline font-medium">Ver planos</a>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -162,7 +196,7 @@ export default function SmartLinks() {
       ) : smartLinks.length === 0 ? (
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center">
           <p className="text-muted-foreground text-sm mb-4">Nenhum Smart Link criado ainda.</p>
-          <Button className="gradient-bg border-0 text-primary-foreground" onClick={() => { setEditingLink(null); setShowModal(true); }}>
+          <Button className="gradient-bg border-0 text-primary-foreground" onClick={handleNewClick}>
             <Plus className="h-4 w-4 mr-1" /> Criar primeiro Smart Link
           </Button>
         </div>
@@ -178,7 +212,6 @@ export default function SmartLinks() {
 
             return (
               <div key={link.id} className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
-                {/* Header */}
                 <div className="flex items-center px-5 py-4 gap-3">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : link.id)}
@@ -221,7 +254,6 @@ export default function SmartLinks() {
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
                   </button>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => copyLink(link.slug)} className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Copiar link">
                       <Copy className="h-3.5 w-3.5" />
@@ -241,7 +273,6 @@ export default function SmartLinks() {
                   </div>
                 </div>
 
-                {/* Link principal */}
                 <div className="px-5 pb-3 -mt-1">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-1.5">
                     <span className="font-mono truncate">{getRedirectUrl(link.slug)}</span>
@@ -249,7 +280,6 @@ export default function SmartLinks() {
                   </div>
                 </div>
 
-                {/* Expanded variants */}
                 {isExpanded && (
                   <div className="border-t border-border/30">
                     <div className="overflow-x-auto">

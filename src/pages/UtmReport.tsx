@@ -7,13 +7,11 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 
-type SortKey = "utm_source" | "utm_medium" | "utm_campaign" | "utm_content" | "views" | "sales" | "revenue" | "rate" | "ticket";
+type GroupByKey = "utm_campaign" | "utm_medium" | "utm_content" | "utm_source";
+type SortKey = GroupByKey | "views" | "sales" | "revenue" | "rate" | "ticket";
 
 interface UtmRow {
-  utm_source: string;
-  utm_medium: string;
-  utm_campaign: string;
-  utm_content: string;
+  key: string;
   views: number;
   sales: number;
   revenue: number;
@@ -23,7 +21,7 @@ interface UtmRow {
 
 export default function UtmReport() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
-  const [groupBy, setGroupBy] = useState<"utm_source" | "utm_medium" | "utm_campaign" | "utm_content">("utm_source");
+  const [groupBy, setGroupBy] = useState<GroupByKey>("utm_campaign");
   const [sortKey, setSortKey] = useState<SortKey>("views");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -57,35 +55,31 @@ export default function UtmReport() {
 
   // Build click_id to conversion map
   const convByClick = new Map<string, number>();
-  conversions.forEach((c: any) => {
-    if (c.click_id) convByClick.set(c.click_id, (convByClick.get(c.click_id) || 0) + Number(c.amount));
-  });
   const convCountByClick = new Map<string, number>();
   conversions.forEach((c: any) => {
-    if (c.click_id) convCountByClick.set(c.click_id, (convCountByClick.get(c.click_id) || 0) + 1);
+    if (c.click_id) {
+      convByClick.set(c.click_id, (convByClick.get(c.click_id) || 0) + Number(c.amount));
+      convCountByClick.set(c.click_id, (convCountByClick.get(c.click_id) || 0) + 1);
+    }
   });
 
   // Group views by selected UTM
   const groups = new Map<string, { views: number; sales: number; revenue: number }>();
+  const usedClicks = new Set<string>();
   views.forEach((v: any) => {
     const key = v[groupBy] || "(vazio)";
     const entry = groups.get(key) || { views: 0, sales: 0, revenue: 0 };
     entry.views++;
-    if (v.click_id && convCountByClick.has(v.click_id)) {
+    if (v.click_id && convCountByClick.has(v.click_id) && !usedClicks.has(v.click_id)) {
       entry.sales += convCountByClick.get(v.click_id) || 0;
       entry.revenue += convByClick.get(v.click_id) || 0;
-      // Remove to avoid double counting
-      convCountByClick.delete(v.click_id);
-      convByClick.delete(v.click_id);
+      usedClicks.add(v.click_id);
     }
     groups.set(key, entry);
   });
 
   const rows: UtmRow[] = Array.from(groups.entries()).map(([key, val]) => ({
-    utm_source: groupBy === "utm_source" ? key : "",
-    utm_medium: groupBy === "utm_medium" ? key : "",
-    utm_campaign: groupBy === "utm_campaign" ? key : "",
-    utm_content: groupBy === "utm_content" ? key : "",
+    key,
     views: val.views,
     sales: val.sales,
     revenue: val.revenue,
@@ -99,18 +93,19 @@ export default function UtmReport() {
   };
 
   const sorted = [...rows].sort((a, b) => {
-    const av = a[sortKey];
-    const bv = b[sortKey];
-    if (typeof av === "string") return sortDir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
-    return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    const aVal = sortKey === groupBy ? a.key : (a as any)[sortKey];
+    const bVal = sortKey === groupBy ? b.key : (b as any)[sortKey];
+    if (typeof aVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    return sortDir === "asc" ? aVal - bVal : bVal - aVal;
   });
 
-  const groupOptions = [
-    { value: "utm_source", label: "Source" },
-    { value: "utm_medium", label: "Medium" },
+  // Fixed order: campaign, medium, content, source
+  const groupOptions: { value: GroupByKey; label: string }[] = [
     { value: "utm_campaign", label: "Campaign" },
+    { value: "utm_medium", label: "Medium" },
     { value: "utm_content", label: "Content" },
-  ] as const;
+    { value: "utm_source", label: "Source" },
+  ];
 
   return (
     <DashboardLayout
@@ -137,7 +132,7 @@ export default function UtmReport() {
           size="sm"
           className="text-xs gap-1.5"
           onClick={() => exportToCsv(sorted.map(r => ({
-            [groupBy]: r[groupBy],
+            [groupBy]: r.key,
             views: r.views,
             vendas: r.sales,
             receita: r.revenue.toFixed(2),
@@ -154,7 +149,7 @@ export default function UtmReport() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/30">
-                <SortHeader label={groupBy.replace("utm_", "").toUpperCase()} sortKey={groupBy as SortKey} current={sortKey} dir={sortDir} onClick={toggleSort} />
+                <SortHeader label={groupBy.replace("utm_", "").toUpperCase()} sortKey={groupBy} current={sortKey} dir={sortDir} onClick={toggleSort} />
                 <SortHeader label="Views" sortKey="views" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                 <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                 <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
@@ -169,7 +164,7 @@ export default function UtmReport() {
                 </tr>
               ) : sorted.map((r, i) => (
                 <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                  <td className="px-5 py-3 font-medium text-xs">{r[groupBy] || "(vazio)"}</td>
+                  <td className="px-5 py-3 font-medium text-xs">{r.key}</td>
                   <td className="text-right px-5 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
                   <td className="text-right px-5 py-3 font-mono text-xs">{r.sales.toLocaleString("pt-BR")}</td>
                   <td className="text-right px-5 py-3 font-mono text-xs">R$ {r.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>

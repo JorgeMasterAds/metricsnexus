@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
+import { getFixedGoal } from "@/hooks/useSubscription";
 
 interface Props {
   since: string;
@@ -9,14 +10,6 @@ interface Props {
 }
 
 export default function GamificationBar({ since, until }: Props) {
-  const { data: profile } = useQuery({
-    queryKey: ["profile-goal"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("gamification_goal").maybeSingle();
-      return data;
-    },
-  });
-
   const { data: revenue = 0 } = useQuery({
     queryKey: ["gamification-revenue", since, until],
     queryFn: async () => {
@@ -30,7 +23,7 @@ export default function GamificationBar({ since, until }: Props) {
     },
   });
 
-  const goal = Number(profile?.gamification_goal || 1000000);
+  const goal = getFixedGoal(revenue);
   const percent = Math.min((revenue / goal) * 100, 100);
   const remaining = Math.max(goal - revenue, 0);
 
