@@ -542,7 +542,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recalculate_daily_metrics: {
+        Args: { p_user_id?: string }
+        Returns: undefined
+      }
     }
     Enums: {
       plan_type: "bronze" | "prata" | "ouro"
