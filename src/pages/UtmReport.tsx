@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ export default function UtmReport() {
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
+  // UTM report still needs raw views for UTM grouping (daily_metrics doesn't have UTM columns)
   const { data: views = [] } = useQuery({
     queryKey: ["utm-views", since, until, projectId],
     queryFn: async () => {
@@ -44,6 +45,7 @@ export default function UtmReport() {
       const { data } = await q;
       return data || [];
     },
+    staleTime: 60000,
     enabled: !!projectId,
   });
 
@@ -60,54 +62,59 @@ export default function UtmReport() {
       const { data } = await q;
       return data || [];
     },
+    staleTime: 60000,
     enabled: !!projectId,
   });
 
-  // Build click_id to conversion map
-  const convByClick = new Map<string, number>();
-  const convCountByClick = new Map<string, number>();
-  conversions.forEach((c: any) => {
-    if (c.click_id) {
-      convByClick.set(c.click_id, (convByClick.get(c.click_id) || 0) + Number(c.amount));
-      convCountByClick.set(c.click_id, (convCountByClick.get(c.click_id) || 0) + 1);
-    }
-  });
+  const { rows, sorted } = useMemo(() => {
+    // Build click_id to conversion map
+    const convByClick = new Map<string, number>();
+    const convCountByClick = new Map<string, number>();
+    conversions.forEach((c: any) => {
+      if (c.click_id) {
+        convByClick.set(c.click_id, (convByClick.get(c.click_id) || 0) + Number(c.amount));
+        convCountByClick.set(c.click_id, (convCountByClick.get(c.click_id) || 0) + 1);
+      }
+    });
 
-  // Group views by selected UTM
-  const groups = new Map<string, { views: number; sales: number; revenue: number }>();
-  const usedClicks = new Set<string>();
-  views.forEach((v: any) => {
-    const key = v[groupBy] || "(not set)";
-    const entry = groups.get(key) || { views: 0, sales: 0, revenue: 0 };
-    entry.views++;
-    if (v.click_id && convCountByClick.has(v.click_id) && !usedClicks.has(v.click_id)) {
-      entry.sales += convCountByClick.get(v.click_id) || 0;
-      entry.revenue += convByClick.get(v.click_id) || 0;
-      usedClicks.add(v.click_id);
-    }
-    groups.set(key, entry);
-  });
+    // Group views by selected UTM
+    const groups = new Map<string, { views: number; sales: number; revenue: number }>();
+    const usedClicks = new Set<string>();
+    views.forEach((v: any) => {
+      const key = v[groupBy] || "(not set)";
+      const entry = groups.get(key) || { views: 0, sales: 0, revenue: 0 };
+      entry.views++;
+      if (v.click_id && convCountByClick.has(v.click_id) && !usedClicks.has(v.click_id)) {
+        entry.sales += convCountByClick.get(v.click_id) || 0;
+        entry.revenue += convByClick.get(v.click_id) || 0;
+        usedClicks.add(v.click_id);
+      }
+      groups.set(key, entry);
+    });
 
-  const rows: UtmRow[] = Array.from(groups.entries()).map(([key, val]) => ({
-    key,
-    views: val.views,
-    sales: val.sales,
-    revenue: val.revenue,
-    rate: val.views > 0 ? (val.sales / val.views) * 100 : 0,
-    ticket: val.sales > 0 ? val.revenue / val.sales : 0,
-  }));
+    const r: UtmRow[] = Array.from(groups.entries()).map(([key, val]) => ({
+      key,
+      views: val.views,
+      sales: val.sales,
+      revenue: val.revenue,
+      rate: val.views > 0 ? (val.sales / val.views) * 100 : 0,
+      ticket: val.sales > 0 ? val.revenue / val.sales : 0,
+    }));
+
+    const s = [...r].sort((a, b) => {
+      const aVal = sortKey === groupBy ? a.key : (a as any)[sortKey];
+      const bVal = sortKey === groupBy ? b.key : (b as any)[sortKey];
+      if (typeof aVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+    });
+
+    return { rows: r, sorted: s };
+  }, [views, conversions, groupBy, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
   };
-
-  const sorted = [...rows].sort((a, b) => {
-    const aVal = sortKey === groupBy ? a.key : (a as any)[sortKey];
-    const bVal = sortKey === groupBy ? b.key : (b as any)[sortKey];
-    if (typeof aVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    return sortDir === "asc" ? aVal - bVal : bVal - aVal;
-  });
 
   const groupOptions: { value: GroupByKey; label: string }[] = [
     { value: "utm_campaign", label: "Campaign" },

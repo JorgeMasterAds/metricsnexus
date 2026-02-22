@@ -9,7 +9,7 @@ import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useProject } from "@/hooks/useProject";
@@ -18,39 +18,23 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { activeProject } = useProject();
   const projectId = activeProject?.id;
-  const since = dateRange.from.toISOString();
-  const until = dateRange.to.toISOString();
+  const sinceDate = dateRange.from.toISOString().split("T")[0];
+  const untilDate = dateRange.to.toISOString().split("T")[0];
 
-  const { data: views = [] } = useQuery({
-    queryKey: ["dash-views", since, until, projectId],
+  // Read from daily_metrics instead of raw views/conversions
+  const { data: metrics = [] } = useQuery({
+    queryKey: ["dash-daily-metrics", sinceDate, untilDate, projectId],
     queryFn: async () => {
       let q = supabase
-        .from("views")
-        .select("id, created_at, smart_link_id, variant_id")
-        .gte("created_at", since)
-        .lte("created_at", until);
+        .from("daily_metrics")
+        .select("date, smart_link_id, variant_id, views, conversions, revenue")
+        .gte("date", sinceDate)
+        .lte("date", untilDate);
       if (projectId) q = (q as any).eq("project_id", projectId);
       const { data } = await q;
       return data || [];
     },
-    staleTime: 30000,
-    enabled: !!projectId,
-  });
-
-  const { data: conversions = [] } = useQuery({
-    queryKey: ["dash-conversions", since, until, projectId],
-    queryFn: async () => {
-      let q = supabase
-        .from("conversions")
-        .select("id, amount, is_order_bump, created_at, smart_link_id, variant_id, status")
-        .eq("status", "approved")
-        .gte("created_at", since)
-        .lte("created_at", until);
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data } = await q;
-      return data || [];
-    },
-    staleTime: 30000,
+    staleTime: 60000,
     enabled: !!projectId,
   });
 
@@ -65,26 +49,51 @@ export default function Dashboard() {
       const { data } = await q;
       return data || [];
     },
+    staleTime: 60000,
     enabled: !!projectId,
   });
 
-  const totalViews = views.length;
-  const totalSales = conversions.length;
-  const totalRevenue = conversions.reduce((s, c: any) => s + Number(c.amount), 0);
-  const convRate = totalViews > 0 ? (totalSales / totalViews) * 100 : 0;
-  const avgTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+  // Pre-compute all metrics from daily_metrics
+  const { totalViews, totalSales, totalRevenue, convRate, avgTicket, chartData, linkStats } = useMemo(() => {
+    const tv = metrics.reduce((s: number, m: any) => s + Number(m.views), 0);
+    const ts = metrics.reduce((s: number, m: any) => s + Number(m.conversions), 0);
+    const tr = metrics.reduce((s: number, m: any) => s + Number(m.revenue), 0);
+    const cr = tv > 0 ? (ts / tv) * 100 : 0;
+    const at = ts > 0 ? tr / ts : 0;
 
-  const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000));
-  const chartData = buildChartData(views, conversions, dateRange.from, days);
+    // Chart data from daily_metrics grouped by date
+    const dayMap = new Map<string, { views: number; sales: number }>();
+    metrics.forEach((m: any) => {
+      const dateStr = new Date(m.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      const entry = dayMap.get(dateStr) || { views: 0, sales: 0 };
+      entry.views += Number(m.views);
+      entry.sales += Number(m.conversions);
+      dayMap.set(dateStr, entry);
+    });
 
-  const linkStats = smartLinks.map((link: any) => {
-    const linkViews = views.filter((v: any) => v.smart_link_id === link.id).length;
-    const linkConv = conversions.filter((c: any) => c.smart_link_id === link.id);
-    const linkRevenue = linkConv.reduce((s: number, c: any) => s + Number(c.amount), 0);
-    const linkRate = linkViews > 0 ? (linkConv.length / linkViews) * 100 : 0;
-    const linkTicket = linkConv.length > 0 ? linkRevenue / linkConv.length : 0;
-    return { ...link, views: linkViews, sales: linkConv.length, revenue: linkRevenue, rate: linkRate, ticket: linkTicket };
-  });
+    // Fill missing days
+    const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000));
+    const cd: { date: string; views: number; sales: number }[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(dateRange.from.getTime() + i * 86400000);
+      const dateStr = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      const entry = dayMap.get(dateStr) || { views: 0, sales: 0 };
+      cd.push({ date: dateStr, ...entry });
+    }
+
+    // Link stats from daily_metrics
+    const ls = smartLinks.map((link: any) => {
+      const linkMetrics = metrics.filter((m: any) => m.smart_link_id === link.id);
+      const lv = linkMetrics.reduce((s: number, m: any) => s + Number(m.views), 0);
+      const lc = linkMetrics.reduce((s: number, m: any) => s + Number(m.conversions), 0);
+      const lr = linkMetrics.reduce((s: number, m: any) => s + Number(m.revenue), 0);
+      const lRate = lv > 0 ? (lc / lv) * 100 : 0;
+      const lTicket = lc > 0 ? lr / lc : 0;
+      return { ...link, views: lv, sales: lc, revenue: lr, rate: lRate, ticket: lTicket };
+    });
+
+    return { totalViews: tv, totalSales: ts, totalRevenue: tr, convRate: cr, avgTicket: at, chartData: cd, linkStats: ls };
+  }, [metrics, smartLinks, dateRange]);
 
   return (
     <DashboardLayout
@@ -97,7 +106,7 @@ export default function Dashboard() {
         </div>
       }
     >
-      <GamificationBar since={since} until={until} />
+      <GamificationBar since={dateRange.from.toISOString()} until={dateRange.to.toISOString()} />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard label="Total Views" value={totalViews.toLocaleString("pt-BR")} icon={MousePointerClick} />
@@ -205,20 +214,4 @@ export default function Dashboard() {
       </div>
     </DashboardLayout>
   );
-}
-
-function buildChartData(views: any[], conversions: any[], startDate: Date, days: number) {
-  const result: { date: string; views: number; sales: number }[] = [];
-  for (let i = 0; i < days; i++) {
-    const d = new Date(startDate.getTime() + i * 86400000);
-    const dateStr = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
-    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString();
-    result.push({
-      date: dateStr,
-      views: views.filter((v) => v.created_at >= dayStart && v.created_at < dayEnd).length,
-      sales: conversions.filter((c) => c.created_at >= dayStart && c.created_at < dayEnd).length,
-    });
-  }
-  return result;
 }

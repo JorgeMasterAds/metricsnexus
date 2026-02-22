@@ -25,13 +25,12 @@ Deno.serve(async (req) => {
   // Get smart link and its active variants
   const { data: smartLink, error: slError } = await supabase
     .from('smart_links')
-    .select('id, user_id, is_active')
+    .select('id, user_id, is_active, project_id')
     .eq('slug', slug)
     .eq('is_active', true)
     .maybeSingle();
 
   if (slError || !smartLink) {
-    // Log redirect error
     await supabase.from('redirect_errors').insert({
       slug,
       status_code: 404,
@@ -102,7 +101,7 @@ Deno.serve(async (req) => {
                    req.headers.get('x-real-ip') || 'unknown';
   const ipHash = await hashString(clientIp);
 
-  // Deduplication: check if same ip+user_agent combo in last 2 seconds (anti-fraud)
+  // Deduplication: check if same ip+user_agent combo in last 2 seconds
   const twoSecondsAgo = new Date(Date.now() - 2000).toISOString();
   
   const { data: recentView } = await supabase
@@ -116,12 +115,13 @@ Deno.serve(async (req) => {
   const isSuspect = !!recentView || isBot;
 
   if (!recentView) {
-    // Insert view (fire and forget)
+    // Insert view with project_id
     supabase.from('views').insert({
       click_id: clickId,
       smart_link_id: smartLink.id,
       variant_id: selectedVariant.id,
       user_id: smartLink.user_id,
+      project_id: smartLink.project_id,
       ip_hash: ipHash,
       user_agent: userAgent,
       referer: referer,
@@ -134,13 +134,14 @@ Deno.serve(async (req) => {
       is_suspect: isSuspect,
     }).then(() => {});
 
-    // Update daily_metrics
+    // Incremental update daily_metrics
     const today = new Date().toISOString().split('T')[0];
     supabase.rpc('upsert_daily_metric_view', {
       p_date: today,
       p_user_id: smartLink.user_id,
       p_smart_link_id: smartLink.id,
       p_variant_id: selectedVariant.id,
+      p_project_id: smartLink.project_id,
     }).then(() => {});
   }
 
@@ -150,7 +151,6 @@ Deno.serve(async (req) => {
   if (utmMedium) destinationUrl.searchParams.set('utm_medium', utmMedium);
   if (utmCampaign) destinationUrl.searchParams.set('utm_campaign', utmCampaign);
   if (utmContent) destinationUrl.searchParams.set('utm_content', utmContent);
-  // Set utm_term to click_id for attribution
   destinationUrl.searchParams.set('utm_term', clickId);
   destinationUrl.searchParams.set('click_id', clickId);
   destinationUrl.searchParams.set('sck', clickId);

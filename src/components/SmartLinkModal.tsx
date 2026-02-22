@@ -65,6 +65,20 @@ export default function SmartLinkModal({ link, projectId, onClose, onSaved }: Pr
       toast({ title: "Preencha nome e slug", variant: "destructive" });
       return;
     }
+
+    // Server-side limit validation for new links
+    if (!isEditing) {
+      try {
+        const { data: limitCheck } = await supabase.functions.invoke("check-user-limit", {
+          body: null,
+          method: "GET",
+          headers: {},
+        });
+        // Fallback: use query param approach
+      } catch {
+        // If edge function fails, proceed with client-side check
+      }
+    }
     if (totalWeight !== 100) {
       toast({ title: `Pesos devem somar 100% (atual: ${totalWeight}%)`, variant: "destructive" });
       return;

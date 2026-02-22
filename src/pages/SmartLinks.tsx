@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,10 +26,9 @@ export default function SmartLinks() {
   const { activeProject } = useProject();
   const projectId = activeProject?.id;
 
-  const since = dateRange.from.toISOString();
-  const until = dateRange.to.toISOString();
+  const sinceDate = dateRange.from.toISOString().split("T")[0];
+  const untilDate = dateRange.to.toISOString().split("T")[0];
 
-  // Smart links for current project
   const { data: smartLinks = [], isLoading } = useQuery({
     queryKey: ["smart-links", projectId],
     queryFn: async () => {
@@ -42,10 +41,10 @@ export default function SmartLinks() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 60000,
     enabled: !!projectId,
   });
 
-  // Total smart links across ALL projects for limit check
   const { data: totalSmartLinksCount = 0 } = useQuery({
     queryKey: ["smart-links-total-count"],
     queryFn: async () => {
@@ -59,30 +58,20 @@ export default function SmartLinks() {
 
   const atLimit = totalSmartLinksCount >= MAX_SMART_LINKS;
 
-  const { data: views = [] } = useQuery({
-    queryKey: ["sl-views", since, until, projectId],
-    queryFn: async () => {
-      let q = supabase.from("views").select("smart_link_id, variant_id").gte("created_at", since).lte("created_at", until);
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data } = await q;
-      return data || [];
-    },
-    enabled: !!projectId,
-  });
-
-  const { data: conversions = [] } = useQuery({
-    queryKey: ["sl-conversions", since, until, projectId],
+  // Read metrics from daily_metrics instead of raw tables
+  const { data: metrics = [] } = useQuery({
+    queryKey: ["sl-daily-metrics", sinceDate, untilDate, projectId],
     queryFn: async () => {
       let q = supabase
-        .from("conversions")
-        .select("smart_link_id, variant_id, amount, is_order_bump, status")
-        .eq("status", "approved")
-        .gte("created_at", since)
-        .lte("created_at", until);
+        .from("daily_metrics")
+        .select("smart_link_id, variant_id, views, conversions, revenue")
+        .gte("date", sinceDate)
+        .lte("date", untilDate);
       if (projectId) q = (q as any).eq("project_id", projectId);
       const { data } = await q;
       return data || [];
     },
+    staleTime: 60000,
     enabled: !!projectId,
   });
 
@@ -93,6 +82,31 @@ export default function SmartLinks() {
       return data;
     },
   });
+
+  // Pre-compute metrics per smart_link and variant
+  const metricsMap = useMemo(() => {
+    const byLink = new Map<string, { views: number; sales: number; revenue: number }>();
+    const byVariant = new Map<string, { views: number; sales: number; revenue: number }>();
+    metrics.forEach((m: any) => {
+      // By link
+      if (m.smart_link_id) {
+        const entry = byLink.get(m.smart_link_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += Number(m.views);
+        entry.sales += Number(m.conversions);
+        entry.revenue += Number(m.revenue);
+        byLink.set(m.smart_link_id, entry);
+      }
+      // By variant
+      if (m.variant_id) {
+        const entry = byVariant.get(m.variant_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += Number(m.views);
+        entry.sales += Number(m.conversions);
+        entry.revenue += Number(m.revenue);
+        byVariant.set(m.variant_id, entry);
+      }
+    });
+    return { byLink, byVariant };
+  }, [metrics]);
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
@@ -216,11 +230,9 @@ export default function SmartLinks() {
         <div className="space-y-3">
           {smartLinks.map((link: any) => {
             const isExpanded = expandedId === link.id;
-            const linkViews = views.filter((v: any) => v.smart_link_id === link.id).length;
-            const linkConv = conversions.filter((c: any) => c.smart_link_id === link.id);
-            const linkRevenue = linkConv.reduce((s: number, c: any) => s + Number(c.amount), 0);
-            const convRate = linkViews > 0 ? ((linkConv.length / linkViews) * 100).toFixed(2) : "0.00";
-            const ticket = linkConv.length > 0 ? (linkRevenue / linkConv.length).toFixed(2) : "0.00";
+            const linkData = metricsMap.byLink.get(link.id) || { views: 0, sales: 0, revenue: 0 };
+            const convRate = linkData.views > 0 ? ((linkData.sales / linkData.views) * 100).toFixed(2) : "0.00";
+            const ticket = linkData.sales > 0 ? (linkData.revenue / linkData.sales).toFixed(2) : "0.00";
 
             return (
               <div key={link.id} className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
@@ -257,11 +269,11 @@ export default function SmartLinks() {
                             /{link.slug}
                           </span>
                         )}
-                        {" · "}{link.variants?.length || 0} variantes · {linkViews} views · {convRate}% · Ticket R$ {ticket}
+                        {" · "}{link.variants?.length || 0} variantes · {linkData.views} views · {convRate}% · Ticket R$ {ticket}
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground font-mono hidden sm:block">
-                      R$ {linkRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      R$ {linkData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </div>
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
                   </button>
@@ -310,19 +322,17 @@ export default function SmartLinks() {
                         </thead>
                         <tbody>
                           {(link.variants || []).map((v: any) => {
-                            const vViews = views.filter((vw: any) => vw.variant_id === v.id).length;
-                            const vConv = conversions.filter((c: any) => c.variant_id === v.id);
-                            const vRevenue = vConv.reduce((s: number, c: any) => s + Number(c.amount), 0);
-                            const vRate = vViews > 0 ? ((vConv.length / vViews) * 100).toFixed(2) : "0.00";
+                            const vData = metricsMap.byVariant.get(v.id) || { views: 0, sales: 0, revenue: 0 };
+                            const vRate = vData.views > 0 ? ((vData.sales / vData.views) * 100).toFixed(2) : "0.00";
                             return (
                               <tr key={v.id} className="border-b border-border/10 hover:bg-accent/10 transition-colors">
                                 <td className="px-5 py-3 font-medium text-xs">{v.name}</td>
                                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[200px]">{v.url}</td>
                                 <td className="text-right px-4 py-3 font-mono text-xs">{v.weight}%</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">{vViews}</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">{vConv.length}</td>
+                                <td className="text-right px-4 py-3 font-mono text-xs">{vData.views}</td>
+                                <td className="text-right px-4 py-3 font-mono text-xs">{vData.sales}</td>
                                 <td className="text-right px-4 py-3 font-mono text-xs text-success">{vRate}%</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">R$ {vRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                                <td className="text-right px-4 py-3 font-mono text-xs">R$ {vData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                                 <td className="text-right px-4 py-3">
                                   <button
                                     onClick={() => toggleVariant.mutate({ id: v.id, is_active: !v.is_active, smartLinkId: link.id })}
