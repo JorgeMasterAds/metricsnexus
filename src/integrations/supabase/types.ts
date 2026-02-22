@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           event_type: string
           id: string
+          project_id: string | null
           raw_payload: Json | null
           transaction_id: string
           user_id: string | null
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string
           event_type: string
           id?: string
+          project_id?: string | null
           raw_payload?: Json | null
           transaction_id: string
           user_id?: string | null
@@ -35,11 +37,20 @@ export type Database = {
           created_at?: string
           event_type?: string
           id?: string
+          project_id?: string | null
           raw_payload?: Json | null
           transaction_id?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversion_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversions: {
         Row: {
@@ -52,6 +63,7 @@ export type Database = {
           paid_at: string | null
           platform: string
           product_name: string | null
+          project_id: string | null
           raw_payload: Json | null
           smart_link_id: string | null
           status: string
@@ -69,6 +81,7 @@ export type Database = {
           paid_at?: string | null
           platform: string
           product_name?: string | null
+          project_id?: string | null
           raw_payload?: Json | null
           smart_link_id?: string | null
           status?: string
@@ -86,6 +99,7 @@ export type Database = {
           paid_at?: string | null
           platform?: string
           product_name?: string | null
+          project_id?: string | null
           raw_payload?: Json | null
           smart_link_id?: string | null
           status?: string
@@ -94,6 +108,13 @@ export type Database = {
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "conversions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversions_smart_link_id_fkey"
             columns: ["smart_link_id"]
@@ -115,6 +136,7 @@ export type Database = {
           conversions: number
           date: string
           id: string
+          project_id: string | null
           revenue: number
           smart_link_id: string | null
           user_id: string
@@ -125,6 +147,7 @@ export type Database = {
           conversions?: number
           date: string
           id?: string
+          project_id?: string | null
           revenue?: number
           smart_link_id?: string | null
           user_id: string
@@ -135,13 +158,22 @@ export type Database = {
           conversions?: number
           date?: string
           id?: string
+          project_id?: string | null
           revenue?: number
           smart_link_id?: string | null
           user_id?: string
           variant_id?: string | null
           views?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_metrics_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -155,6 +187,7 @@ export type Database = {
           id: string
           integration_platform: string | null
           updated_at: string
+          webhook_secret: string | null
         }
         Insert: {
           cakto_webhook_secret?: string | null
@@ -167,6 +200,7 @@ export type Database = {
           id: string
           integration_platform?: string | null
           updated_at?: string
+          webhook_secret?: string | null
         }
         Update: {
           cakto_webhook_secret?: string | null
@@ -179,6 +213,28 @@ export type Database = {
           id?: string
           integration_platform?: string | null
           updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -218,6 +274,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          project_id: string | null
           slug: string
           updated_at: string
           user_id: string
@@ -227,6 +284,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          project_id?: string | null
           slug: string
           updated_at?: string
           user_id: string
@@ -236,11 +294,20 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          project_id?: string | null
           slug?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "smart_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -284,6 +351,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          project_id: string | null
           smart_link_id: string
           updated_at: string
           url: string
@@ -295,6 +363,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          project_id?: string | null
           smart_link_id: string
           updated_at?: string
           url: string
@@ -306,6 +375,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          project_id?: string | null
           smart_link_id?: string
           updated_at?: string
           url?: string
@@ -313,6 +383,13 @@ export type Database = {
           weight?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "variants_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "variants_smart_link_id_fkey"
             columns: ["smart_link_id"]
@@ -330,6 +407,7 @@ export type Database = {
           id: string
           ip_hash: string | null
           is_suspect: boolean | null
+          project_id: string | null
           referer: string | null
           smart_link_id: string
           user_agent: string | null
@@ -348,6 +426,7 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           is_suspect?: boolean | null
+          project_id?: string | null
           referer?: string | null
           smart_link_id: string
           user_agent?: string | null
@@ -366,6 +445,7 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           is_suspect?: boolean | null
+          project_id?: string | null
           referer?: string | null
           smart_link_id?: string
           user_agent?: string | null
@@ -378,6 +458,13 @@ export type Database = {
           variant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "views_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "views_smart_link_id_fkey"
             columns: ["smart_link_id"]
@@ -404,6 +491,7 @@ export type Database = {
           ignore_reason: string | null
           is_attributed: boolean
           platform: string
+          project_id: string | null
           raw_payload: Json | null
           status: string
           transaction_id: string | null
@@ -418,6 +506,7 @@ export type Database = {
           ignore_reason?: string | null
           is_attributed?: boolean
           platform: string
+          project_id?: string | null
           raw_payload?: Json | null
           status?: string
           transaction_id?: string | null
@@ -432,12 +521,21 @@ export type Database = {
           ignore_reason?: string | null
           is_attributed?: boolean
           platform?: string
+          project_id?: string | null
           raw_payload?: Json | null
           status?: string
           transaction_id?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

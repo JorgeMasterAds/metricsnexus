@@ -18,7 +18,6 @@ const PRESETS = [
   { label: "Ontem", key: "yesterday" },
   { label: "7 dias", days: 7 },
   { label: "30 dias", days: 30 },
-  { label: "90 dias", days: 90 },
   { label: "Este mês", key: "this-month" },
   { label: "Mês passado", key: "last-month" },
   { label: "Personalizado", key: "custom" },
@@ -29,10 +28,23 @@ interface Props {
   onChange: (range: DateRange) => void;
 }
 
+const TABLET_BREAKPOINT = 1024;
+
+function useIsTablet() {
+  const [isTablet, setIsTablet] = useState(false);
+  if (typeof window !== "undefined") {
+    const check = () => window.innerWidth < TABLET_BREAKPOINT && window.innerWidth >= 768;
+    if (isTablet !== check()) setIsTablet(check());
+    window.addEventListener("resize", () => setIsTablet(check()));
+  }
+  return isTablet;
+}
+
 export default function DateFilter({ value, onChange }: Props) {
   const [activePreset, setActivePreset] = useState<string>("7 dias");
   const [showCustom, setShowCustom] = useState(false);
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
 
   const handlePreset = (preset: typeof PRESETS[number]) => {
     setActivePreset(preset.label);
@@ -59,8 +71,31 @@ export default function DateFilter({ value, onChange }: Props) {
     }
   };
 
-  // Mobile: compact dropdown
-  if (isMobile) {
+  const CustomCalendar = () => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8">
+          <CalendarIcon className="h-3.5 w-3.5" />
+          {format(value.from, "dd/MM", { locale: ptBR })} - {format(value.to, "dd/MM", { locale: ptBR })}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 z-50 bg-popover border border-border" align="end">
+        <Calendar
+          mode="range"
+          selected={{ from: value.from, to: value.to }}
+          onSelect={(range) => {
+            if (range?.from && range?.to) onChange({ from: range.from, to: range.to });
+            else if (range?.from) onChange({ from: range.from, to: range.from });
+          }}
+          numberOfMonths={isMobile ? 1 : 2}
+          className="p-3 pointer-events-auto"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+
+  // Mobile & Tablet: dropdown
+  if (isMobile || isTablet) {
     return (
       <div className="flex items-center gap-1.5">
         <Popover>
@@ -88,27 +123,7 @@ export default function DateFilter({ value, onChange }: Props) {
             ))}
           </PopoverContent>
         </Popover>
-        {showCustom && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8">
-                {format(value.from, "dd/MM", { locale: ptBR })} - {format(value.to, "dd/MM", { locale: ptBR })}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-50" align="end">
-              <Calendar
-                mode="range"
-                selected={{ from: value.from, to: value.to }}
-                onSelect={(range) => {
-                  if (range?.from && range?.to) onChange({ from: range.from, to: range.to });
-                  else if (range?.from) onChange({ from: range.from, to: range.from });
-                }}
-                numberOfMonths={1}
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        )}
+        {showCustom && <CustomCalendar />}
       </div>
     );
   }
@@ -121,7 +136,7 @@ export default function DateFilter({ value, onChange }: Props) {
           key={p.label}
           onClick={() => handlePreset(p)}
           className={cn(
-            "px-3 py-1.5 text-xs rounded-lg transition-colors",
+            "px-3 py-1.5 text-xs rounded-lg transition-colors whitespace-nowrap",
             activePreset === p.label
               ? "gradient-bg text-primary-foreground"
               : "bg-secondary text-secondary-foreground hover:bg-accent"
@@ -130,28 +145,7 @@ export default function DateFilter({ value, onChange }: Props) {
           {p.label}
         </button>
       ))}
-      {showCustom && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs gap-1.5">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              {format(value.from, "dd/MM", { locale: ptBR })} - {format(value.to, "dd/MM", { locale: ptBR })}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="range"
-              selected={{ from: value.from, to: value.to }}
-              onSelect={(range) => {
-                if (range?.from && range?.to) onChange({ from: range.from, to: range.to });
-                else if (range?.from) onChange({ from: range.from, to: range.from });
-              }}
-              numberOfMonths={2}
-              className="p-3 pointer-events-auto"
-            />
-          </PopoverContent>
-        </Popover>
-      )}
+      {showCustom && <CustomCalendar />}
     </div>
   );
 }

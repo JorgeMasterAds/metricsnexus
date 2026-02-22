@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Copy } from "lucide-react";
-import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
+import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useProject } from "@/hooks/useProject";
 
 export default function Settings() {
@@ -123,7 +123,7 @@ export default function Settings() {
     <DashboardLayout
       title="Configurações"
       subtitle="Gerencie sua conta e integrações"
-      actions={<TutorialModal {...TUTORIALS.settings} triggerLabel="Tutorial" />}
+      actions={<ProductTour {...TOURS.settings} triggerLabel="Tutorial" />}
     >
       <div className="max-w-2xl space-y-6">
         {/* Profile */}
@@ -189,34 +189,34 @@ export default function Settings() {
                 <li>Aguarde propagação (até 48h).</li>
                 <li>Certifique-se de que responde via HTTPS.</li>
               </ol>
-              <p className="text-warning text-xs">⚠️ O domínio deve responder via HTTPS para funcionar corretamente.</p>
             </div>
           </div>
         </div>
 
-        {/* Webhook URL */}
+        {/* Webhook URL + Secret (unified card) */}
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-          <h2 className="text-sm font-semibold mb-1">URL do Webhook</h2>
-          <p className="text-xs text-muted-foreground mb-4">Utilize esta URL na sua plataforma de vendas.</p>
-          <div className="flex items-center gap-2">
-            <Input readOnly value={webhookUrl} className="font-mono text-xs" />
-            <Button variant="outline" size="sm" onClick={() => copy(webhookUrl)}>
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Opcionalmente, envie o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> para validação extra.
-          </p>
-        </div>
+          <h2 className="text-sm font-semibold mb-1">Webhook</h2>
+          <p className="text-xs text-muted-foreground mb-4">Configure o recebimento de vendas da sua plataforma.</p>
 
-        {/* Webhook Secret (unified) */}
-        <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-          <h2 className="text-sm font-semibold mb-1">Webhook Secret</h2>
-          <p className="text-xs text-muted-foreground mb-4">Segurança adicional para validação dos webhooks (opcional)</p>
-          <div className="space-y-1.5">
-            <Label>Webhook Secret (opcional)</Label>
-            <Input value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder="Seu secret de validação" />
-            <p className="text-xs text-muted-foreground">Se configurado, a plataforma de vendas deve enviar o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> com este valor.</p>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>URL do Webhook</Label>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={webhookUrl} className="font-mono text-xs" />
+                <Button variant="outline" size="sm" onClick={() => copy(webhookUrl)}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Cole esta URL na configuração de webhook da sua plataforma de vendas.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Webhook Secret (opcional)</Label>
+              <Input value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder="Seu secret de validação" />
+              <p className="text-xs text-muted-foreground">
+                Se configurado, envie o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> com este valor em cada webhook.
+              </p>
+            </div>
           </div>
         </div>
 

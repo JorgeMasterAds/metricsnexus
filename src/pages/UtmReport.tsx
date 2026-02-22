@@ -3,7 +3,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
-import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
+import ProductTour, { TOURS } from "@/components/ProductTour";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
@@ -122,7 +122,7 @@ export default function UtmReport() {
       subtitle="Performance agrupada por parâmetros UTM"
       actions={
         <div className="flex items-center gap-2">
-          <TutorialModal {...TUTORIALS.utmReport} />
+          <ProductTour {...TOURS.utmReport} />
           <DateFilter value={dateRange} onChange={setDateRange} />
         </div>
       }

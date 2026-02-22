@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import SmartLinkModal from "@/components/SmartLinkModal";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
-import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
+import ProductTour, { TOURS } from "@/components/ProductTour";
 import { exportToCsv } from "@/lib/csv";
 import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
 import { useProject } from "@/hooks/useProject";
@@ -173,7 +173,7 @@ export default function SmartLinks() {
       subtitle={`${totalSmartLinksCount}/${MAX_SMART_LINKS} Smart Links usados (total da conta)`}
       actions={
         <div className="flex items-center gap-2">
-          <TutorialModal {...TUTORIALS.smartLinks} />
+          <ProductTour {...TOURS.smartLinks} />
           <DateFilter value={dateRange} onChange={setDateRange} />
           <Button
             size="sm"
