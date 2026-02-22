@@ -14,19 +14,23 @@ export default function GamificationBar({ since, until }: Props) {
   const { activeProject } = useProject();
   const projectId = activeProject?.id;
 
+  const sinceDate = since.split("T")[0];
+  const untilDate = until.split("T")[0];
+
+  // Read from daily_metrics instead of raw conversions
   const { data: revenue = 0 } = useQuery({
-    queryKey: ["gamification-revenue", since, until, projectId],
+    queryKey: ["gamification-revenue", sinceDate, untilDate, projectId],
     queryFn: async () => {
       let q = supabase
-        .from("conversions")
-        .select("amount")
-        .eq("status", "approved")
-        .gte("created_at", since)
-        .lte("created_at", until);
+        .from("daily_metrics")
+        .select("revenue")
+        .gte("date", sinceDate)
+        .lte("date", untilDate);
       if (projectId) q = (q as any).eq("project_id", projectId);
       const { data } = await q;
-      return (data || []).reduce((s, c) => s + Number(c.amount), 0);
+      return (data || []).reduce((s, m) => s + Number(m.revenue), 0);
     },
+    staleTime: 60000,
     enabled: !!projectId,
   });
 

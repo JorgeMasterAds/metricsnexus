@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const MAX_USERS = 10;
+const MAX_SMART_LINKS_PER_USER = 25;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,6 +20,48 @@ Deno.serve(async (req) => {
   );
 
   try {
+    const url = new URL(req.url);
+    const checkType = url.searchParams.get('check') || 'users';
+
+    if (checkType === 'smart_links') {
+      // Validate smart link limit for a specific user
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { count, error } = await supabase
+        .from('smart_links')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const currentCount = count || 0;
+      const canCreate = currentCount < MAX_SMART_LINKS_PER_USER;
+
+      return new Response(JSON.stringify({
+        canCreate,
+        currentCount,
+        maxSmartLinks: MAX_SMART_LINKS_PER_USER,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Default: check user registration limit
     const { count, error } = await supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true });

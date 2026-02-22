@@ -546,6 +546,16 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: undefined
       }
+      upsert_daily_metric_view: {
+        Args: {
+          p_date: string
+          p_project_id?: string
+          p_smart_link_id: string
+          p_user_id: string
+          p_variant_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       plan_type: "bronze" | "prata" | "ouro"
