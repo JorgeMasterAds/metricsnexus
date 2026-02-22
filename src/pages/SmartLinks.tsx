@@ -9,8 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import SmartLinkModal from "@/components/SmartLinkModal";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
+import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
 import { exportToCsv } from "@/lib/csv";
 import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
+import { useProject } from "@/hooks/useProject";
 
 export default function SmartLinks() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -21,43 +23,67 @@ export default function SmartLinks() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { activeProject } = useProject();
+  const projectId = activeProject?.id;
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
+  // Smart links for current project
   const { data: smartLinks = [], isLoading } = useQuery({
-    queryKey: ["smart-links"],
+    queryKey: ["smart-links", projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("smart_links")
         .select("*, variants(*)")
         .order("created_at", { ascending: false });
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
+    enabled: !!projectId,
   });
 
-  const atLimit = smartLinks.length >= MAX_SMART_LINKS;
-
-  const { data: views = [] } = useQuery({
-    queryKey: ["sl-views", since, until],
+  // Total smart links across ALL projects for limit check
+  const { data: totalSmartLinksCount = 0 } = useQuery({
+    queryKey: ["smart-links-total-count"],
     queryFn: async () => {
-      const { data } = await supabase.from("views").select("smart_link_id, variant_id").gte("created_at", since).lte("created_at", until);
-      return data || [];
+      const { count, error } = await supabase
+        .from("smart_links")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count || 0;
     },
   });
 
-  const { data: conversions = [] } = useQuery({
-    queryKey: ["sl-conversions", since, until],
+  const atLimit = totalSmartLinksCount >= MAX_SMART_LINKS;
+
+  const { data: views = [] } = useQuery({
+    queryKey: ["sl-views", since, until, projectId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase.from("views").select("smart_link_id, variant_id").gte("created_at", since).lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: conversions = [] } = useQuery({
+    queryKey: ["sl-conversions", since, until, projectId],
+    queryFn: async () => {
+      let q = supabase
         .from("conversions")
         .select("smart_link_id, variant_id, amount, is_order_bump, status")
         .eq("status", "approved")
         .gte("created_at", since)
         .lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
       return data || [];
     },
+    enabled: !!projectId,
   });
 
   const { data: profile } = useQuery({
@@ -83,6 +109,7 @@ export default function SmartLinks() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["smart-links"] });
+      qc.invalidateQueries({ queryKey: ["smart-links-total-count"] });
       toast({ title: "Smart Link excluído" });
     },
   });
@@ -119,11 +146,11 @@ export default function SmartLinks() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["smart-links"] }),
   });
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const customDomain = profile?.custom_domain;
   const getRedirectUrl = (slug: string) => {
     if (customDomain) return `https://${customDomain}/${slug}`;
-    return `https://${projectId}.supabase.co/functions/v1/redirect?slug=${slug}`;
+    return `https://${supabaseProjectId}.supabase.co/functions/v1/redirect?slug=${slug}`;
   };
 
   const copyLink = (slug: string) => {
@@ -133,7 +160,7 @@ export default function SmartLinks() {
 
   const handleNewClick = () => {
     if (atLimit) {
-      toast({ title: "Limite atingido", description: `Você atingiu o limite de ${MAX_SMART_LINKS} Smart Links.`, variant: "destructive" });
+      toast({ title: "Limite atingido", description: `Você atingiu o limite de ${MAX_SMART_LINKS} Smart Links na sua conta.`, variant: "destructive" });
       return;
     }
     setEditingLink(null);
@@ -143,9 +170,10 @@ export default function SmartLinks() {
   return (
     <DashboardLayout
       title="Smart Links"
-      subtitle={`${smartLinks.length}/${MAX_SMART_LINKS} Smart Links usados`}
+      subtitle={`${totalSmartLinksCount}/${MAX_SMART_LINKS} Smart Links usados (total da conta)`}
       actions={
         <div className="flex items-center gap-2">
+          <TutorialModal {...TUTORIALS.smartLinks} />
           <DateFilter value={dateRange} onChange={setDateRange} />
           <Button
             size="sm"
@@ -161,14 +189,15 @@ export default function SmartLinks() {
       {showModal && (
         <SmartLinkModal
           link={editingLink}
+          projectId={projectId}
           onClose={() => { setShowModal(false); setEditingLink(null); }}
-          onSaved={() => { qc.invalidateQueries({ queryKey: ["smart-links"] }); }}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["smart-links"] }); qc.invalidateQueries({ queryKey: ["smart-links-total-count"] }); }}
         />
       )}
 
       {atLimit && (
         <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 text-xs text-warning">
-          Você atingiu o limite de {MAX_SMART_LINKS} Smart Links.
+          Você atingiu o limite de {MAX_SMART_LINKS} Smart Links na sua conta.
         </div>
       )}
 
@@ -178,7 +207,7 @@ export default function SmartLinks() {
         </div>
       ) : smartLinks.length === 0 ? (
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center">
-          <p className="text-muted-foreground text-sm mb-4">Nenhum Smart Link criado ainda.</p>
+          <p className="text-muted-foreground text-sm mb-4">Nenhum Smart Link neste projeto.</p>
           <Button className="gradient-bg border-0 text-primary-foreground" onClick={handleNewClick}>
             <Plus className="h-4 w-4 mr-1" /> Criar primeiro Smart Link
           </Button>

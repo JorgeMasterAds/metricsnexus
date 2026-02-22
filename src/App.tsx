@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
-
+import { ProjectProvider } from "@/hooks/useProject";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -50,7 +50,7 @@ function AppRoutes() {
   }
 
   const Protected = ({ children }: { children: React.ReactNode }) =>
-    session ? <>{children}</> : <Navigate to="/auth" replace />;
+    session ? <ProjectProvider>{children}</ProjectProvider> : <Navigate to="/auth" replace />;
 
   return (
     <Routes>

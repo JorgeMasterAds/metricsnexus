@@ -5,8 +5,10 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
+import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
+import { useProject } from "@/hooks/useProject";
 
 const STATUS_COLOR: Record<string, string> = {
   approved: "bg-success/20 text-success",
@@ -21,14 +23,15 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function WebhookLogs() {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [platform, setPlatform] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+  const { activeProject } = useProject();
+  const projectId = activeProject?.id;
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ["webhook-logs", platform, since, until],
+    queryKey: ["webhook-logs", projectId, since, until],
     queryFn: async () => {
       let q = supabase
         .from("webhook_logs")
@@ -37,11 +40,12 @@ export default function WebhookLogs() {
         .lte("created_at", until)
         .order("created_at", { ascending: false })
         .limit(200);
-      if (platform !== "all") q = q.eq("platform", platform);
+      if (projectId) q = (q as any).eq("project_id", projectId);
       const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
+    enabled: !!projectId,
   });
 
   return (
@@ -50,19 +54,7 @@ export default function WebhookLogs() {
       subtitle="Histórico de webhooks recebidos"
       actions={
         <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            {["all", "hotmart", "cakto"].map((p) => (
-              <button
-                key={p}
-                onClick={() => setPlatform(p)}
-                className={`px-3 py-1.5 text-xs rounded-lg capitalize transition-colors ${
-                  platform === p ? "gradient-bg text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-accent"
-                }`}
-              >
-                {p === "all" ? "Todos" : p}
-              </button>
-            ))}
-          </div>
+          <TutorialModal {...TUTORIALS.webhookLogs} />
           <DateFilter value={dateRange} onChange={setDateRange} />
         </div>
       }

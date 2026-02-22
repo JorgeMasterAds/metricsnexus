@@ -8,51 +8,64 @@ import { MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download 
 import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
+import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
+import { useProject } from "@/hooks/useProject";
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+  const { activeProject } = useProject();
+  const projectId = activeProject?.id;
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
   const { data: views = [] } = useQuery({
-    queryKey: ["dash-views", since, until],
+    queryKey: ["dash-views", since, until, projectId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("views")
         .select("id, created_at, smart_link_id, variant_id")
         .gte("created_at", since)
         .lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
       return data || [];
     },
     staleTime: 30000,
+    enabled: !!projectId,
   });
 
   const { data: conversions = [] } = useQuery({
-    queryKey: ["dash-conversions", since, until],
+    queryKey: ["dash-conversions", since, until, projectId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("conversions")
         .select("id, amount, is_order_bump, created_at, smart_link_id, variant_id, status")
         .eq("status", "approved")
         .gte("created_at", since)
         .lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
       return data || [];
     },
     staleTime: 30000,
+    enabled: !!projectId,
   });
 
   const { data: smartLinks = [] } = useQuery({
-    queryKey: ["dash-smart-links"],
+    queryKey: ["dash-smart-links", projectId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("smart_links")
         .select("id, name, slug, is_active, created_at, variants(id, name, url, weight, is_active)")
         .order("created_at", { ascending: false });
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
       return data || [];
     },
+    enabled: !!projectId,
   });
 
   const totalViews = views.length;
@@ -77,12 +90,15 @@ export default function Dashboard() {
     <DashboardLayout
       title="Dashboard"
       subtitle="Visão geral dos seus experimentos"
-      actions={<DateFilter value={dateRange} onChange={setDateRange} />}
+      actions={
+        <div className="flex items-center gap-2">
+          <TutorialModal {...TUTORIALS.dashboard} />
+          <DateFilter value={dateRange} onChange={setDateRange} />
+        </div>
+      }
     >
-      {/* Gamification */}
       <GamificationBar since={since} until={until} />
 
-      {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard label="Total Views" value={totalViews.toLocaleString("pt-BR")} icon={MousePointerClick} />
         <MetricCard label="Vendas" value={totalSales.toLocaleString("pt-BR")} icon={TrendingUp} />
@@ -91,7 +107,6 @@ export default function Dashboard() {
         <MetricCard label="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} icon={Ticket} />
       </div>
 
-      {/* Chart */}
       <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold">Tráfego & Conversões</h3>
@@ -128,7 +143,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Smart Links table */}
       <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
         <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Smart Links</h3>
