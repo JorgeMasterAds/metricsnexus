@@ -8,7 +8,7 @@ import { MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download 
 import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
-import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
+import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
@@ -92,7 +92,7 @@ export default function Dashboard() {
       subtitle="Visão geral dos seus experimentos"
       actions={
         <div className="flex items-center gap-2">
-          <TutorialModal {...TUTORIALS.dashboard} />
+          <ProductTour {...TOURS.dashboard} />
           <DateFilter value={dateRange} onChange={setDateRange} />
         </div>
       }

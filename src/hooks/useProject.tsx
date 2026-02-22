@@ -43,26 +43,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Auto-create default project if user has none
-  useEffect(() => {
-    if (!isLoading && projects.length === 0) {
-      (async () => {
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) return;
-        const { data, error } = await (supabase as any)
-          .from("projects")
-          .insert({ name: "Meu Projeto", user_id: userData.user.id })
-          .select()
-          .single();
-        if (!error && data) {
-          qc.invalidateQueries({ queryKey: ["projects"] });
-          setActiveId(data.id);
-          localStorage.setItem("activeProjectId", data.id);
-        }
-      })();
-    }
-  }, [isLoading, projects.length]);
-
   useEffect(() => {
     if (projects.length > 0 && !projects.find((p) => p.id === activeId)) {
       const id = projects[0].id;

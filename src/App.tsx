@@ -6,7 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
-import { ProjectProvider } from "@/hooks/useProject";
+import { ProjectProvider, useProject } from "@/hooks/useProject";
+import CreateProjectScreen from "@/components/CreateProjectScreen";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -25,6 +26,24 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function RequireProject({ children }: { children: React.ReactNode }) {
+  const { projects, isLoading, activeProject } = useProject();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (projects.length === 0 || !activeProject) {
+    return <CreateProjectScreen />;
+  }
+
+  return <>{children}</>;
+}
 
 function AppRoutes() {
   const [session, setSession] = useState<Session | null>(null);
@@ -50,7 +69,13 @@ function AppRoutes() {
   }
 
   const Protected = ({ children }: { children: React.ReactNode }) =>
-    session ? <ProjectProvider>{children}</ProjectProvider> : <Navigate to="/auth" replace />;
+    session ? (
+      <ProjectProvider>
+        <RequireProject>{children}</RequireProject>
+      </ProjectProvider>
+    ) : (
+      <Navigate to="/auth" replace />
+    );
 
   return (
     <Routes>

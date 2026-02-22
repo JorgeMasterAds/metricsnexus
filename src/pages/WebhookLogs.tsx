@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
-import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
+import ProductTour, { TOURS } from "@/components/ProductTour";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useProject } from "@/hooks/useProject";
@@ -54,7 +54,7 @@ export default function WebhookLogs() {
       subtitle="Histórico de webhooks recebidos"
       actions={
         <div className="flex items-center gap-2">
-          <TutorialModal {...TUTORIALS.webhookLogs} />
+          <ProductTour {...TOURS.webhookLogs} />
           <DateFilter value={dateRange} onChange={setDateRange} />
         </div>
       }
