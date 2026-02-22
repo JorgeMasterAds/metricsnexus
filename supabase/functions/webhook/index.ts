@@ -5,7 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
 };
 
-// Simple in-memory rate limiting
 const ipRequests = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30;
 const RATE_WINDOW = 60000;
@@ -54,11 +53,10 @@ Deno.serve(async (req) => {
   // Validate x-webhook-secret header
   const webhookSecret = req.headers.get('x-webhook-secret');
   if (webhookSecret) {
-    // Check if any user has this secret configured
     const { data: secretMatch } = await supabase
       .from('profiles')
       .select('id')
-      .or(`hotmart_webhook_secret.eq.${webhookSecret},cakto_webhook_secret.eq.${webhookSecret}`)
+      .eq('webhook_secret', webhookSecret)
       .maybeSingle();
     
     if (!secretMatch) {
@@ -84,39 +82,25 @@ Deno.serve(async (req) => {
     status: 'received',
   };
 
-  // Also validate platform-specific secrets
-  const secretValid = await validateSecret(platform, req, supabase);
-  if (secretValid === false) {
-    logEntry.status = 'error';
-    logEntry.ignore_reason = 'Invalid webhook secret';
-    await supabase.from('webhook_logs').insert(logEntry);
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (platform === 'hotmart') {
-    const result = await processHotmart(rawPayload, supabase);
-    logEntry = { ...logEntry, ...result };
-  } else if (platform === 'cakto') {
-    const result = await processCakto(rawPayload, supabase);
+  if (platform === 'sale_platform') {
+    const result = await processSale(rawPayload, supabase);
     logEntry = { ...logEntry, ...result };
   } else {
     logEntry.status = 'ignored';
-    logEntry.ignore_reason = 'Unknown platform';
+    logEntry.ignore_reason = 'Unknown platform or event format';
   }
 
-  // Find user_id from view for webhook log attribution
+  // Find user_id and project_id from view for webhook log attribution
   if (logEntry.attributed_click_id) {
     const { data: view } = await supabase
       .from('views')
-      .select('user_id, smart_link_id, variant_id')
+      .select('user_id, smart_link_id, variant_id, project_id')
       .eq('click_id', logEntry.attributed_click_id)
       .maybeSingle();
     if (view) {
       logEntry.user_id = view.user_id;
       logEntry.attributed_variant_id = view.variant_id;
+      logEntry.project_id = view.project_id;
     }
   }
 
@@ -130,47 +114,20 @@ Deno.serve(async (req) => {
 
 function detectPlatform(payload: Record<string, unknown>): string {
   const data = payload as any;
+  // Detect any sale platform
   if (data.event && typeof data.event === 'string' && data.event.startsWith('PURCHASE')) {
-    return 'hotmart';
+    return 'sale_platform';
   }
   if (data.data?.purchase) {
-    return 'hotmart';
+    return 'sale_platform';
   }
   if (data.event === 'purchase_approved' || data.data?.status === 'paid' || data.data?.amount !== undefined) {
-    return 'cakto';
+    return 'sale_platform';
   }
   return 'unknown';
 }
 
-async function validateSecret(
-  platform: string,
-  req: Request,
-  supabase: ReturnType<typeof createClient>
-): Promise<boolean | null> {
-  if (platform === 'hotmart') {
-    const hottok = req.headers.get('x-hotmart-hottok');
-    if (!hottok) return null;
-    const { data } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('hotmart_webhook_secret', hottok)
-      .maybeSingle();
-    return !!data;
-  }
-  if (platform === 'cakto') {
-    const secret = req.headers.get('x-cakto-secret');
-    if (!secret) return null;
-    const { data } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('cakto_webhook_secret', secret)
-      .maybeSingle();
-    return !!data;
-  }
-  return null;
-}
-
-async function processHotmart(payload: Record<string, unknown>, supabase: ReturnType<typeof createClient>) {
+async function processSale(payload: Record<string, unknown>, supabase: ReturnType<typeof createClient>) {
   const data = payload as any;
   const event = data.event;
 
@@ -181,6 +138,13 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
     'PURCHASE_EXPIRED': 'canceled',
   };
 
+  const negativeStatuses: Record<string, string> = {
+    'refunded': 'refunded',
+    'canceled': 'canceled',
+    'chargedback': 'chargedback',
+  };
+
+  // Check negative events (format 1)
   if (negativeEvents[event]) {
     const purchase = data.data?.purchase;
     const transactionId = purchase?.transaction;
@@ -190,7 +154,6 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
         .update({ status: negativeEvents[event] })
         .eq('transaction_id', transactionId);
       
-      // Audit log
       const clickId = extractClickId(purchase || {});
       let userId = null;
       if (clickId) {
@@ -213,136 +176,8 @@ async function processHotmart(payload: Record<string, unknown>, supabase: Return
     };
   }
 
-  if (event !== 'PURCHASE_APPROVED') {
-    return {
-      event_type: event,
-      status: 'ignored',
-      ignore_reason: `Event ${event} is not PURCHASE_APPROVED`,
-    };
-  }
-
-  const purchase = data.data?.purchase;
-  const product = data.data?.product;
-
-  if (!purchase) {
-    return { event_type: event, status: 'error', ignore_reason: 'Missing purchase data' };
-  }
-
-  const transactionId = purchase.transaction;
-  const amount = purchase.price?.value || 0;
-  const currency = purchase.price?.currency_value || 'BRL';
-  const productName = product?.name || 'Unknown';
-  const orderDate = purchase.order_date ? new Date(purchase.order_date).toISOString() : new Date().toISOString();
-  const isOrderBump = purchase.order_bump?.is_order_bump === true;
-
-  const clickId = extractClickId(purchase);
-
-  const { data: existing } = await supabase
-    .from('conversions')
-    .select('id')
-    .eq('transaction_id', transactionId)
-    .maybeSingle();
-
-  if (existing) {
-    return {
-      event_type: event,
-      transaction_id: transactionId,
-      status: 'duplicate',
-      ignore_reason: 'Duplicate transaction_id',
-      attributed_click_id: clickId,
-      is_attributed: !!clickId,
-    };
-  }
-
-  let smartLinkId = null;
-  let variantId = null;
-  let userId = null;
-  if (clickId) {
-    const { data: view } = await supabase
-      .from('views')
-      .select('smart_link_id, variant_id, user_id')
-      .eq('click_id', clickId)
-      .maybeSingle();
-    if (view) {
-      smartLinkId = view.smart_link_id;
-      variantId = view.variant_id;
-      userId = view.user_id;
-    }
-  }
-
-  await supabase.from('conversions').insert({
-    click_id: clickId,
-    user_id: userId,
-    smart_link_id: smartLinkId,
-    variant_id: variantId,
-    transaction_id: transactionId,
-    platform: 'hotmart',
-    product_name: productName,
-    amount,
-    currency,
-    is_order_bump: isOrderBump,
-    status: 'approved',
-    paid_at: orderDate,
-    raw_payload: payload,
-  });
-
-  // Audit log
-  await supabase.from('conversion_events').insert({
-    transaction_id: transactionId,
-    event_type: 'approved',
-    user_id: userId,
-    raw_payload: payload,
-  });
-
-  // Update daily metrics
-  if (userId && smartLinkId && variantId) {
-    const today = new Date().toISOString().split('T')[0];
-    const { data: existing } = await supabase
-      .from('daily_metrics')
-      .select('id, conversions, revenue')
-      .eq('date', today)
-      .eq('user_id', userId)
-      .eq('smart_link_id', smartLinkId)
-      .eq('variant_id', variantId)
-      .maybeSingle();
-    
-    if (existing) {
-      await supabase.from('daily_metrics').update({
-        conversions: existing.conversions + 1,
-        revenue: Number(existing.revenue) + Number(amount),
-      }).eq('id', existing.id);
-    } else {
-      await supabase.from('daily_metrics').insert({
-        date: today,
-        user_id: userId,
-        smart_link_id: smartLinkId,
-        variant_id: variantId,
-        conversions: 1,
-        revenue: amount,
-      });
-    }
-  }
-
-  return {
-    event_type: event,
-    transaction_id: transactionId,
-    status: 'approved',
-    attributed_click_id: clickId,
-    is_attributed: !!clickId,
-  };
-}
-
-async function processCakto(payload: Record<string, unknown>, supabase: ReturnType<typeof createClient>) {
-  const data = payload as any;
-  const event = data.event;
+  // Check negative statuses (format 2)
   const status = data.data?.status;
-
-  const negativeStatuses: Record<string, string> = {
-    'refunded': 'refunded',
-    'canceled': 'canceled',
-    'chargedback': 'chargedback',
-  };
-
   if (negativeStatuses[status]) {
     const orderData = data.data || data;
     const transactionId = orderData.id;
@@ -374,7 +209,9 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
     };
   }
 
-  if (event !== 'purchase_approved' && status !== 'paid') {
+  // Positive events
+  const isApproved = event === 'PURCHASE_APPROVED' || event === 'purchase_approved' || status === 'paid';
+  if (!isApproved) {
     return {
       event_type: event || status,
       status: 'ignored',
@@ -382,30 +219,52 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
     };
   }
 
+  // Extract sale data (supports multiple formats)
+  const purchase = data.data?.purchase;
+  const product = data.data?.product;
   const orderData = data.data || data;
-  const transactionId = orderData.id;
-  const amount = (orderData.amount || 0) / 100;
-  const currency = orderData.offer?.currency || 'BRL';
-  const productName = orderData.product?.name || 'Unknown';
-  const paidAt = orderData.paidAt ? new Date(orderData.paidAt).toISOString() : new Date().toISOString();
-  const isOrderBump = orderData.offer_type && orderData.offer_type !== 'main';
+
+  let transactionId: string;
+  let amount: number;
+  let currency: string;
+  let productName: string;
+  let paidAt: string;
+  let isOrderBump: boolean;
+
+  if (purchase) {
+    // Format 1
+    transactionId = purchase.transaction;
+    amount = purchase.price?.value || 0;
+    currency = purchase.price?.currency_value || 'BRL';
+    productName = product?.name || 'Unknown';
+    paidAt = purchase.order_date ? new Date(purchase.order_date).toISOString() : new Date().toISOString();
+    isOrderBump = purchase.order_bump?.is_order_bump === true;
+  } else {
+    // Format 2
+    transactionId = String(orderData.id || '');
+    amount = (orderData.amount || 0) / 100;
+    currency = orderData.offer?.currency || 'BRL';
+    productName = orderData.product?.name || 'Unknown';
+    paidAt = orderData.paidAt ? new Date(orderData.paidAt).toISOString() : new Date().toISOString();
+    isOrderBump = orderData.offer_type && orderData.offer_type !== 'main';
+  }
 
   if (!transactionId) {
     return { event_type: event, status: 'error', ignore_reason: 'Missing transaction id' };
   }
 
-  const clickId = extractClickId(orderData);
+  const clickId = extractClickId(purchase || orderData);
 
   const { data: existing } = await supabase
     .from('conversions')
     .select('id')
-    .eq('transaction_id', String(transactionId))
+    .eq('transaction_id', transactionId)
     .maybeSingle();
 
   if (existing) {
     return {
       event_type: event,
-      transaction_id: String(transactionId),
+      transaction_id: transactionId,
       status: 'duplicate',
       ignore_reason: 'Duplicate transaction_id',
       attributed_click_id: clickId,
@@ -416,16 +275,18 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
   let smartLinkId = null;
   let variantId = null;
   let userId = null;
+  let projectId = null;
   if (clickId) {
     const { data: view } = await supabase
       .from('views')
-      .select('smart_link_id, variant_id, user_id')
+      .select('smart_link_id, variant_id, user_id, project_id')
       .eq('click_id', clickId)
       .maybeSingle();
     if (view) {
       smartLinkId = view.smart_link_id;
       variantId = view.variant_id;
       userId = view.user_id;
+      projectId = view.project_id;
     }
   }
 
@@ -434,8 +295,9 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
     user_id: userId,
     smart_link_id: smartLinkId,
     variant_id: variantId,
-    transaction_id: String(transactionId),
-    platform: 'cakto',
+    project_id: projectId,
+    transaction_id: transactionId,
+    platform: 'sale_platform',
     product_name: productName,
     amount,
     currency,
@@ -447,9 +309,10 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
 
   // Audit log
   await supabase.from('conversion_events').insert({
-    transaction_id: String(transactionId),
+    transaction_id: transactionId,
     event_type: 'approved',
     user_id: userId,
+    project_id: projectId,
     raw_payload: payload,
   });
 
@@ -476,6 +339,7 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
         user_id: userId,
         smart_link_id: smartLinkId,
         variant_id: variantId,
+        project_id: projectId,
         conversions: 1,
         revenue: amount,
       });
@@ -484,7 +348,7 @@ async function processCakto(payload: Record<string, unknown>, supabase: ReturnTy
 
   return {
     event_type: event,
-    transaction_id: String(transactionId),
+    transaction_id: transactionId,
     status: 'approved',
     attributed_click_id: clickId,
     is_attributed: !!clickId,

@@ -3,9 +3,11 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
+import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
+import { useProject } from "@/hooks/useProject";
 
 type GroupByKey = "utm_campaign" | "utm_medium" | "utm_content" | "utm_source";
 type SortKey = GroupByKey | "views" | "sales" | "revenue" | "rate" | "ticket";
@@ -24,33 +26,41 @@ export default function UtmReport() {
   const [groupBy, setGroupBy] = useState<GroupByKey>("utm_campaign");
   const [sortKey, setSortKey] = useState<SortKey>("views");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const { activeProject } = useProject();
+  const projectId = activeProject?.id;
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
   const { data: views = [] } = useQuery({
-    queryKey: ["utm-views", since, until],
+    queryKey: ["utm-views", since, until, projectId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("views")
         .select("id, utm_source, utm_medium, utm_campaign, utm_content, click_id")
         .gte("created_at", since)
         .lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
       return data || [];
     },
+    enabled: !!projectId,
   });
 
   const { data: conversions = [] } = useQuery({
-    queryKey: ["utm-conversions", since, until],
+    queryKey: ["utm-conversions", since, until, projectId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("conversions")
         .select("id, amount, click_id, status")
         .eq("status", "approved")
         .gte("created_at", since)
         .lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
       return data || [];
     },
+    enabled: !!projectId,
   });
 
   // Build click_id to conversion map
@@ -67,7 +77,7 @@ export default function UtmReport() {
   const groups = new Map<string, { views: number; sales: number; revenue: number }>();
   const usedClicks = new Set<string>();
   views.forEach((v: any) => {
-    const key = v[groupBy] || "(vazio)";
+    const key = v[groupBy] || "(not set)";
     const entry = groups.get(key) || { views: 0, sales: 0, revenue: 0 };
     entry.views++;
     if (v.click_id && convCountByClick.has(v.click_id) && !usedClicks.has(v.click_id)) {
@@ -99,7 +109,6 @@ export default function UtmReport() {
     return sortDir === "asc" ? aVal - bVal : bVal - aVal;
   });
 
-  // Fixed order: campaign, medium, content, source
   const groupOptions: { value: GroupByKey; label: string }[] = [
     { value: "utm_campaign", label: "Campaign" },
     { value: "utm_medium", label: "Medium" },
@@ -111,9 +120,14 @@ export default function UtmReport() {
     <DashboardLayout
       title="Relatório UTM"
       subtitle="Performance agrupada por parâmetros UTM"
-      actions={<DateFilter value={dateRange} onChange={setDateRange} />}
+      actions={
+        <div className="flex items-center gap-2">
+          <TutorialModal {...TUTORIALS.utmReport} />
+          <DateFilter value={dateRange} onChange={setDateRange} />
+        </div>
+      }
     >
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         <span className="text-xs text-muted-foreground">Agrupar por:</span>
         {groupOptions.map((g) => (
           <button

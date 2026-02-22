@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +17,12 @@ interface Variant {
 
 interface Props {
   link?: any;
+  projectId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function SmartLinkModal({ link, onClose, onSaved }: Props) {
+export default function SmartLinkModal({ link, projectId, onClose, onSaved }: Props) {
   const isEditing = !!link;
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -80,27 +81,24 @@ export default function SmartLinkModal({ link, onClose, onSaved }: Props) {
       if (!userId) throw new Error("Não autenticado");
 
       if (isEditing) {
-        // Update smart link
         const { error } = await supabase.from("smart_links").update({ name, slug }).eq("id", link.id);
         if (error) throw error;
 
-        // Delete old variants and re-insert
         await supabase.from("variants").delete().eq("smart_link_id", link.id);
         const { error: ve } = await supabase.from("variants").insert(
-          variants.map(v => ({ smart_link_id: link.id, user_id: userId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active }))
+          variants.map(v => ({ smart_link_id: link.id, user_id: userId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active, project_id: projectId }))
         );
         if (ve) throw ve;
       } else {
-        // Create smart link
         const { data: sl, error: sle } = await supabase
           .from("smart_links")
-          .insert({ name, slug: slug.toLowerCase().replace(/\s+/g, "-"), user_id: userId })
+          .insert({ name, slug: slug.toLowerCase().replace(/\s+/g, "-"), user_id: userId, project_id: projectId } as any)
           .select()
           .single();
         if (sle) throw sle;
 
         const { error: ve } = await supabase.from("variants").insert(
-          variants.map(v => ({ smart_link_id: sl.id, user_id: userId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active }))
+          variants.map(v => ({ smart_link_id: sl.id, user_id: userId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active, project_id: projectId }))
         );
         if (ve) throw ve;
       }
@@ -118,7 +116,6 @@ export default function SmartLinkModal({ link, onClose, onSaved }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-2xl bg-card border border-border/50 rounded-xl card-shadow overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
           <h2 className="font-semibold">{isEditing ? "Editar Smart Link" : "Novo Smart Link"}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -127,7 +124,6 @@ export default function SmartLinkModal({ link, onClose, onSaved }: Props) {
         </div>
 
         <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-          {/* Name and Slug */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Nome do Smart Link</Label>
@@ -146,7 +142,6 @@ export default function SmartLinkModal({ link, onClose, onSaved }: Props) {
             </div>
           </div>
 
-          {/* Variants */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <Label>Variantes</Label>

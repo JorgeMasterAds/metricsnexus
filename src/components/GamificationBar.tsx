@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
 import { getFixedGoal } from "@/hooks/useSubscription";
+import { useProject } from "@/hooks/useProject";
 
 interface Props {
   since: string;
@@ -10,17 +11,23 @@ interface Props {
 }
 
 export default function GamificationBar({ since, until }: Props) {
+  const { activeProject } = useProject();
+  const projectId = activeProject?.id;
+
   const { data: revenue = 0 } = useQuery({
-    queryKey: ["gamification-revenue", since, until],
+    queryKey: ["gamification-revenue", since, until, projectId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("conversions")
         .select("amount")
         .eq("status", "approved")
         .gte("created_at", since)
         .lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
       return (data || []).reduce((s, c) => s + Number(c.amount), 0);
     },
+    enabled: !!projectId,
   });
 
   const goal = getFixedGoal(revenue);

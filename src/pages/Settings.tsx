@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Copy } from "lucide-react";
+import TutorialModal, { TUTORIALS } from "@/components/TutorialModal";
+import { useProject } from "@/hooks/useProject";
 
 export default function Settings() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { activeProject } = useProject();
 
   const { data: user } = useQuery({
     queryKey: ["auth-user"],
@@ -32,8 +35,7 @@ export default function Settings() {
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [hotmartSecret, setHotmartSecret] = useState("");
-  const [caktoSecret, setCaktoSecret] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
   const [customDomain, setCustomDomain] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -42,8 +44,7 @@ export default function Settings() {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || "");
-      setHotmartSecret(profile.hotmart_webhook_secret || "");
-      setCaktoSecret(profile.cakto_webhook_secret || "");
+      setWebhookSecret((profile as any).webhook_secret || "");
       setCustomDomain(profile.custom_domain || "");
     }
     if (user) {
@@ -65,10 +66,9 @@ export default function Settings() {
     try {
       const { error } = await supabase.from("profiles").update({
         full_name: fullName,
-        hotmart_webhook_secret: hotmartSecret,
-        cakto_webhook_secret: caktoSecret,
+        webhook_secret: webhookSecret || null,
         custom_domain: customDomain || null,
-      }).eq("id", user?.id);
+      } as any).eq("id", user?.id);
       if (error) throw error;
       if (email !== user?.email) {
         const { error: emailErr } = await supabase.auth.updateUser({ email });
@@ -111,8 +111,8 @@ export default function Settings() {
     toast({ title: "Funcionalidade em desenvolvimento", description: "Entre em contato com o suporte para excluir sua conta." });
   };
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const webhookUrl = `https://${projectId}.supabase.co/functions/v1/webhook`;
+  const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const webhookUrl = `https://${supabaseProjectId}.supabase.co/functions/v1/webhook`;
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -120,7 +120,11 @@ export default function Settings() {
   };
 
   return (
-    <DashboardLayout title="Configurações" subtitle="Gerencie sua conta e integrações">
+    <DashboardLayout
+      title="Configurações"
+      subtitle="Gerencie sua conta e integrações"
+      actions={<TutorialModal {...TUTORIALS.settings} triggerLabel="Tutorial" />}
+    >
       <div className="max-w-2xl space-y-6">
         {/* Profile */}
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
@@ -179,7 +183,7 @@ export default function Settings() {
                   Crie um registro <strong>CNAME</strong>:
                   <div className="bg-background/50 rounded p-2 font-mono text-xs mt-1 ml-4">
                     <div>Nome: <strong>tracker</strong></div>
-                    <div>Apontando para: <strong>{projectId}.supabase.co</strong></div>
+                    <div>Apontando para: <strong>{supabaseProjectId}.supabase.co</strong></div>
                   </div>
                 </li>
                 <li>Aguarde propagação (até 48h).</li>
@@ -205,19 +209,14 @@ export default function Settings() {
           </p>
         </div>
 
-        {/* Integration secrets */}
+        {/* Webhook Secret (unified) */}
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-          <h2 className="text-sm font-semibold mb-1">Secrets de Integração</h2>
-          <p className="text-xs text-muted-foreground mb-4">Configure secrets para validação dos webhooks (opcional)</p>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Webhook Secret (Hotmart / Cakto)</Label>
-              <Input value={hotmartSecret} onChange={(e) => setHotmartSecret(e.target.value)} placeholder="Secret do webhook" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Secret alternativo</Label>
-              <Input value={caktoSecret} onChange={(e) => setCaktoSecret(e.target.value)} placeholder="Secret alternativo" />
-            </div>
+          <h2 className="text-sm font-semibold mb-1">Webhook Secret</h2>
+          <p className="text-xs text-muted-foreground mb-4">Segurança adicional para validação dos webhooks (opcional)</p>
+          <div className="space-y-1.5">
+            <Label>Webhook Secret (opcional)</Label>
+            <Input value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder="Seu secret de validação" />
+            <p className="text-xs text-muted-foreground">Se configurado, a plataforma de vendas deve enviar o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> com este valor.</p>
           </div>
         </div>
 
