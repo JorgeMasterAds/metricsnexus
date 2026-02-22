@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface TourStep {
   title: string;
   content: string;
+  /** CSS selector for the element to highlight. If omitted, shows centered modal. */
+  target?: string;
 }
 
 interface Props {
@@ -18,6 +21,8 @@ const STORAGE_KEY_PREFIX = "tour_completed_";
 export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
   const [open, setOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   const storageKey = `${STORAGE_KEY_PREFIX}${tourId}`;
 
@@ -28,6 +33,40 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
       return () => clearTimeout(timer);
     }
   }, [storageKey]);
+
+  // Update target rect when step changes
+  useEffect(() => {
+    if (!open) return;
+    const step = steps[currentStep];
+    if (!step.target) {
+      setTargetRect(null);
+      return;
+    }
+    const el = document.querySelector(step.target);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      setTargetRect(rect);
+    } else {
+      setTargetRect(null);
+    }
+  }, [open, currentStep, steps]);
+
+  // Recompute on scroll/resize
+  useEffect(() => {
+    if (!open) return;
+    const update = () => {
+      const step = steps[currentStep];
+      if (!step.target) { setTargetRect(null); return; }
+      const el = document.querySelector(step.target);
+      if (el) setTargetRect(el.getBoundingClientRect());
+    };
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open, currentStep, steps]);
 
   const finish = useCallback(() => {
     setOpen(false);
@@ -46,6 +85,46 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
 
   const step = steps[currentStep];
 
+  // Compute tooltip position
+  const getTooltipStyle = (): React.CSSProperties => {
+    if (!targetRect) {
+      // Centered modal
+      return {
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+      };
+    }
+
+    const pad = 12;
+    const tooltipW = Math.min(360, window.innerWidth - 32);
+    const tooltipH = 240; // approximate
+
+    // Try below
+    let top = targetRect.bottom + pad;
+    let left = targetRect.left + targetRect.width / 2 - tooltipW / 2;
+
+    // If below overflows, try above
+    if (top + tooltipH > window.innerHeight - 16) {
+      top = targetRect.top - pad - tooltipH;
+    }
+    // If above overflows, just center vertically
+    if (top < 16) {
+      top = Math.max(16, targetRect.top + targetRect.height / 2 - tooltipH / 2);
+    }
+
+    // Clamp horizontal
+    left = Math.max(16, Math.min(left, window.innerWidth - tooltipW - 16));
+
+    return {
+      position: "fixed",
+      top,
+      left,
+      width: tooltipW,
+    };
+  };
+
   return (
     <>
       <button
@@ -57,15 +136,76 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
         {triggerLabel && <span>{triggerLabel}</span>}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={finish} />
+      {open && createPortal(
+        <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: "auto" }}>
+          {/* SVG overlay with cutout */}
+          <svg
+            className="fixed inset-0 w-full h-full"
+            style={{ pointerEvents: "none" }}
+          >
+            <defs>
+              <mask id={`tour-mask-${tourId}`}>
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                {targetRect && (
+                  <rect
+                    x={targetRect.left - 6}
+                    y={targetRect.top - 6}
+                    width={targetRect.width + 12}
+                    height={targetRect.height + 12}
+                    rx="8"
+                    fill="black"
+                  />
+                )}
+              </mask>
+            </defs>
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill="rgba(0,0,0,0.7)"
+              mask={`url(#tour-mask-${tourId})`}
+            />
+          </svg>
 
-          {/* Modal */}
-          <div className="relative w-full max-w-md bg-card border border-border/50 rounded-xl card-shadow overflow-hidden flex flex-col max-h-[85vh]">
+          {/* Highlight ring around target */}
+          {targetRect && (
+            <div
+              className="fixed border-2 border-primary rounded-lg pointer-events-none"
+              style={{
+                top: targetRect.top - 6,
+                left: targetRect.left - 6,
+                width: targetRect.width + 12,
+                height: targetRect.height + 12,
+                boxShadow: "0 0 0 4px hsl(var(--primary) / 0.25)",
+                transition: "all 0.3s ease",
+              }}
+            />
+          )}
+
+          {/* Click catcher for overlay area */}
+          <div
+            className="fixed inset-0"
+            style={{ pointerEvents: "auto" }}
+            onClick={finish}
+          />
+
+          {/* Tooltip */}
+          <div
+            ref={tooltipRef}
+            className="bg-card border border-border/50 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+            style={{
+              ...getTooltipStyle(),
+              pointerEvents: "auto",
+              zIndex: 10000,
+              maxHeight: "calc(100vh - 32px)",
+              maxWidth: "calc(100vw - 32px)",
+              minWidth: 280,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-border/50">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono text-muted-foreground">
                   {currentStep + 1}/{steps.length}
@@ -78,14 +218,14 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
             </div>
 
             {/* Content with scroll */}
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="flex-1 overflow-y-auto px-4 py-3">
               <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
                 {step.content}
               </p>
             </div>
 
             {/* Progress dots */}
-            <div className="flex justify-center gap-1.5 px-5 py-2">
+            <div className="flex justify-center gap-1.5 px-4 py-2 shrink-0">
               {steps.map((_, i) => (
                 <button
                   key={i}
@@ -98,7 +238,7 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-border/50 flex items-center justify-between">
+            <div className="px-4 py-3 border-t border-border/50 flex items-center justify-between shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -119,7 +259,8 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
@@ -130,7 +271,7 @@ export const TOURS = {
   dashboard: {
     tourId: "dashboard",
     steps: [
-      { title: "Métricas principais", content: "O dashboard exibe Views (total de cliques nos seus Smart Links), Vendas (conversões aprovadas), Taxa de Conversão, Faturamento e Ticket Médio para o período selecionado." },
+      { title: "Métricas principais", content: "O dashboard exibe Views (total de cliques nos seus Smart Links), Vendas (conversões aprovadas), Taxa de Conversão, Faturamento e Ticket Médio para o período selecionado.", target: ".grid.grid-cols-2" },
       { title: "Filtros de período", content: "Use os botões de período (7 dias, 30 dias, etc.) para alterar o intervalo dos dados exibidos. O filtro personalizado permite escolher datas específicas em um calendário." },
       { title: "Gráfico de Tráfego", content: "O gráfico mostra a evolução diária de Views e Vendas no período. Passe o mouse sobre os pontos para ver detalhes." },
       { title: "Tabela de Smart Links", content: "A tabela inferior mostra a performance individual de cada Smart Link no período selecionado, incluindo views, vendas, receita e taxa de conversão." },
@@ -164,9 +305,9 @@ export const TOURS = {
   settings: {
     tourId: "settings",
     steps: [
-      { title: "Domínio personalizado", content: "Você pode usar seu próprio subdomínio para os Smart Links. Para configurar:\n\n1. Acesse seu provedor de DNS\n2. Crie um registro CNAME:\n   • Nome: tracker (ou o subdomínio desejado)\n   • Apontar para: ykgawuawtfpghshuwmde.supabase.co\n3. Aguarde a propagação DNS (até 48h)\n4. O domínio deve responder via HTTPS" },
+      { title: "Domínio personalizado", content: "Você pode usar seu próprio subdomínio para os Smart Links. Configure um registro CNAME no seu provedor DNS apontando para o servidor." },
       { title: "URL do Webhook", content: "Copie a URL do webhook e cole na configuração de webhook da sua plataforma de vendas. Cada projeto tem uma URL única. Todas as vendas recebidas são automaticamente processadas." },
-      { title: "Webhook Secret", content: "O Webhook Secret é opcional e adiciona uma camada extra de segurança. Se configurado, envie o header 'x-webhook-secret' em cada webhook. Apenas webhooks com o secret correto serão aceitos." },
+      { title: "Webhook Secret", content: "O Webhook Secret é opcional e adiciona uma camada extra de segurança. Se configurado, envie o header 'x-webhook-secret' com este valor em cada webhook. Apenas webhooks com o secret correto serão aceitos." },
     ],
   },
 };
