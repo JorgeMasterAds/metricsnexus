@@ -16,15 +16,11 @@ import WebhookLogs from "./pages/WebhookLogs";
 import Settings from "./pages/Settings";
 import UtmReport from "./pages/UtmReport";
 import Support from "./pages/Support";
+import Integrations from "./pages/Integrations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30000,
-      retry: 1,
-    },
-  },
+  defaultOptions: { queries: { staleTime: 30000, retry: 1 } },
 });
 
 function RequireAccount({ children }: { children: React.ReactNode }) {
@@ -89,6 +85,7 @@ function AppRoutes() {
       <Route path="/smart-links" element={<Protected><SmartLinks /></Protected>} />
       <Route path="/utm-report" element={<Protected><UtmReport /></Protected>} />
       <Route path="/webhook-logs" element={<Protected><WebhookLogs /></Protected>} />
+      <Route path="/integrations" element={<Protected><Integrations /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />
       <Route path="/support" element={<Protected><Support /></Protected>} />
       <Route path="/" element={<Navigate to={session ? "/dashboard" : "/auth"} replace />} />

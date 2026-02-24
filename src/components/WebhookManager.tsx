@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Plus, Trash2, Link2, ExternalLink } from "lucide-react";
+import { Copy, Plus, Trash2, Link2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,7 @@ export default function WebhookManager() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [platform, setPlatform] = useState("hotmart");
+  const [platformName, setPlatformName] = useState("");
   const [saving, setSaving] = useState(false);
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -50,32 +51,23 @@ export default function WebhookManager() {
     enabled: !!activeAccountId,
   });
 
-  const { data: products = [] } = useQuery({
-    queryKey: ["products-list", activeAccountId],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("products")
-        .select("id, name, external_id")
-        .eq("account_id", activeAccountId)
-        .order("name");
-      return data || [];
-    },
-    enabled: !!activeAccountId,
-  });
+  const canSave = name.trim() && (platform !== "other" || platformName.trim());
 
   const createWebhook = async () => {
-    if (!name.trim() || !activeAccountId) return;
+    if (!canSave || !activeAccountId) return;
     setSaving(true);
     try {
       const { error } = await (supabase as any).from("webhooks").insert({
         account_id: activeAccountId,
         name: name.trim(),
         platform,
+        platform_name: platform === "other" ? platformName.trim() : null,
       });
       if (error) throw error;
       toast({ title: "Webhook criado!" });
       setName("");
       setPlatform("hotmart");
+      setPlatformName("");
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["webhooks"] });
     } catch (err: any) {
@@ -104,6 +96,11 @@ export default function WebhookManager() {
 
   const getWebhookUrl = (token: string) =>
     `https://${supabaseProjectId}.supabase.co/functions/v1/webhook/${token}`;
+
+  const getPlatformLabel = (wh: any) => {
+    if (wh.platform === "other" && wh.platform_name) return wh.platform_name;
+    return PLATFORMS.find(p => p.value === wh.platform)?.label || wh.platform;
+  };
 
   return (
     <div className="space-y-6">
@@ -151,9 +148,20 @@ export default function WebhookManager() {
                   ))}
                 </div>
               </div>
+              {platform === "other" && (
+                <div className="space-y-1.5">
+                  <Label>Nome da plataforma *</Label>
+                  <Input
+                    value={platformName}
+                    onChange={(e) => setPlatformName(e.target.value)}
+                    placeholder="Digite o nome da plataforma"
+                    required
+                  />
+                </div>
+              )}
               <Button
                 onClick={createWebhook}
-                disabled={saving || !name.trim()}
+                disabled={saving || !canSave}
                 className="w-full gradient-bg border-0 text-primary-foreground hover:opacity-90"
               >
                 {saving ? "Criando..." : "Criar Webhook"}
@@ -176,16 +184,13 @@ export default function WebhookManager() {
       ) : (
         <div className="space-y-3">
           {webhooks.map((wh: any) => (
-            <div
-              key={wh.id}
-              className="rounded-xl bg-card border border-border/50 card-shadow p-4"
-            >
+            <div key={wh.id} className="rounded-xl bg-card border border-border/50 card-shadow p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="text-sm font-semibold truncate">{wh.name}</h3>
                     <Badge variant="outline" className="text-[10px] capitalize">
-                      {wh.platform}
+                      {getPlatformLabel(wh)}
                     </Badge>
                     <Badge
                       variant={wh.is_active ? "default" : "secondary"}
