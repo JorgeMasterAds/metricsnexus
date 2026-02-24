@@ -50,42 +50,99 @@ Deno.serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  // Validate x-webhook-secret header → find account (REQUIRED)
-  const webhookSecret = req.headers.get('x-webhook-secret');
+  // ── TOKEN-BASED ROUTING ──
+  // Extract token from URL path: /webhook/{token}
+  const url = new URL(req.url);
+  const pathParts = url.pathname.split('/').filter(Boolean);
+  // Path is like: /webhook/TOKEN or /functions/v1/webhook/TOKEN
+  const token = pathParts[pathParts.length - 1];
+
+  // Also support legacy x-webhook-secret header
+  const headerSecret = req.headers.get('x-webhook-secret');
+
   let accountId: string | null = null;
+  let webhookId: string | null = null;
+  let linkedProductIds: string[] = [];
 
-  if (!webhookSecret) {
+  if (token && token !== 'webhook') {
+    // Token-based lookup (new architecture)
+    const { data: webhook } = await supabase
+      .from('webhooks')
+      .select('id, account_id, is_active, platform')
+      .eq('token', token)
+      .maybeSingle();
+
+    if (!webhook) {
+      await supabase.from('webhook_logs').insert({
+        platform: 'unknown',
+        raw_payload: rawPayload,
+        status: 'error',
+        ignore_reason: 'Invalid webhook token',
+      });
+      return new Response(JSON.stringify({ error: 'Not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!webhook.is_active) {
+      await supabase.from('webhook_logs').insert({
+        platform: webhook.platform || 'unknown',
+        raw_payload: rawPayload,
+        status: 'ignored',
+        ignore_reason: 'Webhook is inactive',
+        account_id: webhook.account_id,
+      });
+      return new Response(JSON.stringify({ error: 'Webhook inactive' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    accountId = webhook.account_id;
+    webhookId = webhook.id;
+
+    // Fetch linked products
+    const { data: wpRows } = await supabase
+      .from('webhook_products')
+      .select('product_id')
+      .eq('webhook_id', webhook.id);
+    linkedProductIds = (wpRows || []).map((r: any) => r.product_id);
+
+  } else if (headerSecret) {
+    // Legacy header-based lookup (backward compat)
+    const { data: account } = await supabase
+      .from('accounts')
+      .select('id')
+      .eq('webhook_secret', headerSecret)
+      .maybeSingle();
+
+    if (!account) {
+      await supabase.from('webhook_logs').insert({
+        platform: 'unknown',
+        raw_payload: rawPayload,
+        status: 'error',
+        ignore_reason: 'Invalid x-webhook-secret header',
+      });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    accountId = account.id;
+  } else {
+    // No authentication at all
     await supabase.from('webhook_logs').insert({
       platform: 'unknown',
       raw_payload: rawPayload,
       status: 'error',
-      ignore_reason: 'Missing x-webhook-secret header',
+      ignore_reason: 'No token in URL and no x-webhook-secret header',
     });
-    return new Response(JSON.stringify({ error: 'Missing x-webhook-secret header' }), {
+    return new Response(JSON.stringify({ error: 'Missing authentication' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const { data: account } = await supabase
-    .from('accounts')
-    .select('id')
-    .eq('webhook_secret', webhookSecret)
-    .maybeSingle();
-
-  if (!account) {
-    await supabase.from('webhook_logs').insert({
-      platform: 'unknown',
-      raw_payload: rawPayload,
-      status: 'error',
-      ignore_reason: 'Invalid x-webhook-secret header',
-    });
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-  accountId = account.id;
 
   const platform = detectPlatform(rawPayload);
 
@@ -97,7 +154,7 @@ Deno.serve(async (req) => {
   };
 
   if (platform === 'sale_platform') {
-    const result = await processSale(rawPayload, supabase, accountId);
+    const result = await processSale(rawPayload, supabase, accountId, linkedProductIds, webhookId);
     logEntry = { ...logEntry, ...result };
   } else {
     logEntry.status = 'ignored';
@@ -132,7 +189,13 @@ function detectPlatform(payload: Record<string, unknown>): string {
   return 'unknown';
 }
 
-async function processSale(payload: Record<string, unknown>, supabase: ReturnType<typeof createClient>, accountId: string | null) {
+async function processSale(
+  payload: Record<string, unknown>,
+  supabase: ReturnType<typeof createClient>,
+  accountId: string | null,
+  linkedProductIds: string[],
+  webhookId: string | null,
+) {
   const data = payload as any;
   const event = data.event;
 
@@ -204,12 +267,14 @@ async function processSale(payload: Record<string, unknown>, supabase: ReturnTyp
   const orderData = data.data || data;
 
   let transactionId: string, amount: number, currency: string, productName: string, paidAt: string, isOrderBump: boolean;
+  let externalProductId: string | null = null;
 
   if (purchase) {
     transactionId = purchase.transaction;
     amount = purchase.price?.value || 0;
     currency = purchase.price?.currency_value || 'BRL';
     productName = product?.name || 'Unknown';
+    externalProductId = product?.id ? String(product.id) : null;
     paidAt = purchase.order_date ? new Date(purchase.order_date).toISOString() : new Date().toISOString();
     isOrderBump = purchase.order_bump?.is_order_bump === true;
   } else {
@@ -217,11 +282,32 @@ async function processSale(payload: Record<string, unknown>, supabase: ReturnTyp
     amount = (orderData.amount || 0) / 100;
     currency = orderData.offer?.currency || 'BRL';
     productName = orderData.product?.name || 'Unknown';
+    externalProductId = orderData.product?.id ? String(orderData.product.id) : null;
     paidAt = orderData.paidAt ? new Date(orderData.paidAt).toISOString() : new Date().toISOString();
     isOrderBump = orderData.offer_type && orderData.offer_type !== 'main';
   }
 
   if (!transactionId) return { event_type: event, status: 'error', ignore_reason: 'Missing transaction id' };
+
+  // Validate product linkage if webhook has linked products
+  if (linkedProductIds.length > 0 && externalProductId && accountId) {
+    const { data: matchedProduct } = await supabase
+      .from('products')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('external_id', externalProductId)
+      .in('id', linkedProductIds)
+      .maybeSingle();
+
+    if (!matchedProduct) {
+      return {
+        event_type: event,
+        status: 'ignored',
+        ignore_reason: `Product ${externalProductId} not linked to this webhook`,
+        transaction_id: transactionId,
+      };
+    }
+  }
 
   const clickId = extractClickId(purchase || orderData);
 
