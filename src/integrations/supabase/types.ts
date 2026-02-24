@@ -225,6 +225,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           cakto_webhook_secret: string | null
           created_at: string
           custom_domain: string | null
@@ -234,10 +235,13 @@ export type Database = {
           hotmart_webhook_secret: string | null
           id: string
           integration_platform: string | null
+          language: string | null
+          phone: string | null
           updated_at: string
           webhook_secret: string | null
         }
         Insert: {
+          avatar_url?: string | null
           cakto_webhook_secret?: string | null
           created_at?: string
           custom_domain?: string | null
@@ -247,10 +251,13 @@ export type Database = {
           hotmart_webhook_secret?: string | null
           id: string
           integration_platform?: string | null
+          language?: string | null
+          phone?: string | null
           updated_at?: string
           webhook_secret?: string | null
         }
         Update: {
+          avatar_url?: string | null
           cakto_webhook_secret?: string | null
           created_at?: string
           custom_domain?: string | null
@@ -260,6 +267,8 @@ export type Database = {
           hotmart_webhook_secret?: string | null
           id?: string
           integration_platform?: string | null
+          language?: string | null
+          phone?: string | null
           updated_at?: string
           webhook_secret?: string | null
         }
@@ -267,18 +276,21 @@ export type Database = {
       }
       projects: {
         Row: {
+          avatar_url: string | null
           created_at: string
           id: string
           name: string
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           id?: string
           name: string
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           id?: string
           name?: string

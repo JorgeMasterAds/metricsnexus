@@ -75,6 +75,24 @@ export default function SmartLinks() {
     enabled: !!projectId,
   });
 
+  // Product data per smart link
+  const { data: linkProducts = [] } = useQuery({
+    queryKey: ["sl-products", sinceDate, untilDate, projectId],
+    queryFn: async () => {
+      let q = supabase
+        .from("conversions")
+        .select("smart_link_id, product_name, amount, is_order_bump")
+        .eq("status", "approved")
+        .gte("created_at", sinceDate + "T00:00:00")
+        .lte("created_at", untilDate + "T23:59:59");
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 60000,
+    enabled: !!projectId,
+  });
+
   const { data: profile } = useQuery({
     queryKey: ["profile-domain"],
     queryFn: async () => {
@@ -88,7 +106,6 @@ export default function SmartLinks() {
     const byLink = new Map<string, { views: number; sales: number; revenue: number }>();
     const byVariant = new Map<string, { views: number; sales: number; revenue: number }>();
     metrics.forEach((m: any) => {
-      // By link
       if (m.smart_link_id) {
         const entry = byLink.get(m.smart_link_id) || { views: 0, sales: 0, revenue: 0 };
         entry.views += Number(m.views);
@@ -96,7 +113,6 @@ export default function SmartLinks() {
         entry.revenue += Number(m.revenue);
         byLink.set(m.smart_link_id, entry);
       }
-      // By variant
       if (m.variant_id) {
         const entry = byVariant.get(m.variant_id) || { views: 0, sales: 0, revenue: 0 };
         entry.views += Number(m.views);
@@ -105,8 +121,22 @@ export default function SmartLinks() {
         byVariant.set(m.variant_id, entry);
       }
     });
-    return { byLink, byVariant };
-  }, [metrics]);
+
+    // Products per link
+    const productsByLink = new Map<string, Map<string, { vendas: number; receita: number }>>();
+    linkProducts.forEach((c: any) => {
+      if (!c.smart_link_id) return;
+      const name = c.product_name || "Produto desconhecido";
+      if (!productsByLink.has(c.smart_link_id)) productsByLink.set(c.smart_link_id, new Map());
+      const pMap = productsByLink.get(c.smart_link_id)!;
+      const entry = pMap.get(name) || { vendas: 0, receita: 0 };
+      entry.vendas++;
+      entry.receita += Number(c.amount);
+      pMap.set(name, entry);
+    });
+
+    return { byLink, byVariant, productsByLink };
+  }, [metrics, linkProducts]);
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
@@ -347,6 +377,29 @@ export default function SmartLinks() {
                         </tbody>
                       </table>
                     </div>
+                    {/* Products sold via this link */}
+                    {(() => {
+                      const prods = metricsMap.productsByLink.get(link.id);
+                      if (!prods || prods.size === 0) return null;
+                      const linkViews = linkData.views;
+                      return (
+                        <div className="border-t border-border/30 px-5 py-3">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Produtos vendidos</h4>
+                          <div className="space-y-1.5">
+                            {Array.from(prods.entries()).sort((a, b) => b[1].receita - a[1].receita).map(([name, data]) => (
+                              <div key={name} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-muted/20">
+                                <span className="font-medium">{name}</span>
+                                <div className="flex items-center gap-4 text-muted-foreground">
+                                  <span>{data.vendas} vendas</span>
+                                  <span className="font-mono">R$ {data.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                                  <span className="text-success">{linkViews > 0 ? ((data.vendas / linkViews) * 100).toFixed(2) : "0.00"}%</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
