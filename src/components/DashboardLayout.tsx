@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   FileBarChart,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,7 @@ const navItems = [
   { icon: FileBarChart, label: "Relatório UTM", path: "/utm-report" },
   { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
   { icon: Settings, label: "Configurações", path: "/settings" },
+  { icon: HelpCircle, label: "Suporte", path: "/support" },
 ];
 
 interface DashboardLayoutProps {

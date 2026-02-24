@@ -290,7 +290,7 @@ async function processSale(payload: Record<string, unknown>, supabase: ReturnTyp
     }
   }
 
-  await supabase.from('conversions').insert({
+  const { data: convRow } = await supabase.from('conversions').insert({
     click_id: clickId,
     user_id: userId,
     smart_link_id: smartLinkId,
@@ -305,7 +305,41 @@ async function processSale(payload: Record<string, unknown>, supabase: ReturnTyp
     status: 'approved',
     paid_at: paidAt,
     raw_payload: payload,
-  });
+  }).select('id').single();
+
+  // Store conversion items (main product + order bumps)
+  if (convRow) {
+    const items: Array<{ conversion_id: string; user_id: string | null; project_id: string | null; product_name: string; amount: number; is_order_bump: boolean }> = [];
+    
+    // Main product
+    items.push({
+      conversion_id: convRow.id,
+      user_id: userId,
+      project_id: projectId,
+      product_name: productName,
+      amount,
+      is_order_bump: !!isOrderBump,
+    });
+
+    // Extract order bump items if present
+    const orderBumps = purchase?.order_bump?.order_bump_items || orderData?.order_bumps || [];
+    if (Array.isArray(orderBumps)) {
+      for (const bump of orderBumps) {
+        items.push({
+          conversion_id: convRow.id,
+          user_id: userId,
+          project_id: projectId,
+          product_name: bump.name || bump.product_name || 'Order Bump',
+          amount: bump.price?.value || bump.amount || 0,
+          is_order_bump: true,
+        });
+      }
+    }
+
+    if (items.length > 0) {
+      await supabase.from('conversion_items').insert(items);
+    }
+  }
 
   // Audit log
   await supabase.from('conversion_events').insert({

@@ -16,6 +16,7 @@ import SmartLinks from "./pages/SmartLinks";
 import WebhookLogs from "./pages/WebhookLogs";
 import Settings from "./pages/Settings";
 import UtmReport from "./pages/UtmReport";
+import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -86,6 +87,7 @@ function AppRoutes() {
       <Route path="/utm-report" element={<Protected><UtmReport /></Protected>} />
       <Route path="/webhook-logs" element={<Protected><WebhookLogs /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />
+      <Route path="/support" element={<Protected><Support /></Protected>} />
       <Route path="/" element={<Navigate to={session ? "/dashboard" : "/auth"} replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

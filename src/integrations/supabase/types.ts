@@ -52,6 +52,54 @@ export type Database = {
           },
         ]
       }
+      conversion_items: {
+        Row: {
+          amount: number
+          conversion_id: string
+          created_at: string
+          id: string
+          is_order_bump: boolean
+          product_name: string
+          project_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number
+          conversion_id: string
+          created_at?: string
+          id?: string
+          is_order_bump?: boolean
+          product_name?: string
+          project_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          conversion_id?: string
+          created_at?: string
+          id?: string
+          is_order_bump?: boolean
+          product_name?: string
+          project_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversion_items_conversion_id_fkey"
+            columns: ["conversion_id"]
+            isOneToOne: false
+            referencedRelation: "conversions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversion_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversions: {
         Row: {
           amount: number
