@@ -764,6 +764,42 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          created_at: string
+          features: Json | null
+          id: string
+          max_projects: number
+          max_smartlinks: number
+          max_users: number
+          max_webhooks: number
+          name: string
+          price: number
+        }
+        Insert: {
+          created_at?: string
+          features?: Json | null
+          id?: string
+          max_projects?: number
+          max_smartlinks?: number
+          max_users?: number
+          max_webhooks?: number
+          name: string
+          price?: number
+        }
+        Update: {
+          created_at?: string
+          features?: Json | null
+          id?: string
+          max_projects?: number
+          max_smartlinks?: number
+          max_users?: number
+          max_webhooks?: number
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
       product_costs: {
         Row: {
           account_id: string
@@ -870,6 +906,79 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      project_users: {
+        Row: {
+          accepted_at: string | null
+          id: string
+          invited_at: string | null
+          project_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          id?: string
+          invited_at?: string | null
+          project_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          id?: string
+          invited_at?: string | null
+          project_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_users_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          account_id: string
+          avatar_url: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       referral_codes: {
         Row: {
@@ -1005,6 +1114,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          project_id: string | null
           slug: string
           updated_at: string
         }
@@ -1015,6 +1125,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          project_id?: string | null
           slug: string
           updated_at?: string
         }
@@ -1025,6 +1136,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          project_id?: string | null
           slug?: string
           updated_at?: string
         }
@@ -1036,6 +1148,13 @@ export type Database = {
             referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "smartlinks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
       subscriptions: {
@@ -1045,6 +1164,7 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          plan_id: string | null
           plan_type: string | null
           status: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id: string | null
@@ -1057,6 +1177,7 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          plan_id?: string | null
           plan_type?: string | null
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
@@ -1069,6 +1190,7 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          plan_id?: string | null
           plan_type?: string | null
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
@@ -1083,7 +1205,32 @@ export type Database = {
             referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      super_admins: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       system_announcement_reads: {
         Row: {
@@ -1175,6 +1322,7 @@ export type Database = {
           account_id: string
           id: string
           max_dashboards: number | null
+          max_projects: number | null
           max_smartlinks: number | null
           max_users: number | null
           max_webhooks: number | null
@@ -1183,6 +1331,7 @@ export type Database = {
           account_id: string
           id?: string
           max_dashboards?: number | null
+          max_projects?: number | null
           max_smartlinks?: number | null
           max_users?: number | null
           max_webhooks?: number | null
@@ -1191,6 +1340,7 @@ export type Database = {
           account_id?: string
           id?: string
           max_dashboards?: number | null
+          max_projects?: number | null
           max_smartlinks?: number | null
           max_users?: number | null
           max_webhooks?: number | null
@@ -1317,6 +1467,8 @@ export type Database = {
           is_active: boolean
           name: string
           platform: string | null
+          platform_name: string | null
+          project_id: string | null
           token: string
           updated_at: string
         }
@@ -1327,6 +1479,8 @@ export type Database = {
           is_active?: boolean
           name: string
           platform?: string | null
+          platform_name?: string | null
+          project_id?: string | null
           token?: string
           updated_at?: string
         }
@@ -1337,6 +1491,8 @@ export type Database = {
           is_active?: boolean
           name?: string
           platform?: string | null
+          platform_name?: string | null
+          project_id?: string | null
           token?: string
           updated_at?: string
         }
@@ -1346,6 +1502,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1363,6 +1526,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       user_has_admin_access: {
         Args: { _account_id: string; _user_id: string }
         Returns: boolean

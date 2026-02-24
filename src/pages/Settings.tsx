@@ -6,36 +6,34 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
-import { Copy, User, Camera, Shield, Settings as SettingsIcon, FolderOpen, Building2 } from "lucide-react";
-import WebhookManager from "@/components/WebhookManager";
+import { useSearchParams } from "react-router-dom";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Trash2, Edit2 } from "lucide-react";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
-import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 
 export default function Settings() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { activeAccount, accounts } = useAccount();
+  const { activeAccount, activeAccountId } = useAccount();
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") || "personal";
+  const [activeTab, setActiveTab] = useState(tabParam);
 
+  useEffect(() => { setActiveTab(tabParam); }, [tabParam]);
+
+  // --- Auth user & profile ---
   const { data: user } = useQuery({
     queryKey: ["auth-user"],
-    queryFn: async () => {
-      const { data } = await supabase.auth.getUser();
-      return data.user;
-    },
+    queryFn: async () => { const { data } = await supabase.auth.getUser(); return data.user; },
   });
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from("profiles").select("*").maybeSingle();
-      return data;
-    },
+    queryFn: async () => { const { data } = await (supabase as any).from("profiles").select("*").maybeSingle(); return data; },
   });
-
-  // webhook_secret no longer needed - using token-based webhooks
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,32 +43,26 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"personal" | "organization" | "integrations">("personal");
 
   // Organization fields
   const [orgName, setOrgName] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [cnpj, setCnpj] = useState("");
+  const [docNumber, setDocNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [responsibleName, setResponsibleName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
 
   useEffect(() => {
-    if (profile) {
-      setFullName(profile.full_name || "");
-      setAvatarUrl(profile.avatar_url || "");
-    }
-    if (user) {
-      setEmail(user.email || "");
-    }
+    if (profile) { setFullName(profile.full_name || ""); setAvatarUrl(profile.avatar_url || ""); }
+    if (user) { setEmail(user.email || ""); }
   }, [profile, user]);
 
   useEffect(() => {
     if (activeAccount) {
       setOrgName(activeAccount.name || "");
       setCompanyName(activeAccount.company_name || "");
-      setCnpj(activeAccount.cnpj || "");
+      setDocNumber(activeAccount.cnpj || "");
       setPhone(activeAccount.phone || "");
       setAddress(activeAccount.address || "");
       setResponsibleName(activeAccount.responsible_name || "");
@@ -78,15 +70,42 @@ export default function Settings() {
     }
   }, [activeAccount]);
 
-  const { data: totalSmartLinksCount = 0 } = useQuery({
-    queryKey: ["smartlinks-total-count-settings", activeAccount?.id],
+  // --- Projects ---
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects", activeAccountId],
     queryFn: async () => {
-      const { count } = await (supabase as any).from("smartlinks").select("id", { count: "exact", head: true }).eq("account_id", activeAccount!.id);
-      return count || 0;
+      const { data } = await (supabase as any).from("projects").select("*").eq("account_id", activeAccountId).order("created_at");
+      return data || [];
     },
-    enabled: !!activeAccount?.id,
+    enabled: !!activeAccountId,
   });
 
+  // --- Subscription & Plan ---
+  const { data: subscription } = useQuery({
+    queryKey: ["subscription", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("subscriptions").select("*, plans:plan_id(*)").eq("account_id", activeAccountId).maybeSingle();
+      return data;
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ["plans"],
+    queryFn: async () => { const { data } = await (supabase as any).from("plans").select("*").order("price"); return data || []; },
+  });
+
+  // --- Team members ---
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["team-members", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("account_users").select("*, profiles:user_id(full_name, avatar_url)").eq("account_id", activeAccountId);
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+
+  // --- Actions ---
   const uploadAvatar = async (file: File) => {
     if (!user) return;
     const ext = file.name.split(".").pop();
@@ -104,10 +123,7 @@ export default function Settings() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const { error } = await (supabase as any).from("profiles").update({
-        full_name: fullName,
-      }).eq("id", user?.id);
-      if (error) throw error;
+      await (supabase as any).from("profiles").update({ full_name: fullName }).eq("id", user?.id);
       if (email !== user?.email) {
         const { error: emailErr } = await supabase.auth.updateUser({ email });
         if (emailErr) throw emailErr;
@@ -117,9 +133,7 @@ export default function Settings() {
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const saveOrganization = async () => {
@@ -127,70 +141,67 @@ export default function Settings() {
     setSaving(true);
     try {
       const { error } = await (supabase as any).from("accounts").update({
-        name: orgName,
-        company_name: companyName,
-        cnpj,
-        phone,
-        address,
-        responsible_name: responsibleName,
-        admin_email: adminEmail,
+        name: orgName, company_name: companyName, cnpj: docNumber,
+        phone, address, responsible_name: responsibleName, admin_email: adminEmail,
       }).eq("id", activeAccount.id);
       if (error) throw error;
       toast({ title: "Organização atualizada!" });
       qc.invalidateQueries({ queryKey: ["accounts"] });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const changePassword = async () => {
-    if (newPassword !== confirmPassword) {
-      toast({ title: "Senhas diferentes", variant: "destructive" });
-      return;
-    }
-    if (newPassword.length < 8) {
-      toast({ title: "A senha deve ter no mínimo 8 caracteres", variant: "destructive" });
-      return;
-    }
+    if (newPassword !== confirmPassword) { toast({ title: "Senhas diferentes", variant: "destructive" }); return; }
+    if (newPassword.length < 8) { toast({ title: "A senha deve ter no mínimo 8 caracteres", variant: "destructive" }); return; }
     setSaving(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       toast({ title: "Senha alterada com sucesso!" });
-      setNewPassword("");
-      setConfirmPassword("");
+      setNewPassword(""); setConfirmPassword("");
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  const deleteAccount = async () => {
-    if (deleteConfirm !== "APAGAR MINHA CONTA") {
-      toast({ title: "Digite exatamente: APAGAR MINHA CONTA", variant: "destructive" });
-      return;
-    }
-    toast({ title: "Funcionalidade em desenvolvimento", description: "Entre em contato com o suporte para excluir sua conta." });
+  const createProject = async () => {
+    if (!activeAccountId) return;
+    const projectName = prompt("Nome do projeto:");
+    if (!projectName?.trim()) return;
+    const { error } = await (supabase as any).from("projects").insert({ account_id: activeAccountId, name: projectName.trim() });
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Projeto criado!" });
+    qc.invalidateQueries({ queryKey: ["projects"] });
   };
 
-  // Webhook URL generation moved to WebhookManager
+  const deleteProject = async (id: string) => {
+    if (!confirm("Excluir este projeto?")) return;
+    await (supabase as any).from("projects").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["projects"] });
+    toast({ title: "Projeto excluído" });
+  };
+
+  const toggleProject = async (id: string, isActive: boolean) => {
+    await (supabase as any).from("projects").update({ is_active: !isActive }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["projects"] });
+  };
 
   const tabs = [
-    { key: "personal" as const, label: "Dados Pessoais", icon: User },
-    { key: "organization" as const, label: "Minha Organização", icon: Building2 },
-    { key: "integrations" as const, label: "Integrações", icon: SettingsIcon },
+    { key: "personal", label: "Dados Pessoais", icon: User },
+    { key: "organization", label: "Minha Organização", icon: Building2 },
+    { key: "subscription", label: "Assinatura", icon: CreditCard },
+    { key: "team", label: "Equipe", icon: Users },
   ];
 
   return (
     <DashboardLayout
       title="Configurações"
-      subtitle="Gerencie sua conta e integrações"
+      subtitle="Gerencie sua conta e organização"
       actions={<ProductTour {...TOURS.settings} triggerLabel="Tutorial" />}
     >
-      <div className="flex items-center gap-1 mb-6 border-b border-border/50 overflow-x-auto">
+      <div className="flex items-center gap-1 mb-6 border-b border-border/50 flex-wrap">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -205,6 +216,7 @@ export default function Settings() {
         ))}
       </div>
 
+      {/* ===== PERSONAL ===== */}
       {activeTab === "personal" && (
         <div className="max-w-2xl space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
@@ -212,36 +224,17 @@ export default function Settings() {
             <div className="flex items-start gap-6">
               <div className="relative group">
                 <div className="h-20 w-20 rounded-full bg-muted/50 border-2 border-border/50 overflow-hidden flex items-center justify-center">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <User className="h-8 w-8 text-muted-foreground" />
-                  )}
+                  {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" /> : <User className="h-8 w-8 text-muted-foreground" />}
                 </div>
-                <button
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                >
+                <button onClick={() => avatarInputRef.current?.click()} className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Camera className="h-5 w-5 text-white" />
                 </button>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }}
-                />
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} />
               </div>
               <div className="flex-1 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Nome completo</Label>
-                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>E-mail</Label>
-                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                  </div>
+                  <div className="space-y-1.5"><Label>Nome completo</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
                 </div>
               </div>
             </div>
@@ -249,34 +242,11 @@ export default function Settings() {
 
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4">Alterar senha</h2>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Nova senha</Label>
-                  <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" minLength={8} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Confirmar nova senha</Label>
-                  <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" minLength={8} />
-                </div>
-              </div>
-              <Button onClick={changePassword} disabled={saving || !newPassword} className="gradient-bg border-0 text-primary-foreground hover:opacity-90">
-                Alterar senha
-              </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-1.5"><Label>Nova senha</Label><Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" /></div>
+              <div className="space-y-1.5"><Label>Confirmar</Label><Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" /></div>
             </div>
-          </div>
-
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Shield className="h-5 w-5 text-primary" />
-                <div>
-                  <h2 className="text-sm font-semibold">Verificação de dois fatores (2FA)</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Em breve — TOTP com Google Authenticator.</p>
-                </div>
-              </div>
-              <Switch checked={false} onCheckedChange={() => toast({ title: "Em breve", description: "2FA com TOTP (RFC 6238) será implementado em breve." })} />
-            </div>
+            <Button onClick={changePassword} disabled={saving || !newPassword} className="gradient-bg border-0 text-primary-foreground hover:opacity-90">Alterar senha</Button>
           </div>
 
           <Button onClick={saveProfile} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
@@ -290,10 +260,10 @@ export default function Settings() {
               <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>Apagar conta</Button>
             ) : (
               <div className="space-y-3">
-                <p className="text-xs text-destructive">Para confirmar, digite <strong>APAGAR MINHA CONTA</strong> abaixo:</p>
+                <p className="text-xs text-destructive">Para confirmar, digite <strong>APAGAR MINHA CONTA</strong>:</p>
                 <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="APAGAR MINHA CONTA" className="border-destructive/50" />
                 <div className="flex gap-2">
-                  <Button variant="destructive" onClick={deleteAccount} disabled={deleteConfirm !== "APAGAR MINHA CONTA"}>Confirmar exclusão</Button>
+                  <Button variant="destructive" onClick={() => toast({ title: "Em desenvolvimento" })} disabled={deleteConfirm !== "APAGAR MINHA CONTA"}>Confirmar</Button>
                   <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirm(""); }}>Cancelar</Button>
                 </div>
               </div>
@@ -302,62 +272,64 @@ export default function Settings() {
         </div>
       )}
 
+      {/* ===== ORGANIZATION ===== */}
       {activeTab === "organization" && (
         <div className="max-w-2xl space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" />
-              Dados da Organização
-            </h2>
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" />Dados da Organização</h2>
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Nome da conta</Label>
-                  <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Minha Empresa" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Razão Social / Nome da empresa</Label>
-                  <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Empresa LTDA" />
-                </div>
+                <div className="space-y-1.5"><Label>Nome da conta</Label><Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Minha Empresa" /></div>
+                <div className="space-y-1.5"><Label>Razão Social</Label><Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Empresa LTDA" /></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>CNPJ</Label>
-                  <Input value={cnpj} onChange={(e) => setCnpj(e.target.value)} placeholder="00.000.000/0001-00" />
+                  <Label>Documento (CPF ou CNPJ)</Label>
+                  <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} placeholder="000.000.000-00 ou 00.000.000/0001-00" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone</Label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
-                </div>
+                <div className="space-y-1.5"><Label>Telefone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" /></div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Endereço</Label>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, cidade - UF" />
-              </div>
+              <div className="space-y-1.5"><Label>Endereço</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, cidade - UF" /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Nome do responsável</Label>
-                  <Input value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Nome completo" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>E-mail administrativo</Label>
-                  <Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@empresa.com" />
-                </div>
+                <div className="space-y-1.5"><Label>Responsável</Label><Input value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} /></div>
+                <div className="space-y-1.5"><Label>E-mail administrativo</Label><Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} /></div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold">Smart Links na conta</h3>
-              <p className="text-xs text-muted-foreground">Limite de {MAX_SMART_LINKS} Smart Links</p>
+          {/* Projects section */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold">Projetos</h2>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={createProject}>
+                <Plus className="h-3.5 w-3.5" /> Novo Projeto
+              </Button>
             </div>
-            <span className="text-lg font-mono font-semibold">
-              <span className={totalSmartLinksCount >= MAX_SMART_LINKS ? "text-destructive" : "text-foreground"}>
-                {totalSmartLinksCount}
-              </span>
-              <span className="text-muted-foreground">/{MAX_SMART_LINKS}</span>
-            </span>
+            {projects.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum projeto criado.</p>
+            ) : (
+              <div className="space-y-2">
+                {projects.map((p: any) => (
+                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                        {p.name?.charAt(0)?.toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{p.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={p.is_active} onCheckedChange={() => toggleProject(p.id, p.is_active)} />
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteProject(p.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <Button onClick={saveOrganization} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
@@ -366,9 +338,85 @@ export default function Settings() {
         </div>
       )}
 
-      {activeTab === "integrations" && (
-        <div className="max-w-2xl">
-          <WebhookManager />
+      {/* ===== SUBSCRIPTION ===== */}
+      {activeTab === "subscription" && (
+        <div className="max-w-2xl space-y-6">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Plano Atual</h2>
+            <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30 mb-4">
+              <div>
+                <p className="text-lg font-bold capitalize">{subscription?.plans?.name || subscription?.plan_type || "Free"}</p>
+                <p className="text-xs text-muted-foreground">
+                  Status: <Badge variant="outline" className="text-[10px] ml-1 capitalize">{subscription?.status || "active"}</Badge>
+                </p>
+              </div>
+              <p className="text-2xl font-bold">
+                R$ {(subscription?.plans?.price || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                <span className="text-xs text-muted-foreground font-normal">/mês</span>
+              </p>
+            </div>
+            {subscription?.current_period_end && (
+              <p className="text-xs text-muted-foreground">Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</p>
+            )}
+          </div>
+
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4">Planos Disponíveis</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {plans.map((plan: any) => (
+                <div key={plan.id} className={`p-4 rounded-xl border transition-colors ${subscription?.plan_id === plan.id ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/50"}`}>
+                  <h3 className="font-semibold capitalize mb-1">{plan.name}</h3>
+                  <p className="text-xl font-bold mb-3">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
+                  <ul className="space-y-1">
+                    {(plan.features || []).map((f: string, i: number) => (
+                      <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}
+                      </li>
+                    ))}
+                  </ul>
+                  {subscription?.plan_id !== plan.id && (
+                    <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={() => toast({ title: "Em breve", description: "Integração com Stripe será ativada." })}>
+                      Selecionar
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== TEAM ===== */}
+      {activeTab === "team" && (
+        <div className="max-w-2xl space-y-6">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold flex items-center gap-2"><Users className="h-4 w-4 text-primary" />Membros da Equipe</h2>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => toast({ title: "Em breve", description: "Sistema de convites será implementado." })}>
+                <Plus className="h-3.5 w-3.5" /> Convidar
+              </Button>
+            </div>
+            {teamMembers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum membro encontrado.</p>
+            ) : (
+              <div className="space-y-2">
+                {teamMembers.map((m: any) => (
+                  <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                        {m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
+                        <p className="text-[10px] text-muted-foreground">Entrou em {new Date(m.accepted_at || m.invited_at).toLocaleDateString("pt-BR")}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </DashboardLayout>
