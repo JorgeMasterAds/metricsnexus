@@ -1,13 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*' } });
   }
 
   const url = new URL(req.url);
@@ -22,45 +17,35 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  // Get smart link and its active variants
+  // Get smartlink
   const { data: smartLink, error: slError } = await supabase
-    .from('smart_links')
-    .select('id, user_id, is_active, project_id')
+    .from('smartlinks')
+    .select('id, account_id, is_active')
     .eq('slug', slug)
     .eq('is_active', true)
     .maybeSingle();
 
   if (slError || !smartLink) {
-    await supabase.from('redirect_errors').insert({
-      slug,
-      status_code: 404,
-      error_message: slError?.message || 'Smart Link not found',
-    });
     return new Response('Smart Link not found', { status: 404 });
   }
 
+  // Get active variants
   const { data: variants, error: vError } = await supabase
-    .from('variants')
+    .from('smartlink_variants')
     .select('id, url, weight')
-    .eq('smart_link_id', smartLink.id)
+    .eq('smartlink_id', smartLink.id)
     .eq('is_active', true);
 
   if (vError || !variants || variants.length === 0) {
-    await supabase.from('redirect_errors').insert({
-      slug,
-      smart_link_id: smartLink.id,
-      status_code: 404,
-      error_message: 'No active variants',
-    });
     return new Response('No active variants', { status: 404 });
   }
 
   // Weighted random selection
-  const totalWeight = variants.reduce((sum, v) => sum + v.weight, 0);
+  const totalWeight = variants.reduce((sum, v) => sum + (v.weight || 1), 0);
   let random = Math.random() * totalWeight;
   let selectedVariant = variants[0];
   for (const v of variants) {
-    random -= v.weight;
+    random -= (v.weight || 1);
     if (random <= 0) {
       selectedVariant = v;
       break;
@@ -76,76 +61,45 @@ Deno.serve(async (req) => {
   const utmCampaign = url.searchParams.get('utm_campaign') || null;
   const utmTerm = url.searchParams.get('utm_term') || null;
   const utmContent = url.searchParams.get('utm_content') || null;
-  const referer = req.headers.get('referer') || null;
+  const referrer = req.headers.get('referer') || null;
   const userAgent = req.headers.get('user-agent') || null;
 
   // Device detection
-  let device = 'desktop';
+  let deviceType = 'desktop';
   if (userAgent) {
     const ua = userAgent.toLowerCase();
     if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
-      device = 'mobile';
+      deviceType = 'mobile';
     } else if (ua.includes('tablet') || ua.includes('ipad')) {
-      device = 'tablet';
+      deviceType = 'tablet';
     }
   }
 
-  // Bot detection
-  let isBot = false;
-  if (userAgent) {
-    isBot = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview/i.test(userAgent);
-  }
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+                   req.headers.get('x-real-ip') || null;
 
-  // IP hash
-  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                   req.headers.get('x-real-ip') || 'unknown';
-  const ipHash = await hashString(clientIp);
+  // Country from Cloudflare header
+  const country = req.headers.get('cf-ipcountry') || null;
 
-  // Deduplication: check if same ip+user_agent combo in last 2 seconds
-  const twoSecondsAgo = new Date(Date.now() - 2000).toISOString();
-  
-  const { data: recentView } = await supabase
-    .from('views')
-    .select('id')
-    .eq('ip_hash', ipHash)
-    .eq('variant_id', selectedVariant.id)
-    .gte('created_at', twoSecondsAgo)
-    .maybeSingle();
+  // Insert click (fire and forget)
+  supabase.from('clicks').insert({
+    account_id: smartLink.account_id,
+    smartlink_id: smartLink.id,
+    variant_id: selectedVariant.id,
+    click_id: clickId,
+    utm_source: utmSource,
+    utm_medium: utmMedium,
+    utm_campaign: utmCampaign,
+    utm_term: utmTerm,
+    utm_content: utmContent,
+    referrer,
+    ip: clientIp,
+    user_agent: userAgent,
+    device_type: deviceType,
+    country,
+  }).then(() => {});
 
-  const isSuspect = !!recentView || isBot;
-
-  if (!recentView) {
-    // Insert view with project_id
-    supabase.from('views').insert({
-      click_id: clickId,
-      smart_link_id: smartLink.id,
-      variant_id: selectedVariant.id,
-      user_id: smartLink.user_id,
-      project_id: smartLink.project_id,
-      ip_hash: ipHash,
-      user_agent: userAgent,
-      referer: referer,
-      device: device,
-      utm_source: utmSource,
-      utm_medium: utmMedium,
-      utm_campaign: utmCampaign,
-      utm_term: utmTerm,
-      utm_content: utmContent,
-      is_suspect: isSuspect,
-    }).then(() => {});
-
-    // Incremental update daily_metrics
-    const today = new Date().toISOString().split('T')[0];
-    supabase.rpc('upsert_daily_metric_view', {
-      p_date: today,
-      p_user_id: smartLink.user_id,
-      p_smart_link_id: smartLink.id,
-      p_variant_id: selectedVariant.id,
-      p_project_id: smartLink.project_id,
-    }).then(() => {});
-  }
-
-  // Build redirect URL preserving UTMs and adding click_id + utm_term
+  // Build redirect URL
   const destinationUrl = new URL(selectedVariant.url);
   if (utmSource) destinationUrl.searchParams.set('utm_source', utmSource);
   if (utmMedium) destinationUrl.searchParams.set('utm_medium', utmMedium);
@@ -163,11 +117,3 @@ Deno.serve(async (req) => {
     },
   });
 });
-
-async function hashString(str: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
-}

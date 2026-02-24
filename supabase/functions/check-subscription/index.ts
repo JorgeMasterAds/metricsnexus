@@ -24,21 +24,25 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (userError || !userData.user) throw new Error('Unauthorized');
 
-    const userId = userData.user.id;
+    // Get user's account ids
+    const { data: accountIds } = await supabase.rpc('get_user_account_ids', { _user_id: userData.user.id });
 
-    // Get subscription from our table
+    if (!accountIds || accountIds.length === 0) {
+      return new Response(JSON.stringify({ subscribed: false, plan_type: null }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check subscription for first account
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('*')
-      .eq('user_id', userId)
+      .eq('account_id', accountIds[0])
+      .eq('status', 'active')
       .maybeSingle();
 
-    if (!subscription || subscription.status !== 'active') {
-      return new Response(JSON.stringify({
-        subscribed: false,
-        plan_type: null,
-        subscription_end: null,
-      }), {
+    if (!subscription) {
+      return new Response(JSON.stringify({ subscribed: false, plan_type: null }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -51,8 +55,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
