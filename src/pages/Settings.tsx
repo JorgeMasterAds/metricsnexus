@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { Copy, User, Camera, Shield, Settings as SettingsIcon, FolderOpen, Building2 } from "lucide-react";
+import WebhookManager from "@/components/WebhookManager";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
 import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
@@ -34,19 +35,7 @@ export default function Settings() {
     },
   });
 
-  // Fetch webhook_secret separately (sensitive, not in useAccount)
-  const { data: webhookSecretData } = useQuery({
-    queryKey: ["account-webhook-secret", activeAccount?.id],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("accounts")
-        .select("webhook_secret")
-        .eq("id", activeAccount!.id)
-        .maybeSingle();
-      return data?.webhook_secret || "";
-    },
-    enabled: !!activeAccount?.id,
-  });
+  // webhook_secret no longer needed - using token-based webhooks
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -187,13 +176,7 @@ export default function Settings() {
     toast({ title: "Funcionalidade em desenvolvimento", description: "Entre em contato com o suporte para excluir sua conta." });
   };
 
-  const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const webhookUrl = `https://${supabaseProjectId}.supabase.co/functions/v1/webhook`;
-
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copiado!" });
-  };
+  // Webhook URL generation moved to WebhookManager
 
   const tabs = [
     { key: "personal" as const, label: "Dados Pessoais", icon: User },
@@ -384,34 +367,8 @@ export default function Settings() {
       )}
 
       {activeTab === "integrations" && (
-        <div className="max-w-2xl space-y-6">
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-1">Webhook</h2>
-            <p className="text-xs text-muted-foreground mb-4">Configure o recebimento de vendas da sua plataforma.</p>
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>URL do Webhook</Label>
-                <div className="flex items-center gap-2">
-                  <Input readOnly value={webhookUrl} className="font-mono text-xs" />
-                  <Button variant="outline" size="sm" onClick={() => copy(webhookUrl)}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Webhook Secret</Label>
-                <div className="flex items-center gap-2">
-                  <Input readOnly value={webhookSecretData || "Carregando..."} className="font-mono text-xs" />
-                  <Button variant="outline" size="sm" onClick={() => copy(webhookSecretData || "")}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  <strong className="text-warning">Obrigatório:</strong> Envie o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> com este valor.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="max-w-2xl">
+          <WebhookManager />
         </div>
       )}
     </DashboardLayout>
