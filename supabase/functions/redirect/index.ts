@@ -100,7 +100,15 @@ Deno.serve(async (req) => {
   }).then(() => {});
 
   // Build redirect URL
-  const destinationUrl = new URL(selectedVariant.url);
+  let destinationUrl: URL;
+  try {
+    destinationUrl = new URL(selectedVariant.url);
+    if (!['http:', 'https:'].includes(destinationUrl.protocol)) {
+      return new Response('Invalid redirect URL protocol', { status: 400 });
+    }
+  } catch {
+    return new Response('Invalid redirect URL', { status: 400 });
+  }
   if (utmSource) destinationUrl.searchParams.set('utm_source', utmSource);
   if (utmMedium) destinationUrl.searchParams.set('utm_medium', utmMedium);
   if (utmCampaign) destinationUrl.searchParams.set('utm_campaign', utmCampaign);
