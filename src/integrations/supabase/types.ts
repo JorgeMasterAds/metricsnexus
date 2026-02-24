@@ -1268,6 +1268,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_has_admin_access: {
+        Args: { _account_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       ad_platform: "meta" | "google" | "tiktok" | "other"
