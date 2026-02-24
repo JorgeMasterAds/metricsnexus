@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
 import { getFixedGoal } from "@/hooks/useSubscription";
-import { useProject } from "@/hooks/useProject";
+import { useAccount } from "@/hooks/useAccount";
 
 interface Props {
   since: string;
@@ -11,27 +11,24 @@ interface Props {
 }
 
 export default function GamificationBar({ since, until }: Props) {
-  const { activeProject } = useProject();
-  const projectId = activeProject?.id;
+  const { activeAccountId } = useAccount();
 
   const sinceDate = since.split("T")[0];
   const untilDate = until.split("T")[0];
 
-  // Read from daily_metrics instead of raw conversions
   const { data: revenue = 0 } = useQuery({
-    queryKey: ["gamification-revenue", sinceDate, untilDate, projectId],
+    queryKey: ["gamification-revenue", sinceDate, untilDate, activeAccountId],
     queryFn: async () => {
-      let q = supabase
+      const { data } = await (supabase as any)
         .from("daily_metrics")
         .select("revenue")
         .gte("date", sinceDate)
-        .lte("date", untilDate);
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data } = await q;
-      return (data || []).reduce((s, m) => s + Number(m.revenue), 0);
+        .lte("date", untilDate)
+        .eq("account_id", activeAccountId);
+      return (data || []).reduce((s: number, m: any) => s + Number(m.revenue), 0);
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
   const goal = getFixedGoal(revenue);

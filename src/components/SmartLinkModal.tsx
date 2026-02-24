@@ -17,12 +17,12 @@ interface Variant {
 
 interface Props {
   link?: any;
-  projectId?: string;
+  accountId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function SmartLinkModal({ link, projectId, onClose, onSaved }: Props) {
+export default function SmartLinkModal({ link, accountId, onClose, onSaved }: Props) {
   const isEditing = !!link;
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -30,8 +30,8 @@ export default function SmartLinkModal({ link, projectId, onClose, onSaved }: Pr
   const [name, setName] = useState(link?.name || "");
   const [slug, setSlug] = useState(link?.slug || "");
   const [variants, setVariants] = useState<Variant[]>(
-    link?.variants?.length > 0
-      ? link.variants.map((v: any) => ({ id: v.id, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active }))
+    link?.smartlink_variants?.length > 0
+      ? link.smartlink_variants.map((v: any) => ({ id: v.id, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active }))
       : [
           { name: "Variante A", url: "", weight: 50, is_active: true },
           { name: "Variante B", url: "", weight: 50, is_active: true },
@@ -65,20 +65,6 @@ export default function SmartLinkModal({ link, projectId, onClose, onSaved }: Pr
       toast({ title: "Preencha nome e slug", variant: "destructive" });
       return;
     }
-
-    // Server-side limit validation for new links
-    if (!isEditing) {
-      try {
-        const { data: limitCheck } = await supabase.functions.invoke("check-user-limit", {
-          body: null,
-          method: "GET",
-          headers: {},
-        });
-        // Fallback: use query param approach
-      } catch {
-        // If edge function fails, proceed with client-side check
-      }
-    }
     if (totalWeight !== 100) {
       toast({ title: `Pesos devem somar 100% (atual: ${totalWeight}%)`, variant: "destructive" });
       return;
@@ -95,24 +81,24 @@ export default function SmartLinkModal({ link, projectId, onClose, onSaved }: Pr
       if (!userId) throw new Error("Não autenticado");
 
       if (isEditing) {
-        const { error } = await supabase.from("smart_links").update({ name, slug }).eq("id", link.id);
+        const { error } = await (supabase as any).from("smartlinks").update({ name, slug }).eq("id", link.id);
         if (error) throw error;
 
-        await supabase.from("variants").delete().eq("smart_link_id", link.id);
-        const { error: ve } = await supabase.from("variants").insert(
-          variants.map(v => ({ smart_link_id: link.id, user_id: userId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active, project_id: projectId }))
+        await (supabase as any).from("smartlink_variants").delete().eq("smartlink_id", link.id);
+        const { error: ve } = await (supabase as any).from("smartlink_variants").insert(
+          variants.map(v => ({ smartlink_id: link.id, account_id: accountId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active }))
         );
         if (ve) throw ve;
       } else {
-        const { data: sl, error: sle } = await supabase
-          .from("smart_links")
-          .insert({ name, slug: slug.toLowerCase().replace(/\s+/g, "-"), user_id: userId, project_id: projectId } as any)
+        const { data: sl, error: sle } = await (supabase as any)
+          .from("smartlinks")
+          .insert({ name, slug: slug.toLowerCase().replace(/\s+/g, "-"), account_id: accountId, created_by: userId })
           .select()
           .single();
         if (sle) throw sle;
 
-        const { error: ve } = await supabase.from("variants").insert(
-          variants.map(v => ({ smart_link_id: sl.id, user_id: userId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active, project_id: projectId }))
+        const { error: ve } = await (supabase as any).from("smartlink_variants").insert(
+          variants.map(v => ({ smartlink_id: sl.id, account_id: accountId, name: v.name, url: v.url, weight: v.weight, is_active: v.is_active }))
         );
         if (ve) throw ve;
       }

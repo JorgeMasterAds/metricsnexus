@@ -7,7 +7,7 @@ import ProductTour, { TOURS } from "@/components/ProductTour";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
-import { useProject } from "@/hooks/useProject";
+import { useAccount } from "@/hooks/useAccount";
 
 type GroupByKey = "utm_campaign" | "utm_medium" | "utm_content" | "utm_source" | "product_name";
 type SortKey = GroupByKey | "views" | "sales" | "revenue" | "rate" | "ticket";
@@ -26,48 +26,46 @@ export default function UtmReport() {
   const [groupBy, setGroupBy] = useState<GroupByKey>("utm_campaign");
   const [sortKey, setSortKey] = useState<SortKey>("views");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const { activeProject } = useProject();
-  const projectId = activeProject?.id;
+  const { activeAccountId } = useAccount();
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
-  // UTM report still needs raw views for UTM grouping (daily_metrics doesn't have UTM columns)
-  const { data: views = [] } = useQuery({
-    queryKey: ["utm-views", since, until, projectId],
+  // Use clicks table instead of views
+  const { data: clicks = [] } = useQuery({
+    queryKey: ["utm-clicks", since, until, activeAccountId],
     queryFn: async () => {
-      let q = supabase
-        .from("views")
+      let q = (supabase as any)
+        .from("clicks")
         .select("id, utm_source, utm_medium, utm_campaign, utm_content, click_id")
         .gte("created_at", since)
         .lte("created_at", until);
-      if (projectId) q = (q as any).eq("project_id", projectId);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
       const { data } = await q;
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
   const { data: conversions = [] } = useQuery({
-    queryKey: ["utm-conversions", since, until, projectId],
+    queryKey: ["utm-conversions", since, until, activeAccountId],
     queryFn: async () => {
-      let q = supabase
+      let q = (supabase as any)
         .from("conversions")
         .select("id, amount, click_id, status")
         .eq("status", "approved")
         .gte("created_at", since)
         .lte("created_at", until);
-      if (projectId) q = (q as any).eq("project_id", projectId);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
       const { data } = await q;
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
   const { rows, sorted } = useMemo(() => {
-    // Build click_id to conversion map
     const convByClick = new Map<string, number>();
     const convCountByClick = new Map<string, number>();
     conversions.forEach((c: any) => {
@@ -77,10 +75,9 @@ export default function UtmReport() {
       }
     });
 
-    // Group views by selected UTM
     const groups = new Map<string, { views: number; sales: number; revenue: number }>();
     const usedClicks = new Set<string>();
-    views.forEach((v: any) => {
+    clicks.forEach((v: any) => {
       const key = v[groupBy] || "(not set)";
       const entry = groups.get(key) || { views: 0, sales: 0, revenue: 0 };
       entry.views++;
@@ -109,38 +106,35 @@ export default function UtmReport() {
     });
 
     return { rows: r, sorted: s };
-  }, [views, conversions, groupBy, sortKey, sortDir]);
+  }, [clicks, conversions, groupBy, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
   };
 
-  // Fetch product names for product grouping
   const { data: productConversions = [] } = useQuery({
-    queryKey: ["utm-product-conversions", since, until, projectId],
+    queryKey: ["utm-product-conversions", since, until, activeAccountId],
     queryFn: async () => {
-      let q = supabase
+      let q = (supabase as any)
         .from("conversions")
         .select("id, amount, click_id, status, product_name")
         .eq("status", "approved")
         .gte("created_at", since)
         .lte("created_at", until);
-      if (projectId) q = (q as any).eq("project_id", projectId);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
       const { data } = await q;
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId && groupBy === "product_name",
+    enabled: !!activeAccountId && groupBy === "product_name",
   });
 
-  // Product grouping logic
   const productRows = useMemo(() => {
     if (groupBy !== "product_name") return [];
     const groups = new Map<string, { views: number; sales: number; revenue: number }>();
-    // Build click_id to view count
     const viewsByClick = new Map<string, number>();
-    views.forEach((v: any) => {
+    clicks.forEach((v: any) => {
       if (v.click_id) viewsByClick.set(v.click_id, (viewsByClick.get(v.click_id) || 0) + 1);
     });
     productConversions.forEach((c: any) => {
@@ -161,7 +155,7 @@ export default function UtmReport() {
       rate: val.views > 0 ? (val.sales / val.views) * 100 : 0,
       ticket: val.sales > 0 ? val.revenue / val.sales : 0,
     }));
-  }, [groupBy, views, productConversions]);
+  }, [groupBy, clicks, productConversions]);
 
   const displayRows = groupBy === "product_name" ? productRows : sorted;
 
