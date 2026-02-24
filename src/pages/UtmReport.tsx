@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useProject } from "@/hooks/useProject";
 
-type GroupByKey = "utm_campaign" | "utm_medium" | "utm_content" | "utm_source";
+type GroupByKey = "utm_campaign" | "utm_medium" | "utm_content" | "utm_source" | "product_name";
 type SortKey = GroupByKey | "views" | "sales" | "revenue" | "rate" | "ticket";
 
 interface UtmRow {
@@ -116,11 +116,61 @@ export default function UtmReport() {
     else { setSortKey(key); setSortDir("desc"); }
   };
 
+  // Fetch product names for product grouping
+  const { data: productConversions = [] } = useQuery({
+    queryKey: ["utm-product-conversions", since, until, projectId],
+    queryFn: async () => {
+      let q = supabase
+        .from("conversions")
+        .select("id, amount, click_id, status, product_name")
+        .eq("status", "approved")
+        .gte("created_at", since)
+        .lte("created_at", until);
+      if (projectId) q = (q as any).eq("project_id", projectId);
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 60000,
+    enabled: !!projectId && groupBy === "product_name",
+  });
+
+  // Product grouping logic
+  const productRows = useMemo(() => {
+    if (groupBy !== "product_name") return [];
+    const groups = new Map<string, { views: number; sales: number; revenue: number }>();
+    // Build click_id to view count
+    const viewsByClick = new Map<string, number>();
+    views.forEach((v: any) => {
+      if (v.click_id) viewsByClick.set(v.click_id, (viewsByClick.get(v.click_id) || 0) + 1);
+    });
+    productConversions.forEach((c: any) => {
+      const name = c.product_name || "(sem produto)";
+      const entry = groups.get(name) || { views: 0, sales: 0, revenue: 0 };
+      entry.sales++;
+      entry.revenue += Number(c.amount);
+      if (c.click_id && viewsByClick.has(c.click_id)) {
+        entry.views += viewsByClick.get(c.click_id) || 0;
+      }
+      groups.set(name, entry);
+    });
+    return Array.from(groups.entries()).map(([key, val]) => ({
+      key,
+      views: val.views,
+      sales: val.sales,
+      revenue: val.revenue,
+      rate: val.views > 0 ? (val.sales / val.views) * 100 : 0,
+      ticket: val.sales > 0 ? val.revenue / val.sales : 0,
+    }));
+  }, [groupBy, views, productConversions]);
+
+  const displayRows = groupBy === "product_name" ? productRows : sorted;
+
   const groupOptions: { value: GroupByKey; label: string }[] = [
     { value: "utm_campaign", label: "Campaign" },
     { value: "utm_medium", label: "Medium" },
     { value: "utm_content", label: "Content" },
     { value: "utm_source", label: "Source" },
+    { value: "product_name", label: "Produto" },
   ];
 
   return (
@@ -152,7 +202,7 @@ export default function UtmReport() {
           variant="outline"
           size="sm"
           className="text-xs gap-1.5"
-          onClick={() => exportToCsv(sorted.map(r => ({
+          onClick={() => exportToCsv(displayRows.map(r => ({
             [groupBy]: r.key,
             views: r.views,
             vendas: r.sales,
@@ -170,7 +220,7 @@ export default function UtmReport() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/30">
-                <SortHeader label={groupBy.replace("utm_", "").toUpperCase()} sortKey={groupBy} current={sortKey} dir={sortDir} onClick={toggleSort} />
+                <SortHeader label={groupBy === "product_name" ? "PRODUTO" : groupBy.replace("utm_", "").toUpperCase()} sortKey={groupBy} current={sortKey} dir={sortDir} onClick={toggleSort} />
                 <SortHeader label="Views" sortKey="views" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                 <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                 <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
@@ -179,11 +229,11 @@ export default function UtmReport() {
               </tr>
             </thead>
             <tbody>
-              {sorted.length === 0 ? (
+              {displayRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td>
                 </tr>
-              ) : sorted.map((r, i) => (
+              ) : displayRows.map((r, i) => (
                 <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
                   <td className="px-5 py-3 font-medium text-xs">{r.key}</td>
                   <td className="text-right px-5 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
