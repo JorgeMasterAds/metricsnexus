@@ -401,7 +401,25 @@ export default function Settings() {
       )}
 
       {activeTab === "organization" && (
-        <div className="max-w-4xl space-y-6">
+        <div className="space-y-6">
+          {/* Organization Info */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4">Dados da Organização</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Nome da organização</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Ex: Minha Empresa Ltda" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>E-mail de contato</Label>
+                <Input type="email" value={email} readOnly className="opacity-60" />
+              </div>
+            </div>
+            <Button onClick={saveProfile} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 mt-4">
+              {saving ? "Salvando..." : "Salvar organização"}
+            </Button>
+          </div>
+
           {/* Smart Links counter */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 flex items-center justify-between">
             <div>
@@ -416,7 +434,7 @@ export default function Settings() {
             </span>
           </div>
 
-          {/* Project grid like UTMfy */}
+          {/* Project grid - wider cards */}
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -424,19 +442,19 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">Gerencie seus projetos aqui</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {projectStats.map((p) => {
                 const isEditing = editingProjectId === p.id;
                 const hasData = p.views > 0 || p.conversions > 0 || p.smartLinks > 0;
                 return (
-                  <div key={p.id} className="rounded-xl bg-card border border-border/50 card-shadow p-4 flex flex-col">
-                    <div className="flex items-center gap-3 mb-3">
+                  <div key={p.id} className="rounded-xl bg-card border border-border/50 card-shadow p-5 flex flex-col">
+                    <div className="flex items-center gap-4 mb-4">
                       <div className="relative group">
-                        <div className="h-10 w-10 rounded-full bg-muted/50 border border-border/50 overflow-hidden flex items-center justify-center shrink-0">
+                        <div className="h-14 w-14 rounded-full bg-muted/50 border-2 border-border/50 overflow-hidden flex items-center justify-center shrink-0">
                           {p.avatar_url ? (
                             <img src={p.avatar_url} alt={p.name} className="h-full w-full object-cover" />
                           ) : (
-                            <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                            <FolderOpen className="h-6 w-6 text-muted-foreground" />
                           )}
                         </div>
                         <button
@@ -446,7 +464,7 @@ export default function Settings() {
                           }}
                           className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                         >
-                          <Camera className="h-3.5 w-3.5 text-white" />
+                          <Camera className="h-4 w-4 text-white" />
                         </button>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -455,7 +473,7 @@ export default function Settings() {
                             <Input
                               value={editProjectName}
                               onChange={(e) => setEditProjectName(e.target.value)}
-                              className="h-7 text-xs"
+                              className="h-8 text-sm"
                               autoFocus
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") renameProject.mutate({ id: p.id, name: editProjectName });
@@ -463,30 +481,30 @@ export default function Settings() {
                               }}
                             />
                             <button onClick={() => renameProject.mutate({ id: p.id, name: editProjectName })} className="text-success">
-                              <Check className="h-3.5 w-3.5" />
+                              <Check className="h-4 w-4" />
                             </button>
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm font-medium truncate">{p.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold truncate">{p.name}</span>
                               {activeProject?.id === p.id && (
                                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium shrink-0">Ativo</span>
                               )}
                             </div>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               Criado em {new Date(p.created_at).toLocaleDateString("pt-BR")}
                             </span>
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-0.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         {!isEditing && (
                           <button
                             onClick={() => { setEditingProjectId(p.id); setEditProjectName(p.name); }}
-                            className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                            className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
                           >
-                            <Pencil className="h-3 w-3" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
                         <button
@@ -498,20 +516,24 @@ export default function Settings() {
                             }
                             deleteProject.mutate(p.id);
                           }}
-                          className="p-1 rounded hover:bg-destructive/20 transition-colors text-muted-foreground hover:text-destructive"
+                          className="p-1.5 rounded hover:bg-destructive/20 transition-colors text-muted-foreground hover:text-destructive"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-center">
-                      <div className="rounded-lg bg-muted/30 p-2">
-                        <div className="text-[10px] text-muted-foreground">Links</div>
-                        <div className="text-xs font-mono font-semibold">{p.smartLinks}</div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-muted/30 p-2.5">
+                        <div className="text-[10px] text-muted-foreground mb-0.5">Links</div>
+                        <div className="text-sm font-mono font-semibold">{p.smartLinks}</div>
                       </div>
-                      <div className="rounded-lg bg-muted/30 p-2">
-                        <div className="text-[10px] text-muted-foreground">Receita</div>
-                        <div className="text-xs font-mono font-semibold">R$ {p.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</div>
+                      <div className="rounded-lg bg-muted/30 p-2.5">
+                        <div className="text-[10px] text-muted-foreground mb-0.5">Views</div>
+                        <div className="text-sm font-mono font-semibold">{p.views.toLocaleString("pt-BR")}</div>
+                      </div>
+                      <div className="rounded-lg bg-muted/30 p-2.5">
+                        <div className="text-[10px] text-muted-foreground mb-0.5">Receita</div>
+                        <div className="text-sm font-mono font-semibold">R$ {p.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</div>
                       </div>
                     </div>
                   </div>
