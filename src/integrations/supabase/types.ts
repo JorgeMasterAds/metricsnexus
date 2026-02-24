@@ -51,9 +51,15 @@ export type Database = {
       }
       accounts: {
         Row: {
+          address: string | null
+          admin_email: string | null
+          cnpj: string | null
+          company_name: string | null
           created_at: string
           id: string
           name: string
+          phone: string | null
+          responsible_name: string | null
           slug: string | null
           tax_rate: number | null
           timezone: string | null
@@ -61,9 +67,15 @@ export type Database = {
           webhook_secret: string | null
         }
         Insert: {
+          address?: string | null
+          admin_email?: string | null
+          cnpj?: string | null
+          company_name?: string | null
           created_at?: string
           id?: string
           name: string
+          phone?: string | null
+          responsible_name?: string | null
           slug?: string | null
           tax_rate?: number | null
           timezone?: string | null
@@ -71,9 +83,15 @@ export type Database = {
           webhook_secret?: string | null
         }
         Update: {
+          address?: string | null
+          admin_email?: string | null
+          cnpj?: string | null
+          company_name?: string | null
           created_at?: string
           id?: string
           name?: string
+          phone?: string | null
+          responsible_name?: string | null
           slug?: string | null
           tax_rate?: number | null
           timezone?: string | null

@@ -1,12 +1,12 @@
 import DashboardLayout from "@/components/DashboardLayout";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
-import { Copy, Pencil, Check, X, Trash2, FolderOpen, User, Camera, Shield, Settings as SettingsIcon } from "lucide-react";
+import { Copy, User, Camera, Shield, Settings as SettingsIcon, FolderOpen, Building2 } from "lucide-react";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
 import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
@@ -34,18 +34,38 @@ export default function Settings() {
     },
   });
 
+  // Fetch webhook_secret separately (sensitive, not in useAccount)
+  const { data: webhookSecretData } = useQuery({
+    queryKey: ["account-webhook-secret", activeAccount?.id],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("accounts")
+        .select("webhook_secret")
+        .eq("id", activeAccount!.id)
+        .maybeSingle();
+      return data?.webhook_secret || "";
+    },
+    enabled: !!activeAccount?.id,
+  });
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [language, setLanguage] = useState("pt-BR");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [webhookSecret, setWebhookSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<"personal" | "organization" | "integrations">("personal");
+
+  // Organization fields
+  const [orgName, setOrgName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [responsibleName, setResponsibleName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -55,33 +75,19 @@ export default function Settings() {
     if (user) {
       setEmail(user.email || "");
     }
-    if (activeAccount) {
-      setWebhookSecret(activeAccount.webhook_secret || "");
-    }
-  }, [profile, user, activeAccount]);
+  }, [profile, user]);
 
-  // Account stats
-  const { data: accountStats } = useQuery({
-    queryKey: ["account-stats", activeAccount?.id],
-    queryFn: async () => {
-      const [slCount, viewsData, convsData] = await Promise.all([
-        (supabase as any).from("smartlinks").select("id", { count: "exact", head: true }).eq("account_id", activeAccount!.id),
-        (supabase as any).from("daily_metrics").select("views").eq("account_id", activeAccount!.id),
-        (supabase as any).from("daily_metrics").select("conversions, revenue").eq("account_id", activeAccount!.id),
-      ]);
-      const totalViews = (viewsData.data || []).reduce((s: number, m: any) => s + Number(m.views), 0);
-      const totalConversions = (convsData.data || []).reduce((s: number, m: any) => s + Number(m.conversions), 0);
-      const totalRevenue = (convsData.data || []).reduce((s: number, m: any) => s + Number(m.revenue), 0);
-      return {
-        smartLinks: slCount.count || 0,
-        views: totalViews,
-        conversions: totalConversions,
-        revenue: totalRevenue,
-      };
-    },
-    enabled: !!activeAccount?.id,
-    staleTime: 60000,
-  });
+  useEffect(() => {
+    if (activeAccount) {
+      setOrgName(activeAccount.name || "");
+      setCompanyName(activeAccount.company_name || "");
+      setCnpj(activeAccount.cnpj || "");
+      setPhone(activeAccount.phone || "");
+      setAddress(activeAccount.address || "");
+      setResponsibleName(activeAccount.responsible_name || "");
+      setAdminEmail(activeAccount.admin_email || "");
+    }
+  }, [activeAccount]);
 
   const { data: totalSmartLinksCount = 0 } = useQuery({
     queryKey: ["smartlinks-total-count-settings", activeAccount?.id],
@@ -120,6 +126,29 @@ export default function Settings() {
       }
       toast({ title: "Perfil atualizado!" });
       qc.invalidateQueries({ queryKey: ["profile"] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveOrganization = async () => {
+    if (!activeAccount) return;
+    setSaving(true);
+    try {
+      const { error } = await (supabase as any).from("accounts").update({
+        name: orgName,
+        company_name: companyName,
+        cnpj,
+        phone,
+        address,
+        responsible_name: responsibleName,
+        admin_email: adminEmail,
+      }).eq("id", activeAccount.id);
+      if (error) throw error;
+      toast({ title: "Organização atualizada!" });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
@@ -168,7 +197,7 @@ export default function Settings() {
 
   const tabs = [
     { key: "personal" as const, label: "Dados Pessoais", icon: User },
-    { key: "organization" as const, label: "Minha Organização", icon: FolderOpen },
+    { key: "organization" as const, label: "Minha Organização", icon: Building2 },
     { key: "integrations" as const, label: "Integrações", icon: SettingsIcon },
   ];
 
@@ -260,10 +289,10 @@ export default function Settings() {
                 <Shield className="h-5 w-5 text-primary" />
                 <div>
                   <h2 className="text-sm font-semibold">Verificação de dois fatores (2FA)</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Em breve.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Em breve — TOTP com Google Authenticator.</p>
                 </div>
               </div>
-              <Switch checked={false} onCheckedChange={() => toast({ title: "Em breve" })} />
+              <Switch checked={false} onCheckedChange={() => toast({ title: "Em breve", description: "2FA com TOTP (RFC 6238) será implementado em breve." })} />
             </div>
           </div>
 
@@ -291,11 +320,48 @@ export default function Settings() {
       )}
 
       {activeTab === "organization" && (
-        <div className="space-y-6">
+        <div className="max-w-2xl space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-4">Conta Ativa</h2>
-            <p className="text-lg font-semibold">{activeAccount?.name}</p>
-            <p className="text-xs text-muted-foreground mt-1">ID: {activeAccount?.id}</p>
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              Dados da Organização
+            </h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Nome da conta</Label>
+                  <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Minha Empresa" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Razão Social / Nome da empresa</Label>
+                  <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Empresa LTDA" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>CNPJ</Label>
+                  <Input value={cnpj} onChange={(e) => setCnpj(e.target.value)} placeholder="00.000.000/0001-00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Telefone</Label>
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Endereço</Label>
+                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, cidade - UF" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Nome do responsável</Label>
+                  <Input value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>E-mail administrativo</Label>
+                  <Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@empresa.com" />
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 flex items-center justify-between">
@@ -311,22 +377,9 @@ export default function Settings() {
             </span>
           </div>
 
-          {accountStats && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 text-center">
-                <div className="text-[10px] text-muted-foreground mb-1">Views</div>
-                <div className="text-lg font-mono font-semibold">{accountStats.views.toLocaleString("pt-BR")}</div>
-              </div>
-              <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 text-center">
-                <div className="text-[10px] text-muted-foreground mb-1">Conversões</div>
-                <div className="text-lg font-mono font-semibold">{accountStats.conversions.toLocaleString("pt-BR")}</div>
-              </div>
-              <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 text-center">
-                <div className="text-[10px] text-muted-foreground mb-1">Receita</div>
-                <div className="text-lg font-mono font-semibold">R$ {accountStats.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</div>
-              </div>
-            </div>
-          )}
+          <Button onClick={saveOrganization} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
+            {saving ? "Salvando..." : "Salvar organização"}
+          </Button>
         </div>
       )}
 
@@ -348,13 +401,13 @@ export default function Settings() {
               <div className="space-y-1.5">
                 <Label>Webhook Secret</Label>
                 <div className="flex items-center gap-2">
-                  <Input readOnly value={webhookSecret} className="font-mono text-xs" />
-                  <Button variant="outline" size="sm" onClick={() => copy(webhookSecret)}>
+                  <Input readOnly value={webhookSecretData || "Carregando..."} className="font-mono text-xs" />
+                  <Button variant="outline" size="sm" onClick={() => copy(webhookSecretData || "")}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Envie o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> com este valor.
+                  <strong className="text-warning">Obrigatório:</strong> Envie o header <code className="bg-muted px-1 rounded">x-webhook-secret</code> com este valor.
                 </p>
               </div>
             </div>

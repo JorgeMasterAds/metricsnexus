@@ -219,7 +219,7 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
 
             {/* Content with scroll */}
             <div className="flex-1 overflow-y-auto px-4 py-3">
-              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
                 {step.content}
               </p>
             </div>

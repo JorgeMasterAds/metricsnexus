@@ -50,31 +50,42 @@ Deno.serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  // Validate x-webhook-secret header → find account
+  // Validate x-webhook-secret header → find account (REQUIRED)
   const webhookSecret = req.headers.get('x-webhook-secret');
   let accountId: string | null = null;
 
-  if (webhookSecret) {
-    const { data: account } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('webhook_secret', webhookSecret)
-      .maybeSingle();
-
-    if (!account) {
-      await supabase.from('webhook_logs').insert({
-        platform: 'unknown',
-        raw_payload: rawPayload,
-        status: 'error',
-        ignore_reason: 'Invalid x-webhook-secret header',
-      });
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    accountId = account.id;
+  if (!webhookSecret) {
+    await supabase.from('webhook_logs').insert({
+      platform: 'unknown',
+      raw_payload: rawPayload,
+      status: 'error',
+      ignore_reason: 'Missing x-webhook-secret header',
+    });
+    return new Response(JSON.stringify({ error: 'Missing x-webhook-secret header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
+
+  const { data: account } = await supabase
+    .from('accounts')
+    .select('id')
+    .eq('webhook_secret', webhookSecret)
+    .maybeSingle();
+
+  if (!account) {
+    await supabase.from('webhook_logs').insert({
+      platform: 'unknown',
+      raw_payload: rawPayload,
+      status: 'error',
+      ignore_reason: 'Invalid x-webhook-secret header',
+    });
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  accountId = account.id;
 
   const platform = detectPlatform(rawPayload);
 

@@ -7,8 +7,13 @@ interface Account {
   name: string;
   slug: string | null;
   timezone: string;
-  webhook_secret: string;
   created_at: string;
+  company_name: string | null;
+  cnpj: string | null;
+  phone: string | null;
+  address: string | null;
+  responsible_name: string | null;
+  admin_email: string | null;
 }
 
 interface AccountContextType {
@@ -37,7 +42,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("accounts")
-        .select("*")
+        .select("id, name, slug, timezone, created_at, company_name, cnpj, phone, address, responsible_name, admin_email")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data || []) as Account[];
