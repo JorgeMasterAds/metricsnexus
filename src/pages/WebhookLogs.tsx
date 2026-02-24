@@ -8,7 +8,7 @@ import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFil
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
-import { useProject } from "@/hooks/useProject";
+import { useAccount } from "@/hooks/useAccount";
 
 const STATUS_COLOR: Record<string, string> = {
   approved: "bg-success/20 text-success",
@@ -27,31 +27,30 @@ export default function WebhookLogs() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [page, setPage] = useState(0);
-  const { activeProject } = useProject();
-  const projectId = activeProject?.id;
+  const { activeAccountId } = useAccount();
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["webhook-logs", projectId, since, until, page],
+    queryKey: ["webhook-logs", activeAccountId, since, until, page],
     queryFn: async () => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      let q = supabase
+      let q = (supabase as any)
         .from("webhook_logs")
         .select("*", { count: "exact" })
         .gte("created_at", since)
         .lte("created_at", until)
         .order("created_at", { ascending: false })
         .range(from, to);
-      if (projectId) q = (q as any).eq("project_id", projectId);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
       const { data, error, count } = await q;
       if (error) throw error;
       return { logs: data || [], total: count || 0 };
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
   const logs = data?.logs || [];
@@ -168,7 +167,6 @@ export default function WebhookLogs() {
             </div>
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <span className="text-xs text-muted-foreground">

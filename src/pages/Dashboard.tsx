@@ -13,48 +13,43 @@ import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
-import { useProject } from "@/hooks/useProject";
+import { useAccount } from "@/hooks/useAccount";
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
-  const { activeProject } = useProject();
-  const projectId = activeProject?.id;
+  const { activeAccountId } = useAccount();
   const sinceDate = dateRange.from.toISOString().split("T")[0];
   const untilDate = dateRange.to.toISOString().split("T")[0];
 
-  // Read from daily_metrics instead of raw views/conversions
   const { data: metrics = [] } = useQuery({
-    queryKey: ["dash-daily-metrics", sinceDate, untilDate, projectId],
+    queryKey: ["dash-daily-metrics", sinceDate, untilDate, activeAccountId],
     queryFn: async () => {
-      let q = supabase
+      const { data } = await (supabase as any)
         .from("daily_metrics")
-        .select("date, smart_link_id, variant_id, views, conversions, revenue")
+        .select("date, smartlink_id, variant_id, views, conversions, revenue")
         .gte("date", sinceDate)
-        .lte("date", untilDate);
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data } = await q;
+        .lte("date", untilDate)
+        .eq("account_id", activeAccountId);
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
   const { data: smartLinks = [] } = useQuery({
-    queryKey: ["dash-smart-links", projectId],
+    queryKey: ["dash-smartlinks", activeAccountId],
     queryFn: async () => {
-      let q = supabase
-        .from("smart_links")
-        .select("id, name, slug, is_active, created_at, variants(id, name, url, weight, is_active)")
+      const { data } = await (supabase as any)
+        .from("smartlinks")
+        .select("id, name, slug, is_active, created_at, smartlink_variants(id, name, url, weight, is_active)")
+        .eq("account_id", activeAccountId)
         .order("created_at", { ascending: false });
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data } = await q;
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
-  // Pre-compute all metrics from daily_metrics
   const { totalViews, totalSales, totalRevenue, convRate, avgTicket, chartData, salesChartData, linkStats } = useMemo(() => {
     const tv = metrics.reduce((s: number, m: any) => s + Number(m.views), 0);
     const ts = metrics.reduce((s: number, m: any) => s + Number(m.conversions), 0);
@@ -62,7 +57,6 @@ export default function Dashboard() {
     const cr = tv > 0 ? (ts / tv) * 100 : 0;
     const at = ts > 0 ? tr / ts : 0;
 
-    // Chart data from daily_metrics grouped by date
     const dayMap = new Map<string, { views: number; sales: number; revenue: number }>();
     metrics.forEach((m: any) => {
       const dateStr = new Date(m.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
@@ -73,7 +67,6 @@ export default function Dashboard() {
       dayMap.set(dateStr, entry);
     });
 
-    // Fill missing days
     const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000));
     const cd: { date: string; views: number; sales: number }[] = [];
     const scd: { date: string; vendas: number; receita: number }[] = [];
@@ -85,9 +78,8 @@ export default function Dashboard() {
       scd.push({ date: dateStr, vendas: entry.sales, receita: entry.revenue });
     }
 
-    // Link stats from daily_metrics
     const ls = smartLinks.map((link: any) => {
-      const linkMetrics = metrics.filter((m: any) => m.smart_link_id === link.id);
+      const linkMetrics = metrics.filter((m: any) => m.smartlink_id === link.id);
       const lv = linkMetrics.reduce((s: number, m: any) => s + Number(m.views), 0);
       const lc = linkMetrics.reduce((s: number, m: any) => s + Number(m.conversions), 0);
       const lr = linkMetrics.reduce((s: number, m: any) => s + Number(m.revenue), 0);
@@ -156,7 +148,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Daily Sales Chart */}
       <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -187,8 +178,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Product Overview */}
-      <ProductOverview projectId={projectId} sinceDate={sinceDate} untilDate={untilDate} />
+      <ProductOverview accountId={activeAccountId} sinceDate={sinceDate} untilDate={untilDate} />
       <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
         <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Smart Links</h3>
@@ -253,17 +243,17 @@ export default function Dashboard() {
   );
 }
 
-function ProductOverview({ projectId, sinceDate, untilDate }: { projectId?: string; sinceDate: string; untilDate: string }) {
+function ProductOverview({ accountId, sinceDate, untilDate }: { accountId?: string; sinceDate: string; untilDate: string }) {
   const { data: products = [] } = useQuery({
-    queryKey: ["product-overview", sinceDate, untilDate, projectId],
+    queryKey: ["product-overview", sinceDate, untilDate, accountId],
     queryFn: async () => {
-      let q = supabase
+      let q = (supabase as any)
         .from("conversions")
         .select("product_name, amount, is_order_bump")
         .eq("status", "approved")
         .gte("created_at", sinceDate + "T00:00:00")
         .lte("created_at", untilDate + "T23:59:59");
-      if (projectId) q = (q as any).eq("project_id", projectId);
+      if (accountId) q = q.eq("account_id", accountId);
       const { data } = await q;
       if (!data || data.length === 0) return [];
 
@@ -289,7 +279,7 @@ function ProductOverview({ projectId, sinceDate, untilDate }: { projectId?: stri
         .sort((a, b) => b.receita - a.receita);
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!accountId,
   });
 
   if (products.length === 0) return null;

@@ -6,8 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
-import { ProjectProvider, useProject } from "@/hooks/useProject";
-import CreateProjectScreen from "@/components/CreateProjectScreen";
+import { AccountProvider, useAccount } from "@/hooks/useAccount";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -28,8 +27,8 @@ const queryClient = new QueryClient({
   },
 });
 
-function RequireProject({ children }: { children: React.ReactNode }) {
-  const { projects, isLoading, activeProject } = useProject();
+function RequireAccount({ children }: { children: React.ReactNode }) {
+  const { accounts, isLoading, activeAccount } = useAccount();
 
   if (isLoading) {
     return (
@@ -39,8 +38,12 @@ function RequireProject({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (projects.length === 0 || !activeProject) {
-    return <CreateProjectScreen />;
+  if (accounts.length === 0 || !activeAccount) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Carregando conta...</p>
+      </div>
+    );
   }
 
   return <>{children}</>;
@@ -71,9 +74,9 @@ function AppRoutes() {
 
   const Protected = ({ children }: { children: React.ReactNode }) =>
     session ? (
-      <ProjectProvider>
-        <RequireProject>{children}</RequireProject>
-      </ProjectProvider>
+      <AccountProvider>
+        <RequireAccount>{children}</RequireAccount>
+      </AccountProvider>
     ) : (
       <Navigate to="/auth" replace />
     );

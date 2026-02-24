@@ -12,7 +12,7 @@ import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFil
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { exportToCsv } from "@/lib/csv";
 import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
-import { useProject } from "@/hooks/useProject";
+import { useAccount } from "@/hooks/useAccount";
 
 export default function SmartLinks() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -23,95 +23,82 @@ export default function SmartLinks() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { activeProject } = useProject();
-  const projectId = activeProject?.id;
+  const { activeAccountId } = useAccount();
 
   const sinceDate = dateRange.from.toISOString().split("T")[0];
   const untilDate = dateRange.to.toISOString().split("T")[0];
 
   const { data: smartLinks = [], isLoading } = useQuery({
-    queryKey: ["smart-links", projectId],
+    queryKey: ["smartlinks", activeAccountId],
     queryFn: async () => {
-      let q = supabase
-        .from("smart_links")
-        .select("*, variants(*)")
+      const { data, error } = await (supabase as any)
+        .from("smartlinks")
+        .select("*, smartlink_variants(*)")
+        .eq("account_id", activeAccountId)
         .order("created_at", { ascending: false });
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
   const { data: totalSmartLinksCount = 0 } = useQuery({
-    queryKey: ["smart-links-total-count"],
+    queryKey: ["smartlinks-total-count", activeAccountId],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("smart_links")
-        .select("id", { count: "exact", head: true });
+      const { count, error } = await (supabase as any)
+        .from("smartlinks")
+        .select("id", { count: "exact", head: true })
+        .eq("account_id", activeAccountId);
       if (error) throw error;
       return count || 0;
     },
+    enabled: !!activeAccountId,
   });
 
   const atLimit = totalSmartLinksCount >= MAX_SMART_LINKS;
 
-  // Read metrics from daily_metrics instead of raw tables
   const { data: metrics = [] } = useQuery({
-    queryKey: ["sl-daily-metrics", sinceDate, untilDate, projectId],
+    queryKey: ["sl-daily-metrics", sinceDate, untilDate, activeAccountId],
     queryFn: async () => {
-      let q = supabase
+      const { data } = await (supabase as any)
         .from("daily_metrics")
-        .select("smart_link_id, variant_id, views, conversions, revenue")
+        .select("smartlink_id, variant_id, views, conversions, revenue")
         .gte("date", sinceDate)
-        .lte("date", untilDate);
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data } = await q;
+        .lte("date", untilDate)
+        .eq("account_id", activeAccountId);
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
-  // Product data per smart link
   const { data: linkProducts = [] } = useQuery({
-    queryKey: ["sl-products", sinceDate, untilDate, projectId],
+    queryKey: ["sl-products", sinceDate, untilDate, activeAccountId],
     queryFn: async () => {
-      let q = supabase
+      const { data } = await (supabase as any)
         .from("conversions")
-        .select("smart_link_id, product_name, amount, is_order_bump")
+        .select("smartlink_id, product_name, amount, is_order_bump")
         .eq("status", "approved")
         .gte("created_at", sinceDate + "T00:00:00")
-        .lte("created_at", untilDate + "T23:59:59");
-      if (projectId) q = (q as any).eq("project_id", projectId);
-      const { data } = await q;
+        .lte("created_at", untilDate + "T23:59:59")
+        .eq("account_id", activeAccountId);
       return data || [];
     },
     staleTime: 60000,
-    enabled: !!projectId,
+    enabled: !!activeAccountId,
   });
 
-  const { data: profile } = useQuery({
-    queryKey: ["profile-domain"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("custom_domain").maybeSingle();
-      return data;
-    },
-  });
-
-  // Pre-compute metrics per smart_link and variant
   const metricsMap = useMemo(() => {
     const byLink = new Map<string, { views: number; sales: number; revenue: number }>();
     const byVariant = new Map<string, { views: number; sales: number; revenue: number }>();
     metrics.forEach((m: any) => {
-      if (m.smart_link_id) {
-        const entry = byLink.get(m.smart_link_id) || { views: 0, sales: 0, revenue: 0 };
+      if (m.smartlink_id) {
+        const entry = byLink.get(m.smartlink_id) || { views: 0, sales: 0, revenue: 0 };
         entry.views += Number(m.views);
         entry.sales += Number(m.conversions);
         entry.revenue += Number(m.revenue);
-        byLink.set(m.smart_link_id, entry);
+        byLink.set(m.smartlink_id, entry);
       }
       if (m.variant_id) {
         const entry = byVariant.get(m.variant_id) || { views: 0, sales: 0, revenue: 0 };
@@ -122,13 +109,12 @@ export default function SmartLinks() {
       }
     });
 
-    // Products per link
     const productsByLink = new Map<string, Map<string, { vendas: number; receita: number }>>();
     linkProducts.forEach((c: any) => {
-      if (!c.smart_link_id) return;
+      if (!c.smartlink_id) return;
       const name = c.product_name || "Produto desconhecido";
-      if (!productsByLink.has(c.smart_link_id)) productsByLink.set(c.smart_link_id, new Map());
-      const pMap = productsByLink.get(c.smart_link_id)!;
+      if (!productsByLink.has(c.smartlink_id)) productsByLink.set(c.smartlink_id, new Map());
+      const pMap = productsByLink.get(c.smartlink_id)!;
       const entry = pMap.get(name) || { vendas: 0, receita: 0 };
       entry.vendas++;
       entry.receita += Number(c.amount);
@@ -140,31 +126,31 @@ export default function SmartLinks() {
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from("smart_links").update({ is_active }).eq("id", id);
+      const { error } = await (supabase as any).from("smartlinks").update({ is_active }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["smart-links"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["smartlinks"] }),
   });
 
   const deleteLink = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("smart_links").delete().eq("id", id);
+      const { error } = await (supabase as any).from("smartlinks").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["smart-links"] });
-      qc.invalidateQueries({ queryKey: ["smart-links-total-count"] });
+      qc.invalidateQueries({ queryKey: ["smartlinks"] });
+      qc.invalidateQueries({ queryKey: ["smartlinks-total-count"] });
       toast({ title: "Smart Link excluído" });
     },
   });
 
   const updateSlug = useMutation({
     mutationFn: async ({ id, slug }: { id: string; slug: string }) => {
-      const { error } = await supabase.from("smart_links").update({ slug }).eq("id", id);
+      const { error } = await (supabase as any).from("smartlinks").update({ slug }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["smart-links"] });
+      qc.invalidateQueries({ queryKey: ["smartlinks"] });
       setEditingSlug(null);
       toast({ title: "Slug atualizado!" });
     },
@@ -172,28 +158,26 @@ export default function SmartLinks() {
 
   const toggleVariant = useMutation({
     mutationFn: async ({ id, is_active, smartLinkId }: { id: string; is_active: boolean; smartLinkId: string }) => {
-      const { error } = await supabase.from("variants").update({ is_active }).eq("id", id);
+      const { error } = await (supabase as any).from("smartlink_variants").update({ is_active }).eq("id", id);
       if (error) throw error;
-      const { data: activeVariants } = await supabase
-        .from("variants")
+      const { data: activeVariants } = await (supabase as any)
+        .from("smartlink_variants")
         .select("id")
-        .eq("smart_link_id", smartLinkId)
+        .eq("smartlink_id", smartLinkId)
         .eq("is_active", true);
       if (activeVariants && activeVariants.length > 0) {
         const w = Math.floor(100 / activeVariants.length);
         const remainder = 100 - w * activeVariants.length;
         for (let i = 0; i < activeVariants.length; i++) {
-          await supabase.from("variants").update({ weight: w + (i === 0 ? remainder : 0) }).eq("id", activeVariants[i].id);
+          await (supabase as any).from("smartlink_variants").update({ weight: w + (i === 0 ? remainder : 0) }).eq("id", activeVariants[i].id);
         }
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["smart-links"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["smartlinks"] }),
   });
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const customDomain = profile?.custom_domain;
   const getRedirectUrl = (slug: string) => {
-    if (customDomain) return `https://${customDomain}/${slug}`;
     return `https://${supabaseProjectId}.supabase.co/functions/v1/redirect?slug=${slug}`;
   };
 
@@ -214,7 +198,7 @@ export default function SmartLinks() {
   return (
     <DashboardLayout
       title="Smart Links"
-      subtitle={`${totalSmartLinksCount}/${MAX_SMART_LINKS} Smart Links usados (total da conta)`}
+      subtitle={`${totalSmartLinksCount}/${MAX_SMART_LINKS} Smart Links usados`}
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.smartLinks} />
@@ -233,9 +217,9 @@ export default function SmartLinks() {
       {showModal && (
         <SmartLinkModal
           link={editingLink}
-          projectId={projectId}
+          accountId={activeAccountId}
           onClose={() => { setShowModal(false); setEditingLink(null); }}
-          onSaved={() => { qc.invalidateQueries({ queryKey: ["smart-links"] }); qc.invalidateQueries({ queryKey: ["smart-links-total-count"] }); }}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["smartlinks"] }); qc.invalidateQueries({ queryKey: ["smartlinks-total-count"] }); }}
         />
       )}
 
@@ -251,7 +235,7 @@ export default function SmartLinks() {
         </div>
       ) : smartLinks.length === 0 ? (
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center">
-          <p className="text-muted-foreground text-sm mb-4">Nenhum Smart Link neste projeto.</p>
+          <p className="text-muted-foreground text-sm mb-4">Nenhum Smart Link nesta conta.</p>
           <Button className="gradient-bg border-0 text-primary-foreground" onClick={handleNewClick}>
             <Plus className="h-4 w-4 mr-1" /> Criar primeiro Smart Link
           </Button>
@@ -299,7 +283,7 @@ export default function SmartLinks() {
                             /{link.slug}
                           </span>
                         )}
-                        {" · "}{link.variants?.length || 0} variantes · {linkData.views} views · {convRate}% · Ticket R$ {ticket}
+                        {" · "}{link.smartlink_variants?.length || 0} variantes · {linkData.views} views · {convRate}% · Ticket R$ {ticket}
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground font-mono hidden sm:block">
@@ -351,7 +335,7 @@ export default function SmartLinks() {
                           </tr>
                         </thead>
                         <tbody>
-                          {(link.variants || []).map((v: any) => {
+                          {(link.smartlink_variants || []).map((v: any) => {
                             const vData = metricsMap.byVariant.get(v.id) || { views: 0, sales: 0, revenue: 0 };
                             const vRate = vData.views > 0 ? ((vData.sales / vData.views) * 100).toFixed(2) : "0.00";
                             return (
@@ -377,7 +361,6 @@ export default function SmartLinks() {
                         </tbody>
                       </table>
                     </div>
-                    {/* Products sold via this link */}
                     {(() => {
                       const prods = metricsMap.productsByLink.get(link.id);
                       if (!prods || prods.size === 0) return null;
