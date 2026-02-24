@@ -217,6 +217,33 @@ export default function Settings() {
 
       {activeTab === "general" ? (
         <div className="max-w-2xl space-y-6">
+          {/* Projects Overview */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-primary" />
+              Seus Projetos
+            </h2>
+            <div className="space-y-3">
+              {projectStats.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{p.name}</span>
+                      {activeProject?.id === p.id && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium">Ativo</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">Criado em {new Date(p.created_at).toLocaleDateString("pt-BR")}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>{p.smartLinks} links</span>
+                    <span className="font-mono">R$ {p.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Profile */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4">Perfil</h2>

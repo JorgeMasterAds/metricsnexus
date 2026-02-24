@@ -274,6 +274,8 @@ export const TOURS = {
       { title: "Métricas principais", content: "O dashboard exibe Views (total de cliques nos seus Smart Links), Vendas (conversões aprovadas), Taxa de Conversão, Faturamento e Ticket Médio para o período selecionado.", target: ".grid.grid-cols-2" },
       { title: "Filtros de período", content: "Use os botões de período (7 dias, 30 dias, etc.) para alterar o intervalo dos dados exibidos. O filtro personalizado permite escolher datas específicas em um calendário." },
       { title: "Gráfico de Tráfego", content: "O gráfico mostra a evolução diária de Views e Vendas no período. Passe o mouse sobre os pontos para ver detalhes." },
+      { title: "Gráfico de Vendas", content: "O gráfico de vendas diárias mostra a quantidade de vendas (barras) e a receita (linha) por dia. Order bumps são contabilizados separadamente na tabela de produtos abaixo." },
+      { title: "Resumo por Produto", content: "A tabela de produtos exibe vendas, receita, ticket médio e percentual do faturamento total por produto. Order bumps são identificados separadamente." },
       { title: "Tabela de Smart Links", content: "A tabela inferior mostra a performance individual de cada Smart Link no período selecionado, incluindo views, vendas, receita e taxa de conversão." },
     ],
   },
