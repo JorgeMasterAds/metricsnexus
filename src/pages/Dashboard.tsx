@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, ComposedChart, Line,
 } from "recharts";
-import { MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download, ShoppingCart } from "lucide-react";
+import { MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download, ShoppingCart, CreditCard } from "lucide-react";
 import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
@@ -20,24 +20,47 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
-  const sinceDate = dateRange.from.toISOString().split("T")[0];
-  const untilDate = dateRange.to.toISOString().split("T")[0];
+  const sinceISO = dateRange.from.toISOString();
+  const untilISO = dateRange.to.toISOString();
 
-  const { data: metrics = [] } = useQuery({
-    queryKey: ["dash-daily-metrics", sinceDate, untilDate, activeAccountId, activeProjectId],
+  // Primary data source: conversions table (source of truth for revenue)
+  const { data: conversions = [] } = useQuery({
+    queryKey: ["dash-conversions", sinceISO, untilISO, activeAccountId, activeProjectId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("daily_metrics")
-        .select("date, smartlink_id, variant_id, views, conversions, revenue")
-        .gte("date", sinceDate)
-        .lte("date", untilDate)
-        .eq("account_id", activeAccountId);
+      let q = (supabase as any)
+        .from("conversions")
+        .select("id, amount, fees, net_amount, status, product_name, is_order_bump, payment_method, utm_source, created_at, click_id, smartlink_id, variant_id, paid_at")
+        .eq("status", "approved")
+        .gte("created_at", sinceISO)
+        .lte("created_at", untilISO);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data } = await q;
       return data || [];
     },
     staleTime: 60000,
     enabled: !!activeAccountId,
   });
 
+  // Clicks for traffic metrics
+  const { data: clicks = [] } = useQuery({
+    queryKey: ["dash-clicks", sinceISO, untilISO, activeAccountId, activeProjectId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("clicks")
+        .select("id, created_at, smartlink_id, variant_id")
+        .gte("created_at", sinceISO)
+        .lte("created_at", untilISO);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 60000,
+    enabled: !!activeAccountId,
+  });
+
+  // SmartLinks for the table
   const { data: smartLinks = [] } = useQuery({
     queryKey: ["dash-smartlinks", activeAccountId, activeProjectId],
     queryFn: async () => {
@@ -54,46 +77,94 @@ export default function Dashboard() {
     enabled: !!activeAccountId,
   });
 
-  const { totalViews, totalSales, totalRevenue, convRate, avgTicket, chartData, salesChartData, linkStats } = useMemo(() => {
-    const tv = metrics.reduce((s: number, m: any) => s + Number(m.views), 0);
-    const ts = metrics.reduce((s: number, m: any) => s + Number(m.conversions), 0);
-    const tr = metrics.reduce((s: number, m: any) => s + Number(m.revenue), 0);
+  const {
+    totalViews, totalSales, totalRevenue, totalFees, totalNet, convRate, avgTicket,
+    chartData, salesChartData, linkStats, productData, paymentData, sourceData,
+  } = useMemo(() => {
+    const tv = clicks.length;
+    const ts = conversions.length;
+    const tr = conversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const tf = conversions.reduce((s: number, c: any) => s + Number(c.fees || 0), 0);
+    const tn = tr - tf;
     const cr = tv > 0 ? (ts / tv) * 100 : 0;
     const at = ts > 0 ? tr / ts : 0;
 
-    const dayMap = new Map<string, { views: number; sales: number; revenue: number }>();
-    metrics.forEach((m: any) => {
-      const dateStr = new Date(m.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-      const entry = dayMap.get(dateStr) || { views: 0, sales: 0, revenue: 0 };
-      entry.views += Number(m.views);
-      entry.sales += Number(m.conversions);
-      entry.revenue += Number(m.revenue);
-      dayMap.set(dateStr, entry);
-    });
-
+    // Daily chart from clicks + conversions
     const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000));
-    const cd: { date: string; views: number; sales: number }[] = [];
-    const scd: { date: string; vendas: number; receita: number }[] = [];
+    const dayMap = new Map<string, { views: number; sales: number; revenue: number }>();
     for (let i = 0; i < days; i++) {
       const d = new Date(dateRange.from.getTime() + i * 86400000);
-      const dateStr = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-      const entry = dayMap.get(dateStr) || { views: 0, sales: 0, revenue: 0 };
-      cd.push({ date: dateStr, views: entry.views, sales: entry.sales });
-      scd.push({ date: dateStr, vendas: entry.sales, receita: entry.revenue });
+      const ds = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      dayMap.set(ds, { views: 0, sales: 0, revenue: 0 });
     }
+    clicks.forEach((c: any) => {
+      const ds = new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      const entry = dayMap.get(ds);
+      if (entry) entry.views++;
+    });
+    conversions.forEach((c: any) => {
+      const ds = new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      const entry = dayMap.get(ds);
+      if (entry) { entry.sales++; entry.revenue += Number(c.amount); }
+    });
 
+    const cd = Array.from(dayMap.entries()).map(([date, v]) => ({ date, views: v.views, sales: v.sales }));
+    const scd = Array.from(dayMap.entries()).map(([date, v]) => ({ date, vendas: v.sales, receita: v.revenue }));
+
+    // SmartLink stats
     const ls = smartLinks.map((link: any) => {
-      const linkMetrics = metrics.filter((m: any) => m.smartlink_id === link.id);
-      const lv = linkMetrics.reduce((s: number, m: any) => s + Number(m.views), 0);
-      const lc = linkMetrics.reduce((s: number, m: any) => s + Number(m.conversions), 0);
-      const lr = linkMetrics.reduce((s: number, m: any) => s + Number(m.revenue), 0);
+      const lv = clicks.filter((c: any) => c.smartlink_id === link.id).length;
+      const lConvs = conversions.filter((c: any) => c.smartlink_id === link.id);
+      const lc = lConvs.length;
+      const lr = lConvs.reduce((s: number, c: any) => s + Number(c.amount), 0);
       const lRate = lv > 0 ? (lc / lv) * 100 : 0;
       const lTicket = lc > 0 ? lr / lc : 0;
       return { ...link, views: lv, sales: lc, revenue: lr, rate: lRate, ticket: lTicket };
     });
 
-    return { totalViews: tv, totalSales: ts, totalRevenue: tr, convRate: cr, avgTicket: at, chartData: cd, salesChartData: scd, linkStats: ls };
-  }, [metrics, smartLinks, dateRange]);
+    // Product overview
+    const prodMap = new Map<string, { vendas: number; receita: number; isOrderBump: boolean }>();
+    conversions.forEach((c: any) => {
+      const name = c.product_name || "Produto desconhecido";
+      const entry = prodMap.get(name) || { vendas: 0, receita: 0, isOrderBump: c.is_order_bump };
+      entry.vendas++;
+      entry.receita += Number(c.amount);
+      prodMap.set(name, entry);
+    });
+    const productData = Array.from(prodMap.entries())
+      .map(([name, v]) => ({ name, vendas: v.vendas, receita: v.receita, ticket: v.vendas > 0 ? v.receita / v.vendas : 0, percentual: tr > 0 ? (v.receita / tr) * 100 : 0, isOrderBump: v.isOrderBump }))
+      .sort((a, b) => b.receita - a.receita);
+
+    // Payment method
+    const pmMap = new Map<string, { vendas: number; receita: number }>();
+    conversions.forEach((c: any) => {
+      const pm = c.payment_method || "(não informado)";
+      const entry = pmMap.get(pm) || { vendas: 0, receita: 0 };
+      entry.vendas++;
+      entry.receita += Number(c.amount);
+      pmMap.set(pm, entry);
+    });
+    const paymentData = Array.from(pmMap.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.receita - a.receita);
+
+    // Source
+    const srcMap = new Map<string, number>();
+    conversions.forEach((c: any) => {
+      const src = c.utm_source || "(direto)";
+      srcMap.set(src, (srcMap.get(src) || 0) + Number(c.amount));
+    });
+    const sourceData = Array.from(srcMap.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+
+    return {
+      totalViews: tv, totalSales: ts, totalRevenue: tr, totalFees: tf, totalNet: tn,
+      convRate: cr, avgTicket: at, chartData: cd, salesChartData: scd, linkStats: ls,
+      productData, paymentData, sourceData,
+    };
+  }, [clicks, conversions, smartLinks, dateRange]);
 
   return (
     <DashboardLayout
@@ -108,14 +179,16 @@ export default function Dashboard() {
     >
       <GamificationBar since={dateRange.from.toISOString()} until={dateRange.to.toISOString()} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
         <MetricCard label="Total Views" value={totalViews.toLocaleString("pt-BR")} icon={MousePointerClick} />
         <MetricCard label="Vendas" value={totalSales.toLocaleString("pt-BR")} icon={TrendingUp} />
         <MetricCard label="Taxa Conv." value={`${convRate.toFixed(2)}%`} icon={BarChart3} />
-        <MetricCard label="Faturamento" value={`R$ ${totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} icon={DollarSign} />
+        <MetricCard label="Receita Bruta" value={`R$ ${totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} icon={DollarSign} />
+        <MetricCard label="Receita Líquida" value={`R$ ${totalNet.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} icon={DollarSign} />
         <MetricCard label="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} icon={Ticket} />
       </div>
 
+      {/* Traffic & Conversions chart */}
       <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold">Tráfego & Conversões</h3>
@@ -146,24 +219,18 @@ export default function Dashboard() {
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
-            Nenhum dado no período selecionado
-          </div>
+          <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Nenhum dado no período selecionado</div>
         )}
       </div>
 
+      {/* Sales volume chart */}
       <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4 text-primary" />
-            Volume de Vendas Diário
+            <ShoppingCart className="h-4 w-4 text-primary" /> Volume de Vendas Diário
           </h3>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Vendas</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> Receita (R$)</span>
-          </div>
         </div>
-        {salesChartData.some(d => d.vendas > 0 || d.receita > 0) ? (
+        {salesChartData.some(d => d.vendas > 0) ? (
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={salesChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
@@ -176,13 +243,95 @@ export default function Dashboard() {
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
-            Nenhuma venda no período selecionado
+          <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Nenhuma venda no período</div>
+        )}
+      </div>
+
+      {/* New charts row: Payment Method + Revenue by Source */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Payment method chart */}
+        {paymentData.length > 0 && (
+          <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow">
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" /> Meios de Pagamento
+            </h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={paymentData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+                <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} width={100} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(240, 5%, 7%)", border: "1px solid hsl(240, 4%, 16%)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                <Bar dataKey="receita" name="Receita" fill="hsl(200, 80%, 55%)" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-3 space-y-1">
+              {paymentData.map((p: any, i: number) => (
+                <div key={i} className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{p.name}</span>
+                  <span className="font-mono">{p.vendas} vendas · R$ {p.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Revenue by source */}
+        {sourceData.length > 0 && (
+          <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow">
+            <h3 className="text-sm font-semibold mb-4">Receita por Origem (UTM Source)</h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={sourceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(240, 5%, 7%)", border: "1px solid hsl(240, 4%, 16%)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                <Bar dataKey="value" name="Receita" fill="hsl(1, 100%, 57%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>
 
-      <ProductOverview accountId={activeAccountId} sinceDate={sinceDate} untilDate={untilDate} />
+      {/* Product overview */}
+      {productData.length > 0 && (
+        <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-border/50">
+            <h3 className="text-sm font-semibold">Resumo por Produto</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/30">
+                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Produto</th>
+                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
+                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
+                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
+                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">% Fat.</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Tipo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productData.map((p: any, i: number) => (
+                  <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
+                    <td className="px-5 py-3 font-medium text-xs">{p.name}</td>
+                    <td className="text-right px-5 py-3 font-mono text-xs">{p.vendas}</td>
+                    <td className="text-right px-5 py-3 font-mono text-xs">R$ {p.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="text-right px-5 py-3 font-mono text-xs">R$ {p.ticket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="text-right px-5 py-3 font-mono text-xs text-success">{p.percentual.toFixed(1)}%</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-warning/20 text-warning" : "bg-primary/20 text-primary"}`}>
+                        {p.isOrderBump ? "Order Bump" : "Principal"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* SmartLinks table */}
       <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
         <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Smart Links</h3>
@@ -216,7 +365,6 @@ export default function Dashboard() {
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Taxa</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Criação</th>
                 </tr>
               </thead>
               <tbody>
@@ -235,7 +383,6 @@ export default function Dashboard() {
                         {link.is_active ? "Ativo" : "Pausado"}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-xs text-muted-foreground">{new Date(link.created_at).toLocaleDateString("pt-BR")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -244,85 +391,5 @@ export default function Dashboard() {
         )}
       </div>
     </DashboardLayout>
-  );
-}
-
-function ProductOverview({ accountId, sinceDate, untilDate }: { accountId?: string; sinceDate: string; untilDate: string }) {
-  const { data: products = [] } = useQuery({
-    queryKey: ["product-overview", sinceDate, untilDate, accountId],
-    queryFn: async () => {
-      let q = (supabase as any)
-        .from("conversions")
-        .select("product_name, amount, is_order_bump")
-        .eq("status", "approved")
-        .gte("created_at", sinceDate + "T00:00:00")
-        .lte("created_at", untilDate + "T23:59:59");
-      if (accountId) q = q.eq("account_id", accountId);
-      const { data } = await q;
-      if (!data || data.length === 0) return [];
-
-      const map = new Map<string, { vendas: number; receita: number; isOrderBump: boolean }>();
-      data.forEach((c: any) => {
-        const name = c.product_name || "Produto desconhecido";
-        const entry = map.get(name) || { vendas: 0, receita: 0, isOrderBump: c.is_order_bump };
-        entry.vendas++;
-        entry.receita += Number(c.amount);
-        map.set(name, entry);
-      });
-
-      const totalRevenue = data.reduce((s: number, c: any) => s + Number(c.amount), 0);
-      return Array.from(map.entries())
-        .map(([name, v]) => ({
-          name,
-          vendas: v.vendas,
-          receita: v.receita,
-          ticket: v.vendas > 0 ? v.receita / v.vendas : 0,
-          percentual: totalRevenue > 0 ? (v.receita / totalRevenue) * 100 : 0,
-          isOrderBump: v.isOrderBump,
-        }))
-        .sort((a, b) => b.receita - a.receita);
-    },
-    staleTime: 60000,
-    enabled: !!accountId,
-  });
-
-  if (products.length === 0) return null;
-
-  return (
-    <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden mb-6">
-      <div className="px-5 py-4 border-b border-border/50">
-        <h3 className="text-sm font-semibold">Resumo por Produto</h3>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border/30">
-              <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Produto</th>
-              <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
-              <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
-              <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
-              <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">% Fat.</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Tipo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p: any, i: number) => (
-              <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                <td className="px-5 py-3 font-medium text-xs">{p.name}</td>
-                <td className="text-right px-5 py-3 font-mono text-xs">{p.vendas}</td>
-                <td className="text-right px-5 py-3 font-mono text-xs">R$ {p.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                <td className="text-right px-5 py-3 font-mono text-xs">R$ {p.ticket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                <td className="text-right px-5 py-3 font-mono text-xs text-success">{p.percentual.toFixed(1)}%</td>
-                <td className="px-5 py-3">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-warning/20 text-warning" : "bg-primary/20 text-primary"}`}>
-                    {p.isOrderBump ? "Order Bump" : "Principal"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
   );
 }
