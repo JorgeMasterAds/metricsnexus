@@ -1,21 +1,41 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Eye, EyeOff } from "lucide-react";
+import { Activity, Eye, EyeOff, RefreshCw } from "lucide-react";
 
 type Mode = "login" | "register" | "forgot";
+
+function generateCaptcha() {
+  const a = Math.floor(Math.random() * 20) + 1;
+  const b = Math.floor(Math.random() * 20) + 1;
+  return { question: `${a} + ${b} = ?`, answer: String(a + b) };
+}
 
 export default function Auth() {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [captcha, setCaptcha] = useState(generateCaptcha);
+  const [captchaInput, setCaptchaInput] = useState("");
   const { toast } = useToast();
+
+  const refreshCaptcha = useCallback(() => {
+    setCaptcha(generateCaptcha());
+    setCaptchaInput("");
+  }, []);
+
+  // Refresh captcha when switching to register
+  useEffect(() => {
+    if (mode === "register") refreshCaptcha();
+  }, [mode, refreshCaptcha]);
 
   const validatePassword = (pw: string): string | null => {
     if (pw.length < 8) return "A senha deve ter no mínimo 8 caracteres";
@@ -31,6 +51,21 @@ export default function Auth() {
 
     try {
       if (mode === "register") {
+        // Validate captcha
+        if (captchaInput.trim() !== captcha.answer) {
+          toast({ title: "Captcha incorreto", description: "Resolva a operação matemática corretamente.", variant: "destructive" });
+          refreshCaptcha();
+          setLoading(false);
+          return;
+        }
+
+        // Validate password confirmation
+        if (password !== confirmPassword) {
+          toast({ title: "Senhas não conferem", description: "A senha e a confirmação devem ser iguais.", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+
         const pwError = validatePassword(password);
         if (pwError) {
           toast({ title: "Senha fraca", description: pwError, variant: "destructive" });
@@ -67,6 +102,7 @@ export default function Auth() {
       }
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
+      if (mode === "register") refreshCaptcha();
     } finally {
       setLoading(false);
     }
@@ -145,6 +181,62 @@ export default function Auth() {
                   </button>
                 </div>
               </div>
+            )}
+
+            {mode === "register" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmPassword">Confirmar senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Math Captcha */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="captcha">Verificação de segurança</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+                      <span className="text-sm font-mono font-semibold text-foreground select-none">
+                        {captcha.question}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={refreshCaptcha}
+                      className="p-2 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      title="Gerar novo desafio"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Input
+                    id="captcha"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Sua resposta"
+                    value={captchaInput}
+                    onChange={(e) => setCaptchaInput(e.target.value)}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+              </>
             )}
 
             <Button

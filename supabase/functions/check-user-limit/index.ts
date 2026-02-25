@@ -17,6 +17,39 @@ Deno.serve(async (req) => {
   );
 
   try {
+    const url = new URL(req.url);
+    const checkType = url.searchParams.get('check') || 'register';
+
+    // Registration limit check - no auth required
+    if (checkType === 'register') {
+      const { data: settings } = await supabase
+        .from('platform_settings')
+        .select('max_free_users')
+        .eq('id', 'global')
+        .single();
+
+      const maxUsers = settings?.max_free_users || 100;
+
+      // Count total users in the system using auth admin API
+      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1, page: 1 });
+      
+      // Use a count query on profiles as a proxy (more reliable)
+      const { count } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true });
+
+      const currentUsers = count || 0;
+
+      return new Response(JSON.stringify({ 
+        canRegister: currentUsers < maxUsers, 
+        maxUsers,
+        currentUsers 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // All other checks require authentication
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -65,9 +98,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const url = new URL(req.url);
-    const checkType = url.searchParams.get('check') || 'projects';
 
     if (checkType === 'projects') {
       const { count } = await supabase
