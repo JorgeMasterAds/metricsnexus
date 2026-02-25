@@ -183,6 +183,28 @@ function DomainsSection({ accountId }: { accountId?: string }) {
           </div>
           <p className="mt-2"><strong>Exemplo:</strong> Se seu domínio é <code className="bg-muted px-1.5 py-0.5 rounded text-primary">meusite.com.br</code>, crie um registro CNAME chamado <code className="bg-muted px-1.5 py-0.5 rounded text-primary">links</code> apontando para <CopyableValue value={CNAME_TARGET} />.</p>
           <p>Após configurar o DNS, aguarde a propagação (até 72 horas) e clique em "Verificar DNS" para ativar.</p>
+
+          {/* Botões de verificação para domínios pendentes */}
+          {domains.filter((d: any) => !d.is_verified).length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border/30 space-y-2">
+              <p className="text-foreground font-semibold text-xs">Verificar domínios pendentes:</p>
+              {domains.filter((d: any) => !d.is_verified).map((d: any) => (
+                <div key={d.id} className="flex items-center justify-between bg-secondary/50 rounded-lg px-3 py-2">
+                  <span className="font-mono text-xs text-foreground">{d.domain}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    disabled={verifyingId === d.id}
+                    onClick={() => verifyDns(d.id)}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${verifyingId === d.id ? "animate-spin" : ""}`} />
+                    {verifyingId === d.id ? "Verificando..." : "Verificar DNS"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
