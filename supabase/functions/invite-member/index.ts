@@ -84,11 +84,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find user by email
-    const { data: users } = await supabase.auth.admin.listUsers();
-    const targetUser = users?.users?.find(u => u.email === email);
+    // Find user by email using secure RPC (avoids loading all users)
+    const { data: targetUserId } = await supabase.rpc('find_user_id_by_email', { _email: email });
 
-    if (!targetUser) {
+    if (!targetUserId) {
       return new Response(JSON.stringify({ error: 'Usuário não encontrado. Ele precisa criar uma conta primeiro.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -100,7 +99,7 @@ Deno.serve(async (req) => {
       .from('project_users')
       .select('id')
       .eq('project_id', project_id)
-      .eq('user_id', targetUser.id)
+      .eq('user_id', targetUserId)
       .maybeSingle();
 
     if (existing) {
@@ -115,7 +114,7 @@ Deno.serve(async (req) => {
       .from('project_users')
       .insert({
         project_id,
-        user_id: targetUser.id,
+        user_id: targetUserId,
         role,
         invited_at: new Date().toISOString(),
         accepted_at: new Date().toISOString(),

@@ -65,12 +65,11 @@ Deno.serve(async (req) => {
         // Find plan_id
         const { data: planRow } = await supabase.from('plans').select('id').eq('name', planType).maybeSingle();
 
-        // Find user
-        const { data: users } = await supabase.auth.admin.listUsers();
-        const user = users?.users?.find(u => u.email === customerEmail);
-        if (!user) { console.error(`Usuário não encontrado: ${customerEmail}`); break; }
+        // Find user by email using secure RPC (avoids loading all users)
+        const { data: userId } = await supabase.rpc('find_user_id_by_email', { _email: customerEmail });
+        if (!userId) { console.error(`Usuário não encontrado: ${customerEmail}`); break; }
 
-        const { data: accountIds } = await supabase.rpc('get_user_account_ids', { _user_id: user.id });
+        const { data: accountIds } = await supabase.rpc('get_user_account_ids', { _user_id: userId });
         if (!accountIds || accountIds.length === 0) { console.error(`Sem conta para usuário: ${user.id}`); break; }
 
         await supabase.from('subscriptions').upsert({
