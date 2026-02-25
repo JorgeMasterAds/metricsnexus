@@ -442,7 +442,7 @@ export default function Dashboard() {
                 value={investmentInput}
                 onChange={(e) => setInvestmentInput(e.target.value)}
                 placeholder="R$ 0,00"
-                className="text-lg font-bold bg-transparent border-none outline-none w-full p-0 m-0 placeholder:text-muted-foreground/40"
+                className="text-lg font-bold bg-transparent outline-none w-full px-2 py-1 rounded-md border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors"
               />
             </div>
             <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" />
