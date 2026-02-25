@@ -261,6 +261,7 @@ export default function Settings() {
   const tabs = [
     { key: "personal", label: "Dados Pessoais", icon: User },
     { key: "organization", label: "Minha Organização", icon: Building2 },
+    { key: "projects", label: "Projetos", icon: FolderOpen },
     { key: "team", label: "Equipe", icon: Users },
     { key: "webhooks", label: "Webhook Logs", icon: Globe },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
@@ -351,8 +352,16 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Projects section - highlighted */}
-          <div className="rounded-xl bg-card border-2 border-primary/30 card-shadow p-6">
+          <Button onClick={saveOrganization} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
+            {saving ? "Salvando..." : "Salvar organização"}
+          </Button>
+        </div>
+      )}
+
+      {/* ===== PROJECTS ===== */}
+      {activeTab === "projects" && (
+        <div className="max-w-4xl w-full mx-auto space-y-6">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold flex items-center gap-2"><FolderOpen className="h-4 w-4 text-primary" />Projetos</h2>
               <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setCreateProjectOpen(true)}>
@@ -391,10 +400,6 @@ export default function Settings() {
               </div>
             )}
           </div>
-
-          <Button onClick={saveOrganization} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
-            {saving ? "Salvando..." : "Salvar organização"}
-          </Button>
         </div>
       )}
 

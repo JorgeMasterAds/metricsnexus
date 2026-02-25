@@ -36,6 +36,7 @@ const mainNavItems = [
 const settingsSubItems = [
   { icon: Settings, label: "Dados Pessoais", path: "/settings?tab=personal" },
   { icon: Building2, label: "Minha Organização", path: "/settings?tab=organization" },
+  { icon: FolderOpen, label: "Projetos", path: "/settings?tab=projects" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
   { icon: Webhook, label: "Webhook Logs", path: "/settings?tab=webhooks" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
@@ -70,22 +71,6 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
     },
   });
 
-  // Fetch active project for avatar in sidebar
-  const { data: activeProject } = useQuery({
-    queryKey: ["sidebar-active-project", activeAccountId],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("projects")
-        .select("id, name, avatar_url")
-        .eq("account_id", activeAccountId)
-        .eq("is_active", true)
-        .order("created_at")
-        .limit(1)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!activeAccountId,
-  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -103,7 +88,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       </Link>
 
       <div className="px-3 mb-4">
-        <ProjectSelector avatarUrl={activeProject?.avatar_url} />
+        <ProjectSelector />
       </div>
 
       <nav className="flex-1 space-y-1">
@@ -207,7 +192,11 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       <div className="border-t border-sidebar-border pt-4 mt-4 space-y-3">
         {/* Logged-in user */}
         {userProfile && (
-          <div className="flex items-center gap-2.5 px-3">
+          <Link
+            to="/settings?tab=personal"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-2.5 px-3 rounded-lg hover:bg-sidebar-accent/50 transition-colors py-1.5"
+          >
             <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0">
               {userProfile.avatar_url ? (
                 <img src={userProfile.avatar_url} alt="" className="h-full w-full object-cover" />
@@ -219,7 +208,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
               <p className="text-xs font-medium text-sidebar-foreground truncate">{userProfile.full_name || "Usuário"}</p>
               <p className="text-[10px] text-muted-foreground truncate">{userProfile.email}</p>
             </div>
-          </div>
+          </Link>
         )}
         <button
           onClick={handleLogout}

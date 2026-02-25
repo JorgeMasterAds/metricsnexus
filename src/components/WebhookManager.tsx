@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Plus, Trash2, Link2, Pencil, Check, X } from "lucide-react";
+import { Copy, Plus, Trash2, Link2, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +34,14 @@ export default function WebhookManager() {
   const [platform, setPlatform] = useState("hotmart");
   const [platformName, setPlatformName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
+
+  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingWh, setEditingWh] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editPlatform, setEditPlatform] = useState("hotmart");
+  const [editPlatformName, setEditPlatformName] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
@@ -54,6 +60,7 @@ export default function WebhookManager() {
   });
 
   const canSave = name.trim() && (platform !== "other" || platformName.trim());
+  const canEditSave = editName.trim() && (editPlatform !== "other" || editPlatformName.trim());
 
   const createWebhook = async () => {
     if (!canSave || !activeAccountId) return;
@@ -79,6 +86,35 @@ export default function WebhookManager() {
     }
   };
 
+  const openEditModal = (wh: any) => {
+    setEditingWh(wh);
+    setEditName(wh.name);
+    setEditPlatform(wh.platform || "hotmart");
+    setEditPlatformName(wh.platform_name || "");
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!canEditSave || !editingWh) return;
+    setEditSaving(true);
+    try {
+      const { error } = await (supabase as any).from("webhooks").update({
+        name: editName.trim(),
+        platform: editPlatform,
+        platform_name: editPlatform === "other" ? editPlatformName.trim() : null,
+      }).eq("id", editingWh.id);
+      if (error) throw error;
+      toast({ title: "Webhook atualizado!" });
+      setEditOpen(false);
+      setEditingWh(null);
+      qc.invalidateQueries({ queryKey: ["webhooks"] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const toggleWebhook = async (id: string, isActive: boolean) => {
     await (supabase as any).from("webhooks").update({ is_active: !isActive }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["webhooks"] });
@@ -89,14 +125,6 @@ export default function WebhookManager() {
     await (supabase as any).from("webhooks").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["webhooks"] });
     toast({ title: "Webhook excluído" });
-  };
-
-  const renameWebhook = async (id: string) => {
-    if (!editingName.trim()) return;
-    await (supabase as any).from("webhooks").update({ name: editingName.trim() }).eq("id", id);
-    qc.invalidateQueries({ queryKey: ["webhooks"] });
-    setEditingId(null);
-    toast({ title: "Nome atualizado!" });
   };
 
   const copy = (text: string) => {
@@ -134,11 +162,7 @@ export default function WebhookManager() {
             <div className="space-y-4 pt-2">
               <div className="space-y-1.5">
                 <Label>Nome</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Hotmart - Produto X"
-                />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Hotmart - Produto X" />
               </div>
               <div className="space-y-1.5">
                 <Label>Plataforma</Label>
@@ -161,25 +185,58 @@ export default function WebhookManager() {
               {platform === "other" && (
                 <div className="space-y-1.5">
                   <Label>Nome da plataforma *</Label>
-                  <Input
-                    value={platformName}
-                    onChange={(e) => setPlatformName(e.target.value)}
-                    placeholder="Digite o nome da plataforma"
-                    required
-                  />
+                  <Input value={platformName} onChange={(e) => setPlatformName(e.target.value)} placeholder="Digite o nome da plataforma" required />
                 </div>
               )}
-              <Button
-                onClick={createWebhook}
-                disabled={saving || !canSave}
-                className="w-full gradient-bg border-0 text-primary-foreground hover:opacity-90"
-              >
+              <Button onClick={createWebhook} disabled={saving || !canSave} className="w-full gradient-bg border-0 text-primary-foreground hover:opacity-90">
                 {saving ? "Criando..." : "Criar Webhook"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Edit Modal */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Webhook</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Ex: Hotmart - Produto X" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Plataforma</Label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORMS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => setEditPlatform(p.value)}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                      editPlatform === p.value
+                        ? "gradient-bg text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {editPlatform === "other" && (
+              <div className="space-y-1.5">
+                <Label>Nome da plataforma *</Label>
+                <Input value={editPlatformName} onChange={(e) => setEditPlatformName(e.target.value)} placeholder="Digite o nome da plataforma" required />
+              </div>
+            )}
+            <Button onClick={saveEdit} disabled={editSaving || !canEditSave} className="w-full gradient-bg border-0 text-primary-foreground hover:opacity-90">
+              {editSaving ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -198,33 +255,16 @@ export default function WebhookManager() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    {editingId === wh.id ? (
-                      <span className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                        <Input
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          className="h-7 text-sm w-48"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") renameWebhook(wh.id);
-                            if (e.key === "Escape") setEditingId(null);
-                          }}
-                        />
-                        <button onClick={() => renameWebhook(wh.id)} className="p-1 rounded hover:bg-accent text-success"><Check className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => setEditingId(null)} className="p-1 rounded hover:bg-accent text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
-                      </span>
-                    ) : (
-                      <h3 className="text-sm font-semibold truncate flex items-center gap-1.5">
-                        {wh.name}
-                        <button
-                          onClick={() => { setEditingId(wh.id); setEditingName(wh.name); }}
-                          className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent transition-colors"
-                          title="Renomear"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      </h3>
-                    )}
+                    <h3 className="text-sm font-semibold truncate flex items-center gap-1.5">
+                      {wh.name}
+                      <button
+                        onClick={() => openEditModal(wh)}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    </h3>
                     <Badge variant="outline" className="text-[10px] capitalize">
                       {getPlatformLabel(wh)}
                     </Badge>
@@ -236,17 +276,8 @@ export default function WebhookManager() {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <Input
-                      readOnly
-                      value={getWebhookUrl(wh.token)}
-                      className="font-mono text-[11px] h-8 bg-muted/30"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2"
-                      onClick={() => copy(getWebhookUrl(wh.token))}
-                    >
+                    <Input readOnly value={getWebhookUrl(wh.token)} className="font-mono text-[11px] h-8 bg-muted/30" />
+                    <Button variant="outline" size="sm" className="h-8 px-2" onClick={() => copy(getWebhookUrl(wh.token))}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -265,16 +296,8 @@ export default function WebhookManager() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Switch
-                    checked={wh.is_active}
-                    onCheckedChange={() => toggleWebhook(wh.id, wh.is_active)}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    onClick={() => deleteWebhook(wh.id)}
-                  >
+                  <Switch checked={wh.is_active} onCheckedChange={() => toggleWebhook(wh.id, wh.is_active)} />
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => deleteWebhook(wh.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
