@@ -400,8 +400,8 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
         <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
           <div className="px-4 lg:px-8 py-4 lg:py-5">
             <div className="max-w-[1400px] mx-auto w-full">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0 shrink-0">
                   <button
                     onClick={() => setMobileOpen(true)}
                     className="lg:hidden p-1.5 text-muted-foreground hover:text-foreground"
@@ -414,11 +414,16 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  {actions && (
+                    <div className="hidden lg:flex items-center gap-2">
+                      {actions}
+                    </div>
+                  )}
                   <NotificationBell />
                 </div>
               </div>
               {actions && (
-                <div className="flex items-center gap-2 mt-3 overflow-x-auto scrollbar-thin">
+                <div className="flex items-center gap-2 mt-3 overflow-x-auto scrollbar-thin lg:hidden">
                   {actions}
                 </div>
               )}
