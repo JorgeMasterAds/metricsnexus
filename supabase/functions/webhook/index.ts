@@ -5,6 +5,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Basic field sanitization for critical string fields
+const sanitizeString = (val: unknown, maxLen = 500): string | null => {
+  if (val === null || val === undefined) return null;
+  if (typeof val !== 'string') return String(val).slice(0, maxLen);
+  return val.slice(0, maxLen);
+};
+
 const ipRequests = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30;
 const RATE_WINDOW = 60000;
@@ -74,13 +81,6 @@ Deno.serve(async (req) => {
   } catch {
     return new Response('Invalid JSON', { status: 400 });
   }
-
-  // Basic field sanitization for critical string fields
-  const sanitizeString = (val: unknown, maxLen = 500): string | null => {
-    if (val === null || val === undefined) return null;
-    if (typeof val !== 'string') return String(val).slice(0, maxLen);
-    return val.slice(0, maxLen);
-  };
 
   // ── TOKEN-BASED ROUTING ──
   // Extract token from URL path: /webhook/{token}

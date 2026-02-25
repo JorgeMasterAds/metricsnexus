@@ -14,6 +14,7 @@ import ProductTour, { TOURS } from "@/components/ProductTour";
 import { exportToCsv } from "@/lib/csv";
 import { useUsageLimits } from "@/hooks/useSubscription";
 import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
 
 export default function SmartLinks() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -27,6 +28,7 @@ export default function SmartLinks() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { activeAccountId } = useAccount();
+  const { activeProjectId } = useActiveProject();
   const { maxSmartlinks } = useUsageLimits();
 
   // Fetch active custom domain for this account
@@ -49,13 +51,15 @@ export default function SmartLinks() {
   const untilDate = dateRange.to.toISOString().split("T")[0];
 
   const { data: smartLinks = [], isLoading } = useQuery({
-    queryKey: ["smartlinks", activeAccountId],
+    queryKey: ["smartlinks", activeAccountId, activeProjectId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      let q = (supabase as any)
         .from("smartlinks")
         .select("*, smartlink_variants(*)")
         .eq("account_id", activeAccountId)
         .order("created_at", { ascending: false });
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
@@ -64,12 +68,14 @@ export default function SmartLinks() {
   });
 
   const { data: totalSmartLinksCount = 0 } = useQuery({
-    queryKey: ["smartlinks-total-count", activeAccountId],
+    queryKey: ["smartlinks-total-count", activeAccountId, activeProjectId],
     queryFn: async () => {
-      const { count, error } = await (supabase as any)
+      let q = (supabase as any)
         .from("smartlinks")
         .select("id", { count: "exact", head: true })
         .eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { count, error } = await q;
       if (error) throw error;
       return count || 0;
     },
@@ -251,6 +257,7 @@ export default function SmartLinks() {
         <SmartLinkModal
           link={editingLink}
           accountId={activeAccountId}
+          projectId={activeProjectId}
           onClose={() => { setShowModal(false); setEditingLink(null); }}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["smartlinks"] }); qc.invalidateQueries({ queryKey: ["smartlinks-total-count"] }); }}
         />

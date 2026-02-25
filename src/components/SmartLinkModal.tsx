@@ -18,11 +18,12 @@ interface Variant {
 interface Props {
   link?: any;
   accountId?: string;
+  projectId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function SmartLinkModal({ link, accountId, onClose, onSaved }: Props) {
+export default function SmartLinkModal({ link, accountId, projectId, onClose, onSaved }: Props) {
   const isEditing = !!link;
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -92,7 +93,7 @@ export default function SmartLinkModal({ link, accountId, onClose, onSaved }: Pr
       } else {
         const { data: sl, error: sle } = await (supabase as any)
           .from("smartlinks")
-          .insert({ name, slug: slug.toLowerCase().replace(/\s+/g, "-"), account_id: accountId, created_by: userId })
+          .insert({ name, slug: slug.toLowerCase().replace(/\s+/g, "-"), account_id: accountId, project_id: projectId || null, created_by: userId })
           .select()
           .single();
         if (sle) throw sle;

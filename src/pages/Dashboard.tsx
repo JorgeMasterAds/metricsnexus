@@ -14,15 +14,17 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { activeAccountId } = useAccount();
+  const { activeProjectId } = useActiveProject();
   const sinceDate = dateRange.from.toISOString().split("T")[0];
   const untilDate = dateRange.to.toISOString().split("T")[0];
 
   const { data: metrics = [] } = useQuery({
-    queryKey: ["dash-daily-metrics", sinceDate, untilDate, activeAccountId],
+    queryKey: ["dash-daily-metrics", sinceDate, untilDate, activeAccountId, activeProjectId],
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("daily_metrics")
@@ -37,13 +39,15 @@ export default function Dashboard() {
   });
 
   const { data: smartLinks = [] } = useQuery({
-    queryKey: ["dash-smartlinks", activeAccountId],
+    queryKey: ["dash-smartlinks", activeAccountId, activeProjectId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      let q = (supabase as any)
         .from("smartlinks")
         .select("id, name, slug, is_active, created_at, smartlink_variants(id, name, url, weight, is_active)")
         .eq("account_id", activeAccountId)
         .order("created_at", { ascending: false });
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data } = await q;
       return data || [];
     },
     staleTime: 60000,
