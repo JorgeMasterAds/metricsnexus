@@ -1527,18 +1527,21 @@ export type Database = {
       system_announcements: {
         Row: {
           body: string
+          created_by: string | null
           id: string
           published_at: string | null
           title: string
         }
         Insert: {
           body: string
+          created_by?: string | null
           id?: string
           published_at?: string | null
           title: string
         }
         Update: {
           body?: string
+          created_by?: string | null
           id?: string
           published_at?: string | null
           title?: string
