@@ -238,23 +238,9 @@ export default function UtmReport() {
         </div>
       </div>
 
-      {/* Pagination Controls & Export */}
+      {/* Export */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">{displayRows.length} agrupamento(s)</span>
-          <div className="flex items-center gap-1.5">
-            <Label className="text-[10px] text-muted-foreground">Por página:</Label>
-            <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}>
-              <SelectTrigger className="h-7 w-[70px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <span className="text-xs text-muted-foreground">{displayRows.length} agrupamento(s)</span>
         <ExportMenu
           data={displayRows.map((r: any) => {
             const row: any = {};
@@ -327,17 +313,30 @@ export default function UtmReport() {
               </div>
             </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</span>
-                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+            {/* Pagination controls below table */}
+            <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[10px] text-muted-foreground">Por página:</Label>
+                <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}>
+                  <SelectTrigger className="h-7 w-[70px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</span>
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
           </>
         );
       })()}

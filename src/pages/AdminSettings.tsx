@@ -45,8 +45,15 @@ export default function AdminSettings() {
   const { data: superAdmins = [], refetch: refetchAdmins } = useQuery({
     queryKey: ["super-admins-list"],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("super_admins").select("id, user_id, created_at");
-      return data || [];
+      const { data } = await (supabase as any).from("super_admins").select("id, user_id, created_at, profiles:user_id(full_name)");
+      if (!data) return [];
+      // Fetch emails via RPC for each user
+      const enriched = await Promise.all(data.map(async (sa: any) => {
+        // Try to get email from auth - we use find_user_id_by_email in reverse isn't possible,
+        // so we show the profile name and user_id
+        return { ...sa, name: sa.profiles?.full_name || "Sem nome" };
+      }));
+      return enriched;
     },
     enabled: !!isSuperAdmin,
   });
@@ -269,7 +276,8 @@ export default function AdminSettings() {
               {superAdmins.map((sa: any) => (
                 <div key={sa.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                   <div>
-                    <p className="text-xs font-mono">{sa.user_id}</p>
+                    <p className="text-sm font-medium">{sa.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">{sa.user_id}</p>
                     <p className="text-[10px] text-muted-foreground">Desde {new Date(sa.created_at).toLocaleDateString("pt-BR")}</p>
                   </div>
                   <div className="flex items-center gap-2">
