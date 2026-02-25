@@ -126,10 +126,16 @@ function MetricWithTooltip({ label, value, icon: Icon, tooltipKey }: { label: st
 // Custom tooltip component for recharts with white text
 function CustomTooltipContent({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
+  const seen = new Set<string>();
+  const filtered = payload.filter((entry: any) => {
+    if (seen.has(entry.dataKey)) return false;
+    seen.add(entry.dataKey);
+    return true;
+  });
   return (
     <div style={TOOLTIP_STYLE}>
       <p style={{ color: "#e0e0e0", marginBottom: 4, fontWeight: 500 }}>{label}</p>
-      {payload.map((entry: any, i: number) => (
+      {filtered.map((entry: any, i: number) => (
         <p key={i} style={{ color: "#ffffff", fontSize: 12 }}>
           <span style={{ color: entry.color || "#f5f5f5", marginRight: 6 }}>●</span>
           {entry.name}: {typeof entry.value === "number" ? entry.value.toLocaleString("pt-BR") : entry.value}
