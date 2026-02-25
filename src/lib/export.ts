@@ -1,4 +1,4 @@
-import { exportToCsv } from "./csv";
+import { exportToCsv, formatDateForFilename } from "./csv";
 
 export { exportToCsv };
 
@@ -19,7 +19,7 @@ export function exportToExcel(data: Record<string, any>[], filename: string) {
     });
     ws["!cols"] = colWidths;
     
-    XLSX.writeFile(wb, `${filename}.xlsx`);
+    XLSX.writeFile(wb, `${filename}_${formatDateForFilename()}.xlsx`);
   });
 }
 
@@ -36,10 +36,15 @@ export async function exportToPdf(
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Dark background
-  doc.setFillColor(10, 10, 10);
-  doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), "F");
+  const drawPageBackground = () => {
+    doc.setFillColor(15, 15, 18);
+    doc.rect(0, 0, pageWidth, pageHeight, "F");
+  };
+
+  // First page background
+  drawPageBackground();
 
   // Logo text "Nexus Metrics"
   doc.setFontSize(18);
@@ -76,10 +81,10 @@ export async function exportToPdf(
     const kpiWidth = (pageWidth - 28 - (kpis.length - 1) * 4) / kpis.length;
     kpis.forEach((k, i) => {
       const x = 14 + i * (kpiWidth + 4);
-      doc.setFillColor(26, 26, 26);
+      doc.setFillColor(28, 28, 32);
       doc.roundedRect(x, startY, kpiWidth, 16, 2, 2, "F");
       doc.setFontSize(7);
-      doc.setTextColor(130, 130, 130);
+      doc.setTextColor(140, 140, 150);
       doc.text(k.label.toUpperCase(), x + 4, startY + 6);
       doc.setFontSize(12);
       doc.setTextColor(255, 255, 255);
@@ -87,8 +92,6 @@ export async function exportToPdf(
     });
     startY += 22;
   }
-
-
 
   // Group data by "seção" column for separate tables
   const sections = new Map<string, Record<string, any>[]>();
@@ -98,7 +101,6 @@ export async function exportToPdf(
     sections.get(sectionName)!.push(row);
   });
 
-  // If no "seção" column, treat as single table
   if (sections.size <= 1 && !data[0]?.["seção"]) {
     sections.clear();
     sections.set("Dados", data);
@@ -107,13 +109,19 @@ export async function exportToPdf(
   for (const [sectionName, sectionData] of sections) {
     if (sectionData.length === 0) continue;
 
+    // Check if near bottom, add page if needed
+    if (startY > pageHeight - 40) {
+      doc.addPage();
+      drawPageBackground();
+      startY = 20;
+    }
+
     // Section title
     doc.setFontSize(11);
     doc.setTextColor(220, 50, 50);
     doc.text(sectionName, 14, startY + 4);
     startY += 8;
 
-    // Get headers excluding "seção" column
     const headers = Object.keys(sectionData[0]).filter((h) => h !== "seção");
     const body = sectionData.map((row) => headers.map((h) => String(row[h] ?? "")));
 
@@ -125,9 +133,9 @@ export async function exportToPdf(
       styles: {
         fontSize: 8,
         cellPadding: 3,
-        textColor: [220, 220, 220],
-        fillColor: [10, 10, 10],
-        lineColor: [40, 40, 40],
+        textColor: [230, 230, 235],
+        fillColor: [15, 15, 18],
+        lineColor: [45, 45, 50],
         lineWidth: 0.2,
       },
       headStyles: {
@@ -137,32 +145,23 @@ export async function exportToPdf(
         fontSize: 7,
       },
       alternateRowStyles: {
-        fillColor: [18, 18, 18],
+        fillColor: [22, 22, 26],
       },
       margin: { left: 14, right: 14 },
-      didDrawPage: (pageData: any) => {
-        // Black background on every page
-        const pageH = doc.internal.pageSize.getHeight();
-        doc.setFillColor(10, 10, 10);
-        doc.rect(0, 0, pageWidth, pageH, "F");
-        // Footer
+      willDrawPage: () => {
+        // Draw background BEFORE content on new pages
+        drawPageBackground();
+      },
+      didDrawPage: () => {
+        // Footer on every page
         doc.setFontSize(7);
-        doc.setTextColor(80, 80, 80);
-        doc.text("Nexus Metrics — Relatório exportado automaticamente", pageWidth / 2, pageH - 8, { align: "center" });
+        doc.setTextColor(80, 80, 85);
+        doc.text("Nexus Metrics — Relatório exportado automaticamente", pageWidth / 2, pageHeight - 8, { align: "center" });
       },
     });
 
-    // Get the final Y position after the table for the next section
     startY = (doc as any).lastAutoTable?.finalY + 10 || startY + 30;
-
-    // If near bottom of page, add new page
-    if (startY > doc.internal.pageSize.getHeight() - 30) {
-      doc.addPage();
-      doc.setFillColor(10, 10, 10);
-      doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), "F");
-      startY = 20;
-    }
   }
 
-  doc.save(`${filename}.pdf`);
+  doc.save(`${filename}_${formatDateForFilename()}.pdf`);
 }
