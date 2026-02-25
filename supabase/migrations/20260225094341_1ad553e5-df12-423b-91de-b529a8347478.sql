@@ -1,0 +1,1 @@
+ALTER TABLE public.custom_domains ADD COLUMN project_id uuid REFERENCES public.projects(id) ON DELETE CASCADE;

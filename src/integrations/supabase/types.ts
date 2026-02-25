@@ -512,6 +512,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_verified: boolean
+          project_id: string | null
           updated_at: string
           verification_token: string
         }
@@ -522,6 +523,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_verified?: boolean
+          project_id?: string | null
           updated_at?: string
           verification_token?: string
         }
@@ -532,6 +534,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_verified?: boolean
+          project_id?: string | null
           updated_at?: string
           verification_token?: string
         }
@@ -541,6 +544,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_domains_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
