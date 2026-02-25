@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download, FolderOpen, Filter, Webhook, Gift, ExternalLink, CheckCircle, Clock, DollarSign } from "lucide-react";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download, FolderOpen, Filter, Webhook, Gift, ExternalLink, CheckCircle, Clock, DollarSign, Key, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
@@ -370,6 +370,7 @@ export default function Settings() {
     { key: "team", label: "Equipe", icon: Users },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
     { key: "referrals", label: "Indicações", icon: Gift },
+    { key: "apis", label: "APIs", icon: Key },
   ];
 
   return (
@@ -775,6 +776,11 @@ export default function Settings() {
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
       <EditProjectModal open={!!editProject} onOpenChange={(o) => { if (!o) setEditProject(null); }} project={editProject} />
 
+      {/* ===== APIs ===== */}
+      {activeTab === "apis" && (
+        <ApiKeysTab accountId={activeAccountId} />
+      )}
+
       {/* Deactivation confirmation dialog */}
       <AlertDialog open={!!deactivateProject} onOpenChange={(o) => { if (!o) setDeactivateProject(null); }}>
         <AlertDialogContent>
@@ -797,5 +803,127 @@ export default function Settings() {
         </AlertDialogContent>
       </AlertDialog>
     </DashboardLayout>
+  );
+}
+
+function ApiKeysTab({ accountId }: { accountId: string | null }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [showAdd, setShowAdd] = useState(false);
+  const [provider, setProvider] = useState("openai");
+  const [label, setLabel] = useState("");
+  const [apiKey, setApiKey] = useState("");
+
+  const { data: keys = [], isLoading } = useQuery({
+    queryKey: ["ai-api-keys", accountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("ai_api_keys")
+        .select("id, provider, label, is_active, created_at")
+        .eq("account_id", accountId)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!accountId,
+  });
+
+  const handleAdd = async () => {
+    if (!label.trim() || !apiKey.trim()) return;
+    const { error } = await (supabase as any).from("ai_api_keys").insert({
+      account_id: accountId,
+      provider,
+      label: label.trim(),
+      api_key_encrypted: apiKey.trim(),
+    });
+    if (error) {
+      toast({ title: "Erro", description: "Falha ao salvar API key", variant: "destructive" });
+      return;
+    }
+    toast({ title: "API key adicionada!" });
+    qc.invalidateQueries({ queryKey: ["ai-api-keys"] });
+    setShowAdd(false);
+    setLabel("");
+    setApiKey("");
+  };
+
+  const handleDelete = async (id: string) => {
+    await (supabase as any).from("ai_api_keys").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["ai-api-keys"] });
+    toast({ title: "API key removida" });
+  };
+
+  return (
+    <div className="w-full space-y-6">
+      <div className="rounded-xl bg-card border border-border/50 card-shadow p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">Chaves de API — Provedores de IA</h3>
+            <p className="text-xs text-muted-foreground mt-1">Cadastre suas API keys para OpenAI, Anthropic, Groq e outros.</p>
+          </div>
+          <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1.5 text-xs">
+            <Plus className="h-3.5 w-3.5" /> Nova API Key
+          </Button>
+        </div>
+
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-muted-foreground">
+          <strong className="text-amber-400">🔒 Segurança:</strong> As chaves são armazenadas no banco e nunca expostas no frontend.
+        </div>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Carregando...</div>
+        ) : keys.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Nenhuma API key cadastrada</div>
+        ) : (
+          <div className="space-y-2">
+            {keys.map((k: any) => (
+              <div key={k.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/10">
+                <div className="flex items-center gap-3">
+                  <Key className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">{k.label}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{k.provider} • {new Date(k.created_at).toLocaleDateString("pt-BR")}</p>
+                  </div>
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(k.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showAdd && (
+        <div className="rounded-xl bg-card border border-border/50 card-shadow p-6 space-y-4">
+          <h4 className="text-sm font-semibold">Adicionar API Key</h4>
+          <div className="grid gap-3">
+            <div>
+              <Label className="text-xs">Provedor</Label>
+              <Select value={provider} onValueChange={setProvider}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="z-50 bg-popover border border-border shadow-lg">
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="anthropic">Anthropic</SelectItem>
+                  <SelectItem value="groq">Groq</SelectItem>
+                  <SelectItem value="other">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Nome / Identificador</Label>
+              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ex: OpenAI Produção" />
+            </div>
+            <div>
+              <Label className="text-xs">API Key</Label>
+              <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleAdd}>Salvar</Button>
+            <Button size="sm" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

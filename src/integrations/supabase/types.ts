@@ -218,6 +218,164 @@ export type Database = {
           },
         ]
       }
+      agent_execution_logs: {
+        Row: {
+          account_id: string
+          actions_executed: Json | null
+          agent_id: string
+          ai_response: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          status: string
+          trigger_data: Json | null
+        }
+        Insert: {
+          account_id: string
+          actions_executed?: Json | null
+          agent_id: string
+          ai_response?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          status?: string
+          trigger_data?: Json | null
+        }
+        Update: {
+          account_id?: string
+          actions_executed?: Json | null
+          agent_id?: string
+          ai_response?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          status?: string
+          trigger_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_execution_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_execution_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agents: {
+        Row: {
+          account_id: string
+          actions: Json
+          ai_config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          max_executions_per_minute: number
+          name: string
+          project_id: string | null
+          trigger_config: Json | null
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          actions?: Json
+          ai_config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_executions_per_minute?: number
+          name: string
+          project_id?: string | null
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          actions?: Json
+          ai_config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_executions_per_minute?: number
+          name?: string
+          project_id?: string | null
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agents_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_api_keys: {
+        Row: {
+          account_id: string
+          api_key_encrypted: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          api_key_encrypted: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          api_key_encrypted?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_api_keys_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clicks: {
         Row: {
           account_id: string
@@ -2377,6 +2535,63 @@ export type Database = {
           },
           {
             foreignKeyName: "webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_devices: {
+        Row: {
+          account_id: string
+          api_key_encrypted: string
+          api_url: string
+          created_at: string
+          id: string
+          instance_name: string
+          last_seen_at: string | null
+          phone_number: string | null
+          project_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          api_key_encrypted: string
+          api_url: string
+          created_at?: string
+          id?: string
+          instance_name: string
+          last_seen_at?: string | null
+          phone_number?: string | null
+          project_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          api_key_encrypted?: string
+          api_url?: string
+          created_at?: string
+          id?: string
+          instance_name?: string
+          last_seen_at?: string | null
+          phone_number?: string | null
+          project_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_devices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_devices_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
