@@ -24,8 +24,8 @@ const mainNavItems = [
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
   { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
   { icon: FileBarChart, label: "Relatório UTM", path: "/utm-report" },
-  { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
   { icon: Plug, label: "Integrações", path: "/integrations" },
+  { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
 ];
 
 const settingsSubItems = [

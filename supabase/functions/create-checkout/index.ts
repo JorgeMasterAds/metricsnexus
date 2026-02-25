@@ -21,10 +21,10 @@ Deno.serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     const { data } = await supabase.auth.getUser(token);
     const user = data.user;
-    if (!user?.email) throw new Error('User not authenticated');
+    if (!user?.email) throw new Error('Usuário não autenticado');
 
     const { priceId } = await req.json();
-    if (!priceId) throw new Error('Missing priceId');
+    if (!priceId) throw new Error('priceId é obrigatório');
 
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2025-08-27.basil' });
     
@@ -41,14 +41,16 @@ Deno.serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${origin}/dashboard?checkout=success`,
-      cancel_url: `${origin}/settings?checkout=cancel`,
+      success_url: `${origin}/settings?tab=subscription&checkout=success`,
+      cancel_url: `${origin}/settings?tab=subscription&checkout=cancel`,
+      metadata: { user_id: user.id },
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    console.error('[create-checkout] Error:', error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
