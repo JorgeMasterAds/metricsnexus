@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type GroupKey = "utm_source" | "utm_campaign" | "utm_medium" | "utm_content" | "utm_term" | "product_name" | "payment_method";
-type SortKey = GroupKey | "views" | "sales" | "revenue" | "rate" | "ticket";
+type SortKey = GroupKey | "views" | "sales" | "revenue" | "ticket";
 
 const GROUP_OPTIONS: { value: GroupKey; label: string }[] = [
   { value: "utm_source", label: "Source" },
@@ -70,7 +70,6 @@ export default function UtmReport() {
     enabled: !!activeAccountId,
   });
 
-  // Extract unique values for dropdowns
   const distinctValues = useMemo(() => {
     const extract = (key: string) => {
       const set = new Set<string>();
@@ -89,7 +88,7 @@ export default function UtmReport() {
     };
   }, [clicks, conversions]);
 
-  const { displayRows, totalSales, totalRevenue } = useMemo(() => {
+  const { displayRows, totalSales, totalRevenue, totalViews, totalTicket } = useMemo(() => {
     const filtered = conversions.filter((c: any) => {
       if (fSource !== "all" && (c.utm_source || '') !== fSource) return false;
       if (fMedium !== "all" && (c.utm_medium || '') !== fMedium) return false;
@@ -110,7 +109,6 @@ export default function UtmReport() {
       return true;
     });
 
-    // Build composite key from active groups only
     const makeKey = (item: any) => activeGroups.map(g => item[g] || "(não informado)").join("||");
 
     const groups = new Map<string, any>();
@@ -134,7 +132,6 @@ export default function UtmReport() {
 
     const rows = Array.from(groups.values()).map(val => ({
       ...val,
-      rate: val.views > 0 ? (val.sales / val.views) * 100 : 0,
       ticket: val.sales > 0 ? val.revenue / val.sales : 0,
     }));
 
@@ -145,10 +142,16 @@ export default function UtmReport() {
       return sortDir === "asc" ? aV - bV : bV - aV;
     });
 
+    const tSales = filtered.length;
+    const tRevenue = filtered.reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const tViews = rows.reduce((s: number, r: any) => s + r.views, 0);
+
     return {
       displayRows: rows,
-      totalSales: filtered.length,
-      totalRevenue: filtered.reduce((s: number, c: any) => s + Number(c.amount), 0),
+      totalSales: tSales,
+      totalRevenue: tRevenue,
+      totalViews: tViews,
+      totalTicket: tSales > 0 ? tRevenue / tSales : 0,
     };
   }, [clicks, conversions, sortKey, sortDir, fSource, fMedium, fCampaign, fContent, fTerm, fProduct, fPayment, activeGroups]);
 
@@ -161,7 +164,7 @@ export default function UtmReport() {
     setActiveGroups(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
   };
 
-  const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <DashboardLayout
@@ -174,7 +177,7 @@ export default function UtmReport() {
         </div>
       }
     >
-      {/* Filters - dropdown selects */}
+      {/* Filters */}
       <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
         <div className="flex items-center gap-2 mb-3">
           <FileBarChart className="h-4 w-4 text-primary" />
@@ -191,7 +194,7 @@ export default function UtmReport() {
         </div>
       </div>
 
-      {/* Grouping selector */}
+      {/* Grouping */}
       <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
@@ -225,11 +228,11 @@ export default function UtmReport() {
         </div>
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
           <div className="text-xs text-muted-foreground">Ticket Médio</div>
-          <div className="text-xl font-bold mt-1">{totalSales > 0 ? fmt(totalRevenue / totalSales) : "R$ 0,00"}</div>
+          <div className="text-xl font-bold mt-1">{fmt(totalTicket)}</div>
         </div>
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
           <div className="text-xs text-muted-foreground">Views (clicks)</div>
-          <div className="text-xl font-bold mt-1">{clicks.length.toLocaleString("pt-BR")}</div>
+          <div className="text-xl font-bold mt-1">{totalViews.toLocaleString("pt-BR")}</div>
         </div>
       </div>
 
@@ -239,14 +242,14 @@ export default function UtmReport() {
         <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => exportToCsv(displayRows.map((r: any) => {
           const row: any = {};
           activeGroups.forEach(g => { row[g] = r[g]; });
-          row.views = r.views; row.vendas = r.sales; row.receita = r.revenue.toFixed(2); row.taxa = r.rate.toFixed(2) + "%"; row.ticket_medio = r.ticket.toFixed(2);
+          row.views = r.views; row.vendas = r.sales; row.receita = r.revenue.toFixed(2); row.ticket_medio = r.ticket.toFixed(2);
           return row;
         }), "utm-report")}>
           <Download className="h-3.5 w-3.5" /> CSV
         </Button>
       </div>
 
-      {/* Table */}
+      {/* Table — removed "Taxa" column, added totals row */}
       <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -258,24 +261,36 @@ export default function UtmReport() {
               <SortHeader label="Views" sortKey="views" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
               <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
               <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
-              <SortHeader label="Taxa" sortKey="rate" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
               <SortHeader label="Ticket" sortKey="ticket" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
             </tr></thead>
             <tbody>
               {displayRows.length === 0 ? (
-                <tr><td colSpan={activeGroups.length + 5} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
-              ) : displayRows.map((r: any, i: number) => (
-                <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                  {activeGroups.map((g, gi) => (
-                    <td key={g} className={`px-4 py-3 text-xs truncate max-w-[120px] ${gi === 0 ? "font-medium" : "text-muted-foreground"}`} title={r[g]}>{r[g]}</td>
+                <tr><td colSpan={activeGroups.length + 4} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
+              ) : (
+                <>
+                  {displayRows.map((r: any, i: number) => (
+                    <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
+                      {activeGroups.map((g, gi) => (
+                        <td key={g} className={`px-4 py-3 text-xs truncate max-w-[120px] ${gi === 0 ? "font-medium" : "text-muted-foreground"}`} title={r[g]}>{r[g]}</td>
+                      ))}
+                      <td className="text-right px-4 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
+                      <td className="text-right px-4 py-3 font-mono text-xs">{r.sales.toLocaleString("pt-BR")}</td>
+                      <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.revenue)}</td>
+                      <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.ticket)}</td>
+                    </tr>
                   ))}
-                  <td className="text-right px-4 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
-                  <td className="text-right px-4 py-3 font-mono text-xs">{r.sales.toLocaleString("pt-BR")}</td>
-                  <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.revenue)}</td>
-                  <td className="text-right px-4 py-3 font-mono text-xs" style={{ color: "hsl(1, 100%, 57%)" }}>{r.rate.toFixed(2)}%</td>
-                  <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.ticket)}</td>
-                </tr>
-              ))}
+                  {/* Totals row */}
+                  <tr className="border-t-2 border-primary/30 bg-primary/5 font-semibold">
+                    {activeGroups.map((g, gi) => (
+                      <td key={g} className="px-4 py-3 text-xs">{gi === 0 ? "TOTAL" : ""}</td>
+                    ))}
+                    <td className="text-right px-4 py-3 font-mono text-xs">{totalViews.toLocaleString("pt-BR")}</td>
+                    <td className="text-right px-4 py-3 font-mono text-xs">{totalSales.toLocaleString("pt-BR")}</td>
+                    <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalRevenue)}</td>
+                    <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalTicket)}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
