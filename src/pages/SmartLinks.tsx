@@ -18,7 +18,7 @@ import { useActiveProject } from "@/hooks/useActiveProject";
 import { useProjectRole } from "@/hooks/useProjectRole";
 
 export default function SmartLinks() {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [editingLink, setEditingLink] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
   const [showDomainWarning, setShowDomainWarning] = useState(false);
@@ -357,7 +357,7 @@ export default function SmartLinks() {
       ) : (
         <div className="space-y-3">
           {smartLinks.map((link: any) => {
-            const isExpanded = expandedId === link.id;
+            const isExpanded = !collapsedIds.has(link.id);
             const linkData = metricsMap.byLink.get(link.id) || { views: 0, sales: 0, revenue: 0 };
             const convRate = linkData.views > 0 ? ((linkData.sales / linkData.views) * 100).toFixed(2) : "0.00";
             const ticket = linkData.sales > 0 ? (linkData.revenue / linkData.sales).toFixed(2) : "0.00";
@@ -366,7 +366,7 @@ export default function SmartLinks() {
               <div key={link.id} className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
                 <div className="flex items-center px-5 py-4 gap-3">
                   <button
-                    onClick={() => setExpandedId(isExpanded ? null : link.id)}
+                    onClick={() => setCollapsedIds(prev => { const next = new Set(prev); if (isExpanded) next.add(link.id); else next.delete(link.id); return next; })}
                     className="flex-1 flex items-center gap-3 text-left"
                   >
                     <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", link.is_active ? "bg-success" : "bg-muted-foreground")} />
