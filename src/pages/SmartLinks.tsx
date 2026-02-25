@@ -11,7 +11,7 @@ import SmartLinkModal from "@/components/SmartLinkModal";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { exportToCsv } from "@/lib/csv";
-import { MAX_SMART_LINKS } from "@/hooks/useSubscription";
+import { useUsageLimits } from "@/hooks/useSubscription";
 import { useAccount } from "@/hooks/useAccount";
 
 export default function SmartLinks() {
@@ -24,6 +24,7 @@ export default function SmartLinks() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { activeAccountId } = useAccount();
+  const { maxSmartlinks } = useUsageLimits();
 
   const sinceDate = dateRange.from.toISOString().split("T")[0];
   const untilDate = dateRange.to.toISOString().split("T")[0];
@@ -56,7 +57,7 @@ export default function SmartLinks() {
     enabled: !!activeAccountId,
   });
 
-  const atLimit = totalSmartLinksCount >= MAX_SMART_LINKS;
+  const atLimit = totalSmartLinksCount >= maxSmartlinks;
 
   const { data: metrics = [] } = useQuery({
     queryKey: ["sl-daily-metrics", sinceDate, untilDate, activeAccountId],
@@ -188,7 +189,7 @@ export default function SmartLinks() {
 
   const handleNewClick = () => {
     if (atLimit) {
-      toast({ title: "Limite atingido", description: `Você atingiu o limite de ${MAX_SMART_LINKS} Smart Links na sua conta.`, variant: "destructive" });
+      toast({ title: "Limite atingido", description: `Você atingiu o limite de ${maxSmartlinks} Smart Links na sua conta.`, variant: "destructive" });
       return;
     }
     setEditingLink(null);
@@ -198,7 +199,7 @@ export default function SmartLinks() {
   return (
     <DashboardLayout
       title="Smart Links"
-      subtitle={`${totalSmartLinksCount}/${MAX_SMART_LINKS} Smart Links usados`}
+      subtitle={`${totalSmartLinksCount}/${maxSmartlinks} Smart Links usados`}
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.smartLinks} />
@@ -225,7 +226,7 @@ export default function SmartLinks() {
 
       {atLimit && (
         <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 text-xs text-warning">
-          Você atingiu o limite de {MAX_SMART_LINKS} Smart Links na sua conta.
+          Você atingiu o limite de {maxSmartlinks} Smart Links na sua conta.
         </div>
       )}
 

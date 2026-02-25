@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
         if (!userId) { console.error(`Usuário não encontrado: ${customerEmail}`); break; }
 
         const { data: accountIds } = await supabase.rpc('get_user_account_ids', { _user_id: userId });
-        if (!accountIds || accountIds.length === 0) { console.error(`Sem conta para usuário: ${user.id}`); break; }
+        if (!accountIds || accountIds.length === 0) { console.error(`Sem conta para usuário: ${userId}`); break; }
 
         await supabase.from('subscriptions').upsert({
           account_id: accountIds[0],

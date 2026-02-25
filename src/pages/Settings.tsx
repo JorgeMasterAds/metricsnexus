@@ -476,22 +476,52 @@ export default function Settings() {
           </div>
 
           {isSuperAdmin && (
-            <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-              <h2 className="text-sm font-semibold mb-2 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" />Configuração Stripe (Super Admin)</h2>
-              <p className="text-xs text-muted-foreground mb-3">Criar products e prices no Stripe e vincular aos planos.</p>
-              <Button size="sm" variant="outline" className="text-xs" onClick={async () => {
-                try {
-                  const { data, error } = await supabase.functions.invoke("setup-stripe");
-                  if (error) throw error;
-                  toast({ title: "Stripe configurado!", description: JSON.stringify(data?.results?.map((r: any) => `${r.plan}: ${r.status}`)) });
-                  refetchPlans();
-                } catch (err: any) {
-                  toast({ title: "Erro", description: err.message, variant: "destructive" });
-                }
-              }}>
-                Configurar Stripe
-              </Button>
-            </div>
+            <>
+              <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+                <h2 className="text-sm font-semibold mb-2 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" />Configuração Stripe (Super Admin)</h2>
+                <p className="text-xs text-muted-foreground mb-3">Criar products e prices no Stripe e vincular aos planos.</p>
+                <Button size="sm" variant="outline" className="text-xs" onClick={async () => {
+                  try {
+                    const { data, error } = await supabase.functions.invoke("setup-stripe");
+                    if (error) throw error;
+                    toast({ title: "Stripe configurado!", description: JSON.stringify(data?.results?.map((r: any) => `${r.plan}: ${r.status}`)) });
+                    refetchPlans();
+                  } catch (err: any) {
+                    toast({ title: "Erro", description: err.message, variant: "destructive" });
+                  }
+                }}>
+                  Configurar Stripe
+                </Button>
+              </div>
+
+              <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+                <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Globe className="h-4 w-4 text-primary" />Configuração do Webhook Stripe</h2>
+                <div className="space-y-3 text-xs text-muted-foreground">
+                  <p>Configure o webhook no painel do Stripe para receber atualizações de assinatura automaticamente.</p>
+                  <div className="space-y-2">
+                    <p className="font-semibold text-foreground">1. URL do Endpoint:</p>
+                    <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-3 font-mono text-xs">
+                      <span className="text-primary break-all select-all">https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/stripe-webhook</span>
+                      <button onClick={() => { navigator.clipboard.writeText("https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/stripe-webhook"); toast({ title: "URL copiada!" }); }} className="shrink-0 p-1 rounded hover:bg-accent"><Copy className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-foreground">2. Eventos para selecionar:</p>
+                    <ul className="list-disc list-inside space-y-0.5 ml-2">
+                      <li><code className="bg-muted px-1 rounded">checkout.session.completed</code></li>
+                      <li><code className="bg-muted px-1 rounded">invoice.paid</code></li>
+                      <li><code className="bg-muted px-1 rounded">invoice.payment_failed</code></li>
+                      <li><code className="bg-muted px-1 rounded">customer.subscription.deleted</code></li>
+                      <li><code className="bg-muted px-1 rounded">customer.subscription.updated</code></li>
+                    </ul>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-foreground">3. Webhook Secret:</p>
+                    <p>Após criar o webhook no Stripe, copie o <code className="bg-muted px-1 rounded">Signing secret</code> (whsec_...) e adicione como <code className="bg-muted px-1 rounded">STRIPE_WEBHOOK_SECRET</code> nas configurações de secrets do Supabase.</p>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

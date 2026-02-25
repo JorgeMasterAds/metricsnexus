@@ -5,9 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MAX_USERS = 10;
-const MAX_SMART_LINKS_PER_USER = 25;
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -20,57 +17,108 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const url = new URL(req.url);
-    const checkType = url.searchParams.get('check') || 'users';
-
-    if (checkType === 'smart_links') {
-      // Validate smart link limit for a specific user
-      const authHeader = req.headers.get('authorization');
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const { count, error } = await supabase
-        .from('smart_links')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      const currentCount = count || 0;
-      const canCreate = currentCount < MAX_SMART_LINKS_PER_USER;
-
-      return new Response(JSON.stringify({
-        canCreate,
-        currentCount,
-        maxSmartLinks: MAX_SMART_LINKS_PER_USER,
-      }), {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Default: check user registration limit
-    const { count, error } = await supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true });
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    if (error) throw error;
+    // Check if super_admin - bypass all limits
+    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin', { _user_id: user.id });
+    if (isSuperAdmin) {
+      return new Response(JSON.stringify({ canCreate: true, isSuperAdmin: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const canRegister = (count || 0) < MAX_USERS;
+    // Get user's account
+    const { data: accountIds } = await supabase.rpc('get_user_account_ids', { _user_id: user.id });
+    if (!accountIds || accountIds.length === 0) {
+      return new Response(JSON.stringify({ error: 'Sem conta vinculada' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const accountId = accountIds[0];
 
-    return new Response(JSON.stringify({ canRegister, currentUsers: count || 0, maxUsers: MAX_USERS }), {
+    // Get usage limits for the account
+    const { data: limits } = await supabase
+      .from('usage_limits')
+      .select('*')
+      .eq('account_id', accountId)
+      .single();
+
+    if (!limits) {
+      return new Response(JSON.stringify({ error: 'Limites não encontrados' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const url = new URL(req.url);
+    const checkType = url.searchParams.get('check') || 'projects';
+
+    if (checkType === 'projects') {
+      const { count } = await supabase
+        .from('projects')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId);
+      const current = count || 0;
+      const max = limits.max_projects || 1;
+      return new Response(JSON.stringify({ canCreate: current < max, current, max }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (checkType === 'smartlinks') {
+      const { count } = await supabase
+        .from('smartlinks')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId);
+      const current = count || 0;
+      const max = limits.max_smartlinks || 1;
+      return new Response(JSON.stringify({ canCreate: current < max, current, max }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (checkType === 'webhooks') {
+      const { count } = await supabase
+        .from('webhooks')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId);
+      const current = count || 0;
+      const max = limits.max_webhooks || 1;
+      return new Response(JSON.stringify({ canCreate: max === -1 || current < max, current, max }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (checkType === 'users') {
+      const { count } = await supabase
+        .from('account_users')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId);
+      const current = count || 0;
+      const max = limits.max_users || 1;
+      return new Response(JSON.stringify({ canCreate: current < max, current, max }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: 'Tipo de verificação inválido' }), {
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

@@ -7,7 +7,34 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAccount } from "@/hooks/useAccount";
 import { useState } from "react";
-import { Globe } from "lucide-react";
+import { Globe, Copy, Check } from "lucide-react";
+
+const CNAME_TARGET = "fnpmuffrqrlofjvqytof.supabase.co";
+
+function CopyableValue({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    toast({ title: "Copiado!" });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-primary break-all select-all">{value}</span>
+      <button
+        onClick={handleCopy}
+        className="shrink-0 p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+        title="Copiar valor"
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+    </span>
+  );
+}
 
 export default function Resources() {
   const { activeAccountId } = useAccount();
@@ -100,13 +127,13 @@ function DomainsSection({ accountId }: { accountId?: string }) {
               <span className="text-foreground font-semibold">Nome</span>
               <span className="text-foreground font-semibold">Valor</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 items-center">
               <span>CNAME</span>
               <span>links (ou seu subdomínio)</span>
-              <span className="text-primary break-all">fnpmuffrqrlofjvqytof.supabase.co</span>
+              <CopyableValue value={CNAME_TARGET} />
             </div>
           </div>
-          <p className="mt-2"><strong>Exemplo:</strong> Se seu domínio é <code className="bg-muted px-1.5 py-0.5 rounded text-primary">meusite.com.br</code>, crie um registro CNAME chamado <code className="bg-muted px-1.5 py-0.5 rounded text-primary">links</code> apontando para <code className="bg-muted px-1.5 py-0.5 rounded text-primary">fnpmuffrqrlofjvqytof.supabase.co</code>.</p>
+          <p className="mt-2"><strong>Exemplo:</strong> Se seu domínio é <code className="bg-muted px-1.5 py-0.5 rounded text-primary">meusite.com.br</code>, crie um registro CNAME chamado <code className="bg-muted px-1.5 py-0.5 rounded text-primary">links</code> apontando para <CopyableValue value={CNAME_TARGET} />.</p>
           <p>Após configurar o DNS, aguarde a propagação (até 72 horas) e clique em "Verificar DNS" para ativar.</p>
         </div>
       </div>
