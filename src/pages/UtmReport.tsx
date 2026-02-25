@@ -1,3 +1,4 @@
+/* v2 - force full remount */
 import { useState, useMemo, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery } from "@tanstack/react-query";
