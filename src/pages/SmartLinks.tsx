@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import SmartLinkModal from "@/components/SmartLinkModal";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
@@ -18,11 +19,13 @@ export default function SmartLinks() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingLink, setEditingLink] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDomainWarning, setShowDomainWarning] = useState(false);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [slugValue, setSlugValue] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { toast } = useToast();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { activeAccountId } = useAccount();
   const { maxSmartlinks } = useUsageLimits();
 
@@ -211,6 +214,16 @@ export default function SmartLinks() {
       toast({ title: "Limite atingido", description: `Você atingiu o limite de ${maxSmartlinks} Smart Links na sua conta.`, variant: "destructive" });
       return;
     }
+    if (!customDomain) {
+      setShowDomainWarning(true);
+      return;
+    }
+    setEditingLink(null);
+    setShowModal(true);
+  };
+
+  const proceedCreateSmartLink = () => {
+    setShowDomainWarning(false);
     setEditingLink(null);
     setShowModal(true);
   };
@@ -241,6 +254,48 @@ export default function SmartLinks() {
           onClose={() => { setShowModal(false); setEditingLink(null); }}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["smartlinks"] }); qc.invalidateQueries({ queryKey: ["smartlinks-total-count"] }); }}
         />
+      )}
+
+      {/* Domain warning modal */}
+      {showDomainWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-card border border-border/50 rounded-xl card-shadow p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-warning" />
+              </div>
+              <h3 className="text-base font-semibold">Domínio não configurado</h3>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Você ainda não configurou seu <strong>Domínio Personalizado</strong>. Isso é altamente recomendado para profissionalizar seus links e evitar exposição do domínio técnico.
+            </p>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" size="sm" onClick={proceedCreateSmartLink}>
+                Continuar mesmo assim
+              </Button>
+              <Button
+                size="sm"
+                className="gradient-bg border-0 text-primary-foreground hover:opacity-90"
+                onClick={() => { setShowDomainWarning(false); navigate("/resources"); }}
+              >
+                Ir para Recursos → Domínios
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Domain alert banner */}
+      {!customDomain && !isLoading && (
+        <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 flex items-center gap-3">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+          <span className="text-xs text-warning flex-1">
+            <strong>Recomendado:</strong> Configure um Domínio Personalizado antes de criar Smart Links para profissionalizar seus links.
+          </span>
+          <Button variant="outline" size="sm" className="text-xs shrink-0 h-7" onClick={() => navigate("/resources")}>
+            Configurar
+          </Button>
+        </div>
       )}
 
       {atLimit && (
