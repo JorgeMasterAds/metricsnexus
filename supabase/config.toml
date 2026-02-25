@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.form-submit]
 verify_jwt = false
+
+[functions.agent-execute]
+verify_jwt = false

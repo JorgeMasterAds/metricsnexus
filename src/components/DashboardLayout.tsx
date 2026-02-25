@@ -24,6 +24,8 @@ import {
   ScrollText,
   Webhook,
   Sparkles,
+  Bot,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,7 +48,6 @@ const integrationSubItems = [
 
 const settingsSubItems = [
   { icon: Settings, label: "Dados Pessoais", path: "/settings?tab=personal" },
-  
   { icon: FolderOpen, label: "Projetos", path: "/settings?tab=projects" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
@@ -215,16 +216,20 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
-              Agente de IA
-              <span className="ml-auto text-[9px] bg-muted/50 px-1.5 py-0.5 rounded">em breve</span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
-        </Tooltip>
+        {/* Agente de IA */}
+        <Link
+          to="/ai-agents"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+            location.pathname === "/ai-agents"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <Bot className={cn("h-4 w-4", location.pathname === "/ai-agents" && "text-primary")} />
+          Agente de IA
+        </Link>
 
         {/* CRM with submenu */}
         <div>
@@ -298,6 +303,21 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
         >
           <Layers className={cn("h-4 w-4", location.pathname === "/resources" && "text-primary")} />
           Recursos
+        </Link>
+
+        {/* Dispositivos */}
+        <Link
+          to="/devices"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+            location.pathname === "/devices"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <Smartphone className={cn("h-4 w-4", location.pathname === "/devices" && "text-primary")} />
+          Dispositivos
         </Link>
 
         {/* Configurações with submenu */}
