@@ -260,7 +260,7 @@ export default function AdminSettings() {
 
   return (
     <DashboardLayout title="Administração" subtitle="Configurações do sistema (Super Admin)">
-      <div className="max-w-4xl w-full mx-auto flex items-center gap-1 mb-6 border-b border-border/50 flex-wrap">
+      <div className="w-full flex items-center gap-1 mb-6 border-b border-border/50 flex-wrap">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -276,7 +276,7 @@ export default function AdminSettings() {
       </div>
 
       {activeTab === "novidades" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Plus className="h-4 w-4 text-primary" />Publicar Novidade
@@ -393,7 +393,7 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "platform" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Globe className="h-4 w-4 text-primary" />Configurações da Plataforma
@@ -415,7 +415,7 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "plans" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Package className="h-4 w-4 text-primary" />Limites por Plano
@@ -467,7 +467,7 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "limits" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-2 flex items-center gap-2">
               <Sliders className="h-4 w-4 text-primary" />Limites Globais da Plataforma
@@ -484,7 +484,7 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "superadmins" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <UserPlus className="h-4 w-4 text-primary" />Promover Super Admin
@@ -524,7 +524,7 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "stripe" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-2 flex items-center gap-2">
               <Shield className="h-4 w-4 text-primary" />Configuração Stripe
@@ -545,7 +545,7 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "webhook-stripe" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Globe className="h-4 w-4 text-primary" />Configuração do Webhook Stripe
