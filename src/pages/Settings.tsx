@@ -7,20 +7,24 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Trash2, Edit2 } from "lucide-react";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Trash2, Edit2, Mail, UserPlus } from "lucide-react";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CreateProjectModal from "@/components/CreateProjectModal";
 
 export default function Settings() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { activeAccount, activeAccountId } = useAccount();
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const projectAvatarInputRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") || "personal";
   const [activeTab, setActiveTab] = useState(tabParam);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
 
   useEffect(() => { setActiveTab(tabParam); }, [tabParam]);
 
@@ -41,8 +45,6 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Organization fields
   const [orgName, setOrgName] = useState("");
@@ -52,6 +54,14 @@ export default function Settings() {
   const [address, setAddress] = useState("");
   const [responsibleName, setResponsibleName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
+
+  // Team invite
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteProjectId, setInviteProjectId] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
+  const [inviting, setInviting] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingProjectName, setEditingProjectName] = useState("");
 
   useEffect(() => {
     if (profile) { setFullName(profile.full_name || ""); setAvatarUrl(profile.avatar_url || ""); }
@@ -105,7 +115,22 @@ export default function Settings() {
     },
   });
 
-  // --- Team members ---
+  // --- Team members by project ---
+  const { data: projectMembers = [] } = useQuery({
+    queryKey: ["project-members", activeAccountId],
+    queryFn: async () => {
+      if (!projects.length) return [];
+      const projectIds = projects.map((p: any) => p.id);
+      const { data } = await (supabase as any)
+        .from("project_users")
+        .select("*, profiles:user_id(full_name, avatar_url)")
+        .in("project_id", projectIds);
+      return data || [];
+    },
+    enabled: projects.length > 0,
+  });
+
+  // --- Account members ---
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members", activeAccountId],
     queryFn: async () => {
@@ -128,6 +153,18 @@ export default function Settings() {
     setAvatarUrl(url);
     qc.invalidateQueries({ queryKey: ["profile"] });
     toast({ title: "Foto atualizada!" });
+  };
+
+  const uploadProjectAvatar = async (file: File, projectId: string) => {
+    const ext = file.name.split(".").pop();
+    const path = `projects/${projectId}.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (error) { toast({ title: "Erro no upload", description: error.message, variant: "destructive" }); return; }
+    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+    const url = urlData.publicUrl + "?t=" + Date.now();
+    await (supabase as any).from("projects").update({ avatar_url: url }).eq("id", projectId);
+    qc.invalidateQueries({ queryKey: ["projects"] });
+    toast({ title: "Foto do projeto atualizada!" });
   };
 
   const saveProfile = async () => {
@@ -176,26 +213,44 @@ export default function Settings() {
     } finally { setSaving(false); }
   };
 
-  const createProject = async () => {
-    if (!activeAccountId) return;
-    const projectName = prompt("Nome do projeto:");
-    if (!projectName?.trim()) return;
-    const { error } = await (supabase as any).from("projects").insert({ account_id: activeAccountId, name: projectName.trim() });
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Projeto criado!" });
-    qc.invalidateQueries({ queryKey: ["projects"] });
-  };
-
-  const deleteProject = async (id: string) => {
-    if (!confirm("Excluir este projeto?")) return;
-    await (supabase as any).from("projects").delete().eq("id", id);
-    qc.invalidateQueries({ queryKey: ["projects"] });
-    toast({ title: "Projeto excluído" });
-  };
-
   const toggleProject = async (id: string, isActive: boolean) => {
     await (supabase as any).from("projects").update({ is_active: !isActive }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["projects"] });
+  };
+
+  const saveProjectName = async (id: string) => {
+    if (!editingProjectName.trim()) return;
+    await (supabase as any).from("projects").update({ name: editingProjectName.trim() }).eq("id", id);
+    setEditingProjectId(null);
+    qc.invalidateQueries({ queryKey: ["projects"] });
+    toast({ title: "Nome do projeto atualizado!" });
+  };
+
+  const inviteMember = async () => {
+    if (!inviteEmail.trim() || !inviteProjectId) {
+      toast({ title: "Preencha email e selecione um projeto", variant: "destructive" });
+      return;
+    }
+    setInviting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("invite-member", {
+        body: { email: inviteEmail.trim(), project_id: inviteProjectId, role: inviteRole },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Membro adicionado!", description: data?.message });
+      setInviteEmail("");
+      qc.invalidateQueries({ queryKey: ["project-members"] });
+    } catch (err: any) {
+      toast({ title: "Erro ao convidar", description: err.message, variant: "destructive" });
+    } finally { setInviting(false); }
+  };
+
+  const removeMember = async (memberId: string) => {
+    if (!confirm("Remover este membro do projeto?")) return;
+    await (supabase as any).from("project_users").delete().eq("id", memberId);
+    qc.invalidateQueries({ queryKey: ["project-members"] });
+    toast({ title: "Membro removido" });
   };
 
   const tabs = [
@@ -262,23 +317,6 @@ export default function Settings() {
           <Button onClick={saveProfile} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
             {saving ? "Salvando..." : "Salvar dados pessoais"}
           </Button>
-
-          <div className="rounded-xl bg-card border border-destructive/30 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-1 text-destructive">Zona de Perigo</h2>
-            <p className="text-xs text-muted-foreground mb-4">Ações irreversíveis da sua conta</p>
-            {!showDeleteConfirm ? (
-              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>Apagar conta</Button>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-xs text-destructive">Para confirmar, digite <strong>APAGAR MINHA CONTA</strong>:</p>
-                <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="APAGAR MINHA CONTA" className="border-destructive/50" />
-                <div className="flex gap-2">
-                  <Button variant="destructive" onClick={() => toast({ title: "Em desenvolvimento" })} disabled={deleteConfirm !== "APAGAR MINHA CONTA"}>Confirmar</Button>
-                  <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirm(""); }}>Cancelar</Button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       )}
 
@@ -311,7 +349,7 @@ export default function Settings() {
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold">Projetos</h2>
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={createProject}>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setCreateProjectOpen(true)}>
                 <Plus className="h-3.5 w-3.5" /> Novo Projeto
               </Button>
             </div>
@@ -322,19 +360,58 @@ export default function Settings() {
                 {projects.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                        {p.name?.charAt(0)?.toUpperCase()}
+                      <div className="relative group">
+                        <div className="h-9 w-9 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt={p.name} className="h-full w-full object-cover" />
+                          ) : (
+                            p.name?.charAt(0)?.toUpperCase()
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.onchange = (e) => {
+                              const f = (e.target as HTMLInputElement).files?.[0];
+                              if (f) uploadProjectAvatar(f, p.id);
+                            };
+                            input.click();
+                          }}
+                          className="absolute inset-0 rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <Camera className="h-3 w-3 text-white" />
+                        </button>
                       </div>
                       <div>
-                        <p className="text-sm font-medium">{p.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
+                        {editingProjectId === p.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              value={editingProjectName}
+                              onChange={(e) => setEditingProjectName(e.target.value)}
+                              className="h-7 text-xs w-40"
+                              onKeyDown={(e) => e.key === "Enter" && saveProjectName(p.id)}
+                              autoFocus
+                            />
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => saveProjectName(p.id)}>Salvar</Button>
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingProjectId(null)}>Cancelar</Button>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium flex items-center gap-1.5">
+                              {p.name}
+                              <button onClick={() => { setEditingProjectId(p.id); setEditingProjectName(p.name); }} className="text-muted-foreground hover:text-foreground">
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Switch checked={p.is_active} onCheckedChange={() => toggleProject(p.id, p.is_active)} />
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteProject(p.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
                     </div>
                   </div>
                 ))}
@@ -357,7 +434,7 @@ export default function Settings() {
               <div>
                 <p className="text-lg font-bold capitalize">{subscription?.plans?.name || subscription?.plan_type || "Free"}</p>
                 <p className="text-xs text-muted-foreground">
-                  Status: <Badge variant="outline" className="text-[10px] ml-1 capitalize">{subscription?.status || "active"}</Badge>
+                  Status: <Badge variant="outline" className="text-[10px] ml-1 capitalize">{subscription?.status || "ativo"}</Badge>
                 </p>
               </div>
               <p className="text-2xl font-bold">
@@ -450,13 +527,103 @@ export default function Settings() {
       {/* ===== TEAM ===== */}
       {activeTab === "team" && (
         <div className="max-w-2xl space-y-6">
+          {/* Invite form */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold flex items-center gap-2"><Users className="h-4 w-4 text-primary" />Membros da Equipe</h2>
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => toast({ title: "Em breve", description: "Sistema de convites será implementado." })}>
-                <Plus className="h-3.5 w-3.5" /> Convidar
-              </Button>
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" />Convidar Membro</h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>E-mail do usuário</Label>
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="usuario@email.com"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Projeto</Label>
+                  <Select value={inviteProjectId} onValueChange={setInviteProjectId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o projeto" /></SelectTrigger>
+                    <SelectContent>
+                      {projects.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Papel</Label>
+                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">Visualizador</SelectItem>
+                      <SelectItem value="member">Membro</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={inviteMember} disabled={inviting || !inviteEmail.trim() || !inviteProjectId} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
+                    {inviting ? "Convidando..." : "Convidar"}
+                  </Button>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* Members by project */}
+          {projects.map((project: any) => {
+            const members = projectMembers.filter((m: any) => m.project_id === project.id);
+            return (
+              <div key={project.id} className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    {project.name}
+                    <Badge variant="outline" className="text-[10px] ml-1">{members.length} {members.length === 1 ? "membro" : "membros"}</Badge>
+                  </h2>
+                </div>
+                {members.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhum membro neste projeto.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {members.map((m: any) => (
+                      <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                            {m.profiles?.avatar_url ? (
+                              <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {m.accepted_at ? `Adicionado em ${new Date(m.accepted_at).toLocaleDateString("pt-BR")}` : "Convite pendente"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeMember(m.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Account-level team */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-primary" />Membros da Organização</h2>
             {teamMembers.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhum membro encontrado.</p>
             ) : (
@@ -464,12 +631,18 @@ export default function Settings() {
                 {teamMembers.map((m: any) => (
                   <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                        {m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"}
+                      <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                        {m.profiles?.avatar_url ? (
+                          <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"
+                        )}
                       </div>
                       <div>
                         <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
-                        <p className="text-[10px] text-muted-foreground">Entrou em {new Date(m.accepted_at || m.invited_at).toLocaleDateString("pt-BR")}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {m.accepted_at ? new Date(m.accepted_at).toLocaleDateString("pt-BR") : "Pendente"}
+                        </p>
                       </div>
                     </div>
                     <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
@@ -480,6 +653,8 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
     </DashboardLayout>
   );
 }
