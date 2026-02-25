@@ -907,6 +907,264 @@ export type Database = {
           },
         ]
       }
+      lead_history: {
+        Row: {
+          account_id: string
+          action: string
+          created_at: string
+          details: string | null
+          id: string
+          lead_id: string
+          metadata: Json | null
+        }
+        Insert: {
+          account_id: string
+          action: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          lead_id: string
+          metadata?: Json | null
+        }
+        Update: {
+          account_id?: string
+          action?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          lead_id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_history_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_notes: {
+        Row: {
+          account_id: string
+          content: string
+          created_at: string
+          id: string
+          lead_id: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          content: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_notes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_purchases: {
+        Row: {
+          conversion_id: string
+          created_at: string
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          conversion_id: string
+          created_at?: string
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          conversion_id?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_purchases_conversion_id_fkey"
+            columns: ["conversion_id"]
+            isOneToOne: false
+            referencedRelation: "conversions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_purchases_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tag_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tag_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_tag_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "lead_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tags: {
+        Row: {
+          account_id: string
+          color: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          account_id: string
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          account_id?: string
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          account_id: string
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          project_id: string | null
+          source: string | null
+          stage_id: string | null
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          project_id?: string | null
+          source?: string | null
+          stage_id?: string | null
+          total_value?: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          project_id?: string | null
+          source?: string | null
+          stage_id?: string | null
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_settings: {
         Row: {
           account_id: string
@@ -979,6 +1237,51 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_stages: {
+        Row: {
+          account_id: string
+          color: string
+          created_at: string
+          id: string
+          name: string
+          position: number
+          project_id: string | null
+        }
+        Insert: {
+          account_id: string
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          project_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -2063,6 +2366,25 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      upsert_lead_from_webhook: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_conversion_id: string
+          p_email: string
+          p_name: string
+          p_payment_method: string
+          p_phone: string
+          p_product_name: string
+          p_project_id: string
+          p_source: string
+          p_status: string
+          p_utm_campaign: string
+          p_utm_medium: string
+          p_utm_source: string
+        }
+        Returns: string
+      }
       user_has_admin_access: {
         Args: { _account_id: string; _user_id: string }
         Returns: boolean

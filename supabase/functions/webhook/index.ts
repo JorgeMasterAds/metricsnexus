@@ -533,6 +533,28 @@ Deno.serve(async (req) => {
       });
     }
     await supabase.from('conversion_items').insert(items);
+
+    // Upsert lead from webhook data
+    const customerData = (rawPayload as any).data?.customer || (rawPayload as any).data?.buyer || {};
+    const customerName = sanitizeString(customerData.name || customerData.full_name || sale.customerEmail || '', 200);
+    const customerPhone = sanitizeString(customerData.phone_number || customerData.phone || customerData.cel || '', 50);
+    
+    await supabase.rpc('upsert_lead_from_webhook', {
+      p_account_id: accountId,
+      p_project_id: projectId,
+      p_name: customerName || sale.customerEmail || 'Lead',
+      p_email: sale.customerEmail,
+      p_phone: customerPhone,
+      p_source: platform,
+      p_amount: sale.amount,
+      p_conversion_id: convRow.id,
+      p_product_name: sale.productName,
+      p_status: sale.status,
+      p_payment_method: sale.paymentMethod,
+      p_utm_source: sale.utmSource,
+      p_utm_medium: sale.utmMedium,
+      p_utm_campaign: sale.utmCampaign,
+    });
   }
 
   await supabase.from('conversion_events').insert({
