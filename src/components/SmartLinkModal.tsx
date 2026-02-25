@@ -74,6 +74,12 @@ export default function SmartLinkModal({ link, accountId, projectId, onClose, on
       toast({ title: "Todas as variantes precisam de uma URL", variant: "destructive" });
       return;
     }
+    const urls = variants.map(v => v.url.trim().toLowerCase());
+    const uniqueUrls = new Set(urls);
+    if (uniqueUrls.size !== urls.length) {
+      toast({ title: "As variantes não podem ter URLs iguais", variant: "destructive" });
+      return;
+    }
 
     setLoading(true);
     try {

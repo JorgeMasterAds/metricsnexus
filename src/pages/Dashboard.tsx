@@ -265,7 +265,7 @@ export default function Dashboard() {
       const entry = dayMap.get(ds); if (entry) { entry.sales++; entry.revenue += Number(c.amount); }
     });
 
-    const chartData = Array.from(dayMap.entries()).map(([date, v]) => ({ date, views: v.views, sales: v.sales }));
+    const chartData = Array.from(dayMap.entries()).map(([date, v]) => ({ date, views: v.views, sales: v.sales, revenue: v.revenue }));
     const salesChartData = Array.from(dayMap.entries()).map(([date, v]) => ({ date, vendas: v.sales, receita: v.revenue }));
 
     const groupBy = (key: string) => {
@@ -393,10 +393,12 @@ export default function Dashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltipContent />} />
-                  <Area type="monotone" dataKey="views" name="Views" stroke="hsl(0, 90%, 60%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="sales" name="Vendas" stroke="hsl(0, 60%, 30%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
+                  <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(0, 90%, 60%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
+                  <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(0, 60%, 30%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
+                  <Area yAxisId="right" type="monotone" dataKey="revenue" name="Faturamento (R$)" stroke="hsl(30, 80%, 55%)" fillOpacity={0.1} fill="hsl(30, 80%, 55%)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhum dado no período" />}
@@ -421,7 +423,7 @@ export default function Dashboard() {
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
                   <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">% Fat.</th>
+                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">% Faturamento</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Tipo</th>
                 </tr></thead>
                 <tbody>
@@ -431,11 +433,11 @@ export default function Dashboard() {
                       <td className="text-right px-5 py-3 font-mono text-xs">{p.vendas}</td>
                       <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.receita)}</td>
                       <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.ticket)}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs" style={{ color: "hsl(0, 85%, 55%)" }}>{p.percentual.toFixed(1)}%</td>
+                      <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{p.percentual.toFixed(1)}%</td>
                       <td className="px-5 py-3">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-[hsl(0,60%,30%)]/20 text-[hsl(0,70%,50%)]" : "bg-primary/20 text-primary"}`}>
-                          {p.isOrderBump ? "Order Bump" : "Principal"}
-                        </span>
+                         <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-accent text-accent-foreground" : "bg-primary/20 text-primary"}`}>
+                           {p.isOrderBump ? "Order Bump" : "Principal"}
+                         </span>
                       </td>
                     </tr>
                   ))}
@@ -590,24 +592,7 @@ export default function Dashboard() {
         );
 
       case "sales-chart":
-        return (
-          <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
-            <ChartHeader title="Volume de Vendas Diário" icon={<BarChart3 className="h-4 w-4 text-primary" />} tooltipKey="sales-chart" />
-            {computed.salesChartData.some(d => d.vendas > 0) ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={computed.salesChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
-                  <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltipContent />} />
-                  <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="hsl(0, 80%, 48%)" radius={[4, 4, 0, 0]} opacity={0.8} />
-                  <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(0, 90%, 60%)" strokeWidth={2} dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : <EmptyState text="Nenhuma venda no período" />}
-          </div>
-        );
+        return null;
 
       case "mini-charts":
         return (
