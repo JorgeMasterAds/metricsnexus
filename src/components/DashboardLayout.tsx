@@ -95,7 +95,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
 
   const SidebarContent = () => (
     <>
-      <Link to="/dashboard" className="flex items-center gap-2.5 px-3 mb-4">
+      <Link to="/dashboard" className="flex items-center justify-center gap-2.5 px-3 mb-4">
         <Activity className="h-5 w-5 text-primary" />
         <span className="font-bold tracking-tight">
           Nexus <span className="gradient-text">Metrics</span>
@@ -127,18 +127,18 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           );
         })}
 
-        {/* Recursos - link direto para Domínios */}
+        {/* Recursos - abre página Domínios diretamente */}
         <Link
-          to="/settings?tab=domains"
+          to="/resources"
           onClick={() => setMobileOpen(false)}
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-            isSettingsActive && new URLSearchParams(location.search).get("tab") === "domains"
+            location.pathname === "/resources"
               ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
               : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
           )}
         >
-          <Layers className={cn("h-4 w-4", isSettingsActive && new URLSearchParams(location.search).get("tab") === "domains" && "text-primary")} />
+          <Layers className={cn("h-4 w-4", location.pathname === "/resources" && "text-primary")} />
           Recursos
         </Link>
 
