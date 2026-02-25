@@ -211,13 +211,10 @@ export default function UtmReport() {
           <div className="text-xs text-muted-foreground">Vendas</div>
           <div className="text-xl font-bold mt-1">{totalSales}</div>
         </div>
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Faturamento</div>
-          <div className="text-xl font-bold mt-1">{fmt(totalRevenue)}</div>
-        </div>
+        {/* Investment card */}
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
           <div className="flex items-center gap-1.5 mb-1">
-            <DollarSign className="h-3 w-3 text-primary" />
+            <DollarSign className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs text-muted-foreground">Investimento</span>
             <UITooltip>
               <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
@@ -225,15 +222,20 @@ export default function UtmReport() {
             </UITooltip>
           </div>
           <div className="relative mt-1">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">R$</span>
             <Input
               value={investmentInput}
               onChange={(e) => setInvestmentInput(e.target.value)}
               placeholder="0,00"
-              className="pl-8 font-mono text-sm h-9 bg-secondary/50 border-border/50"
+              className="pl-7 font-mono text-sm h-8 bg-secondary/50 border-border/50"
             />
           </div>
         </div>
+        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+          <div className="text-xs text-muted-foreground">Faturamento</div>
+          <div className="text-xl font-bold mt-1">{fmt(totalRevenue)}</div>
+        </div>
+        {/* ROAS card */}
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow flex flex-col items-center justify-center">
           <div className="flex items-center gap-1.5 mb-1">
             <span className="text-xs text-muted-foreground">ROAS</span>
