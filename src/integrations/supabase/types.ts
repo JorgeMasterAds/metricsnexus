@@ -1896,6 +1896,10 @@ export type Database = {
       }
     }
     Functions: {
+      aggregate_daily_metrics: {
+        Args: { p_target_date?: string }
+        Returns: undefined
+      }
       cleanup_old_webhook_logs: { Args: never; Returns: undefined }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_user_account_ids: { Args: { _user_id: string }; Returns: string[] }

@@ -14,7 +14,7 @@ import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { exportToCsv } from "@/lib/csv";
@@ -159,15 +159,28 @@ function CustomPieTooltip({ active, payload }: any) {
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+  const [debouncedRange, setDebouncedRange] = useState<DateRange>(dateRange);
   const [periodLabel, setPeriodLabel] = useState("7 dias");
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
   const { order, editMode, toggleEdit, handleReorder, resetLayout } = useDashboardLayout("dashboard", SECTION_IDS);
-  const sinceISO = dateRange.from.toISOString();
-  const untilISO = dateRange.to.toISOString();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  // Debounce date range changes (300ms)
+  const handleDateChange = useCallback((range: DateRange) => {
+    setDateRange(range);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedRange(range), 300);
+  }, []);
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+
+  const sinceISO = debouncedRange.from.toISOString();
+  const untilISO = debouncedRange.to.toISOString();
+  const sinceDate = debouncedRange.from.toISOString().slice(0, 10);
+  const untilDate = debouncedRange.to.toISOString().slice(0, 10);
 
   const periodKey = `${sinceISO}__${untilISO}`;
   const { investmentInput, handleInvestmentChange, investmentValue } = useInvestment(periodKey);
@@ -202,38 +215,42 @@ export default function Dashboard() {
     setGoalModalOpen(false);
   };
 
+  // Read from conversions with specific columns only
   const { data: conversions = [] } = useQuery({
-    queryKey: ["dash-conversions", sinceISO, untilISO, activeAccountId, activeProjectId],
+    queryKey: ["dash-conversions", sinceDate, untilDate, activeAccountId, activeProjectId],
     queryFn: async () => {
       let q = (supabase as any)
         .from("conversions")
         .select("id, amount, fees, net_amount, status, product_name, is_order_bump, payment_method, utm_source, utm_campaign, utm_medium, utm_content, created_at, click_id, smartlink_id, variant_id, paid_at")
         .eq("status", "approved")
         .gte("created_at", sinceISO)
-        .lte("created_at", untilISO);
-      if (activeAccountId) q = q.eq("account_id", activeAccountId);
+        .lte("created_at", untilISO)
+        .eq("account_id", activeAccountId);
       if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      q = q.limit(1000);
       const { data } = await q;
       return data || [];
     },
-    staleTime: 60000,
+    staleTime: 300000, // 5 min cache
     enabled: !!activeAccountId,
   });
 
+  // Read clicks with minimal columns
   const { data: clicks = [] } = useQuery({
-    queryKey: ["dash-clicks", sinceISO, untilISO, activeAccountId, activeProjectId],
+    queryKey: ["dash-clicks", sinceDate, untilDate, activeAccountId, activeProjectId],
     queryFn: async () => {
       let q = (supabase as any)
         .from("clicks")
         .select("id, created_at, smartlink_id, variant_id")
         .gte("created_at", sinceISO)
-        .lte("created_at", untilISO);
-      if (activeAccountId) q = q.eq("account_id", activeAccountId);
+        .lte("created_at", untilISO)
+        .eq("account_id", activeAccountId);
       if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      q = q.limit(1000);
       const { data } = await q;
       return data || [];
     },
-    staleTime: 60000,
+    staleTime: 300000,
     enabled: !!activeAccountId,
   });
 
@@ -246,10 +263,11 @@ export default function Dashboard() {
         .eq("account_id", activeAccountId)
         .order("created_at", { ascending: false });
       if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      q = q.limit(50);
       const { data } = await q;
       return data || [];
     },
-    staleTime: 60000,
+    staleTime: 300000,
     enabled: !!activeAccountId,
   });
 
@@ -721,7 +739,7 @@ export default function Dashboard() {
           <Button variant={editMode ? "default" : "outline"} size="sm" className="text-xs gap-1.5" onClick={toggleEdit}>
             {editMode ? <><Check className="h-3.5 w-3.5" /> Salvar Layout</> : <><Pencil className="h-3.5 w-3.5" /> Editar Layout</>}
           </Button>
-          <DateFilter value={dateRange} onChange={setDateRange} onPresetChange={setPeriodLabel} />
+          <DateFilter value={dateRange} onChange={handleDateChange} onPresetChange={setPeriodLabel} />
         </div>
       }
     >

@@ -289,15 +289,6 @@ Deno.serve(async (req) => {
     }
 
     if (!webhook.is_active) {
-      await supabase.from('webhook_logs').insert({
-        platform: webhook.platform || 'unknown',
-        raw_payload: rawPayload,
-        status: 'ignored',
-        ignore_reason: 'Webhook is inactive',
-        account_id: webhook.account_id,
-        webhook_id: webhook.id,
-        project_id: webhook.project_id,
-      });
       return new Response(JSON.stringify({ error: 'Webhook inactive' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -309,6 +300,21 @@ Deno.serve(async (req) => {
     projectId = webhook.project_id;
     webhookPlatform = webhook.platform;
 
+    // Check if project is active — skip processing entirely if inactive
+    if (projectId) {
+      const { data: proj } = await supabase
+        .from('projects')
+        .select('is_active')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (proj && !proj.is_active) {
+        return new Response(JSON.stringify({ ok: true, skipped: 'project_inactive' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const { data: wpRows } = await supabase
       .from('webhook_products')
       .select('product_id')
@@ -316,12 +322,6 @@ Deno.serve(async (req) => {
     linkedProductIds = (wpRows || []).map((r: any) => r.product_id);
 
   } else {
-    await supabase.from('webhook_logs').insert({
-      platform: 'unknown',
-      raw_payload: rawPayload,
-      status: 'error',
-      ignore_reason: 'No valid token in URL',
-    });
     return new Response(JSON.stringify({ error: 'Missing authentication' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
