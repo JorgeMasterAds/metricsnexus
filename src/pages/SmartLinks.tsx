@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download, AlertTriangle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import { exportToCsv } from "@/lib/csv";
 import { useUsageLimits } from "@/hooks/useSubscription";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
+import { useProjectRole } from "@/hooks/useProjectRole";
 
 export default function SmartLinks() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export default function SmartLinks() {
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
   const { maxSmartlinks } = useUsageLimits();
+  const { canCreate, canEdit, canDelete, isViewer, isMember } = useProjectRole();
 
   // Fetch active custom domain for this account
   // Fetch active custom domain for THIS PROJECT (never cross-project)
@@ -171,6 +173,33 @@ export default function SmartLinks() {
     },
   });
 
+  const requestDeletion = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await (supabase as any).from("deletion_requests").insert({
+        account_id: activeAccountId,
+        project_id: activeProjectId,
+        requested_by: (await supabase.auth.getUser()).data.user?.id,
+        resource_type: "smartlink",
+        resource_id: id,
+        resource_name: name,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Solicitação enviada", description: "Um administrador do projeto precisa aprovar a exclusão." });
+    },
+  });
+
+  const handleDelete = (link: any) => {
+    if (canDelete) {
+      if (confirm("Excluir este Smart Link?")) deleteLink.mutate(link.id);
+    } else if (isMember) {
+      if (confirm("Você não tem permissão para excluir diretamente. Deseja solicitar a exclusão para um administrador?")) {
+        requestDeletion.mutate({ id: link.id, name: link.name });
+      }
+    }
+  };
+
   const updateSlug = useMutation({
     mutationFn: async ({ id, slug }: { id: string; slug: string }) => {
       const { error } = await (supabase as any).from("smartlinks").update({ slug }).eq("id", id);
@@ -243,14 +272,16 @@ export default function SmartLinks() {
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.smartLinks} />
           <DateFilter value={dateRange} onChange={setDateRange} />
-          <Button
-            size="sm"
-            className="gradient-bg border-0 text-primary-foreground hover:opacity-90"
-            onClick={handleNewClick}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Novo
-          </Button>
+          {canCreate && (
+            <Button
+              size="sm"
+              className="gradient-bg border-0 text-primary-foreground hover:opacity-90"
+              onClick={handleNewClick}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Novo
+            </Button>
+          )}
         </div>
       }
     >
@@ -378,15 +409,21 @@ export default function SmartLinks() {
                     <a href={getRedirectUrl(link.slug)} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Abrir link">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-                    <button onClick={() => toggleActive.mutate({ id: link.id, is_active: !link.is_active })} className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title={link.is_active ? "Pausar" : "Ativar"}>
-                      {link.is_active ? <ToggleRight className="h-3.5 w-3.5 text-success" /> : <ToggleLeft className="h-3.5 w-3.5" />}
-                    </button>
-                    <button onClick={() => { setEditingLink(link); setShowModal(true); }} className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Editar">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (confirm("Excluir este Smart Link?")) deleteLink.mutate(link.id); }} className="p-1.5 rounded hover:bg-destructive/20 transition-colors text-muted-foreground hover:text-destructive" title="Excluir">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {canEdit && (
+                      <button onClick={() => toggleActive.mutate({ id: link.id, is_active: !link.is_active })} className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title={link.is_active ? "Pausar" : "Ativar"}>
+                        {link.is_active ? <ToggleRight className="h-3.5 w-3.5 text-success" /> : <ToggleLeft className="h-3.5 w-3.5" />}
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => { setEditingLink(link); setShowModal(true); }} className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Editar">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {(canDelete || isMember) && (
+                      <button onClick={() => handleDelete(link)} className="p-1.5 rounded hover:bg-destructive/20 transition-colors text-muted-foreground hover:text-destructive" title={isMember && !canDelete ? "Solicitar exclusão" : "Excluir"}>
+                        {isMember && !canDelete ? <Clock className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      </button>
+                    )}
                   </div>
                 </div>
 

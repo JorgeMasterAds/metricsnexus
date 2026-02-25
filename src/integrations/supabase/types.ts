@@ -755,6 +755,63 @@ export type Database = {
           },
         ]
       }
+      deletion_requests: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          project_id: string
+          requested_by: string
+          resource_id: string
+          resource_name: string | null
+          resource_type: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          project_id: string
+          requested_by: string
+          resource_id: string
+          resource_name?: string | null
+          resource_type: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          requested_by?: string
+          resource_id?: string
+          resource_name?: string | null
+          resource_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deletion_requests_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deletion_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           access_token_encrypted: string | null

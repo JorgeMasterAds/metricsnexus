@@ -108,6 +108,16 @@ export default function Settings() {
     queryFn: async () => { const { data } = await (supabase as any).from("plans_public").select("*").order("price"); return data || []; },
   });
 
+  const { data: isSuperAdmin } = useQuery({
+    queryKey: ["settings-is-super-admin"],
+    queryFn: async () => {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) return false;
+      const { data } = await (supabase as any).from("super_admins").select("id").eq("user_id", u.id).maybeSingle();
+      return !!data;
+    },
+  });
+
   const { data: projectMembers = [] } = useQuery({
     queryKey: ["project-members", activeAccountId],
     queryFn: async () => {
@@ -420,65 +430,72 @@ export default function Settings() {
         </div>
       )}
 
-      {/* ===== SUBSCRIPTION — removed Super Admin section ===== */}
+      {/* ===== SUBSCRIPTION ===== */}
       {activeTab === "subscription" && (
         <div className="max-w-4xl w-full mx-auto space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Plano Atual</h2>
             <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30 mb-4">
               <div>
-                <p className="text-lg font-bold capitalize">{subscription?.plans?.name || subscription?.plan_type || "Free"}</p>
+                <p className="text-lg font-bold capitalize">
+                  {isSuperAdmin ? "Ouro" : (subscription?.plans?.name || subscription?.plan_type || "Free")}
+                  {isSuperAdmin && <Badge variant="outline" className="text-[10px] ml-2 border-primary/50 text-primary">Super Admin</Badge>}
+                </p>
                 <p className="text-xs text-muted-foreground">Status: <Badge variant="outline" className="text-[10px] ml-1 capitalize">{subscription?.status || "ativo"}</Badge></p>
               </div>
-              <p className="text-2xl font-bold">R$ {(subscription?.plans?.price || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
+              {isSuperAdmin ? (
+                <p className="text-sm text-muted-foreground">Acesso completo</p>
+              ) : (
+                <p className="text-2xl font-bold">R$ {(subscription?.plans?.price || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
+              )}
             </div>
-            {subscription?.current_period_end && <p className="text-xs text-muted-foreground">Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</p>}
-            {subscription?.stripe_subscription_id && (
+            {!isSuperAdmin && subscription?.current_period_end && <p className="text-xs text-muted-foreground">Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</p>}
+            {!isSuperAdmin && subscription?.stripe_subscription_id && (
               <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={async () => {
                 try { const { data, error } = await supabase.functions.invoke("customer-portal"); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro", description: err.message, variant: "destructive" }); }
               }}>Gerenciar assinatura</Button>
             )}
           </div>
 
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-4">Planos Disponíveis</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {plans.map((plan: any) => {
-                const isCurrentPlan = subscription?.plan_id === plan.id || (!subscription?.plan_id && plan.name === 'free');
-                // Build dynamic features from plan limits
-                const dynamicFeatures = [
-                  `${plan.max_projects ?? 1} ${(plan.max_projects ?? 1) === 1 ? 'projeto' : 'projetos'}`,
-                  `${plan.max_smartlinks ?? 1} ${(plan.max_smartlinks ?? 1) === 1 ? 'smartlink' : 'smartlinks'}`,
-                  plan.max_webhooks === -1 ? 'Webhooks ilimitados' : `${plan.max_webhooks ?? 1} ${(plan.max_webhooks ?? 1) === 1 ? 'webhook' : 'webhooks'}`,
-                  `${plan.max_users ?? 1} ${(plan.max_users ?? 1) === 1 ? 'usuário' : 'usuários'}`,
-                ];
-                // Append non-limit features from the features array (e.g. "Suporte dedicado")
-                const extraFeatures = (plan.features || []).filter((f: string) =>
-                  !/^\d+\s+(projeto|smartlink|webhook|usuário)/i.test(f) && !/ilimitado/i.test(f)
-                );
-                const allFeatures = [...dynamicFeatures, ...extraFeatures];
-                return (
-                  <div key={plan.id} className={`p-4 rounded-xl border transition-colors ${isCurrentPlan ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/50"}`}>
-                    <h3 className="font-semibold capitalize mb-1">{plan.name}</h3>
-                    <p className="text-xl font-bold mb-3">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
-                    <ul className="space-y-1">
-                      {allFeatures.map((f: string, i: number) => (
-                        <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}</li>
-                      ))}
-                    </ul>
-                    {isCurrentPlan ? (
-                      <Badge className="w-full mt-3 justify-center text-xs">Plano atual</Badge>
-                    ) : plan.name === 'free' ? null : (
-                      <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={async () => {
-                        if (!plan.stripe_price_id) { toast({ title: "Plano indisponível", variant: "destructive" }); return; }
-                        try { const refCode = localStorage.getItem("referral_code"); const { data, error } = await supabase.functions.invoke("create-checkout", { body: { priceId: plan.stripe_price_id, referralCode: refCode || undefined } }); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" }); }
-                      }}>{subscription?.stripe_subscription_id ? "Alterar plano" : "Assinar"}</Button>
-                    )}
-                  </div>
-                );
-              })}
+          {!isSuperAdmin && (
+            <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+              <h2 className="text-sm font-semibold mb-4">Planos Disponíveis</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {plans.map((plan: any) => {
+                  const isCurrentPlan = subscription?.plan_id === plan.id || (!subscription?.plan_id && plan.name === 'free');
+                  const dynamicFeatures = [
+                    `${plan.max_projects ?? 1} ${(plan.max_projects ?? 1) === 1 ? 'projeto' : 'projetos'}`,
+                    `${plan.max_smartlinks ?? 1} ${(plan.max_smartlinks ?? 1) === 1 ? 'smartlink' : 'smartlinks'}`,
+                    plan.max_webhooks === -1 ? 'Webhooks ilimitados' : `${plan.max_webhooks ?? 1} ${(plan.max_webhooks ?? 1) === 1 ? 'webhook' : 'webhooks'}`,
+                    `${plan.max_users ?? 1} ${(plan.max_users ?? 1) === 1 ? 'usuário' : 'usuários'}`,
+                  ];
+                  const extraFeatures = (plan.features || []).filter((f: string) =>
+                    !/^\d+\s+(projeto|smartlink|webhook|usuário)/i.test(f) && !/ilimitado/i.test(f)
+                  );
+                  const allFeatures = [...dynamicFeatures, ...extraFeatures];
+                  return (
+                    <div key={plan.id} className={`p-4 rounded-xl border transition-colors ${isCurrentPlan ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/50"}`}>
+                      <h3 className="font-semibold capitalize mb-1">{plan.name}</h3>
+                      <p className="text-xl font-bold mb-3">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
+                      <ul className="space-y-1">
+                        {allFeatures.map((f: string, i: number) => (
+                          <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}</li>
+                        ))}
+                      </ul>
+                      {isCurrentPlan ? (
+                        <Badge className="w-full mt-3 justify-center text-xs">Plano atual</Badge>
+                      ) : plan.name === 'free' ? null : (
+                        <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={async () => {
+                          if (!plan.stripe_price_id) { toast({ title: "Plano indisponível", variant: "destructive" }); return; }
+                          try { const refCode = localStorage.getItem("referral_code"); const { data, error } = await supabase.functions.invoke("create-checkout", { body: { priceId: plan.stripe_price_id, referralCode: refCode || undefined } }); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" }); }
+                        }}>{subscription?.stripe_subscription_id ? "Alterar plano" : "Assinar"}</Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
