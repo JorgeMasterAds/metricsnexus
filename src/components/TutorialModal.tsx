@@ -67,43 +67,45 @@ export const TUTORIALS = {
   dashboard: {
     title: "Tutorial — Dashboard",
     sections: [
-      { title: "Métricas principais", content: "O dashboard exibe Views (total de cliques nos seus Smart Links), Vendas (conversões aprovadas), Taxa de Conversão, Faturamento e Ticket Médio para o período selecionado." },
-      { title: "Meta de faturamento", content: "A barra de progresso no topo mostra seu avanço em relação à meta fixa atual. As metas são progressivas: R$ 1M → R$ 5M → R$ 10M → R$ 25M → R$ 50M. Ao atingir uma meta, a próxima é automaticamente definida." },
-      { title: "Filtros de período", content: "Use os botões de período (7 dias, 30 dias, etc.) para alterar o intervalo dos dados exibidos. O filtro personalizado permite escolher datas específicas em um calendário." },
-      { title: "Tabela de Smart Links", content: "A tabela inferior mostra a performance individual de cada Smart Link no período selecionado, incluindo views, vendas, receita e taxa de conversão." },
+      { title: "Métricas principais", content: "O dashboard exibe Views (total de cliques), Vendas (conversões aprovadas), Taxa de Conversão, Faturamento, Ticket Médio, ROI e ROAS para o período selecionado." },
+      { title: "Meta de faturamento", content: "Defina sua meta de faturamento personalizada. A barra de progresso mostra seu avanço. Clique no ícone de edição para alterar a meta." },
+      { title: "Filtros de período", content: "Use os botões de período ou o filtro personalizado para alterar o intervalo dos dados exibidos." },
+      { title: "Seções reordenáveis", content: "Ative o modo de edição para arrastar e reordenar as seções do dashboard conforme sua preferência." },
+      { title: "Tabela de Smart Links", content: "A tabela inferior mostra a performance individual de cada Smart Link incluindo views, vendas, receita, taxa de conversão e ticket médio." },
     ],
   },
   smartLinks: {
     title: "Tutorial — Smart Links",
     sections: [
-      { title: "O que é um Smart Link?", content: "Um Smart Link é uma URL inteligente que distribui tráfego entre múltiplas variantes (páginas de destino) com pesos configuráveis. Isso permite testar diferentes páginas e otimizar conversões." },
-      { title: "Variantes e pesos", content: "Cada Smart Link pode ter várias variantes, cada uma com uma URL de destino e um peso (%). Os pesos devem somar 100%. O tráfego é distribuído proporcionalmente ao peso de cada variante ativa." },
-      { title: "Click ID", content: "A cada redirecionamento, um click_id único é gerado e passado via parâmetro UTM (utm_term) para a página de destino. Esse ID permite atribuir vendas ao Smart Link e variante corretos." },
-      { title: "Limite de Smart Links", content: "Cada conta pode criar até 25 Smart Links no total, independente do número de projetos." },
+      { title: "O que é um Smart Link?", content: "Um Smart Link é uma URL inteligente que distribui tráfego entre múltiplas variantes com pesos configuráveis, permitindo testes A/B de páginas de destino." },
+      { title: "Variantes e pesos", content: "Cada Smart Link pode ter várias variantes com URL de destino e peso (%). Os pesos devem somar 100%." },
+      { title: "Click ID", content: "A cada redirecionamento, um click_id único é gerado e passado via parâmetros UTM para a página de destino, permitindo atribuição de vendas." },
+      { title: "Permissões", content: "• Visualizadores: apenas visualizam\n• Membros: podem criar e editar, exclusão requer aprovação de admin\n• Administradores: controle total" },
     ],
   },
   utmReport: {
     title: "Tutorial — Relatório UTM",
     sections: [
-      { title: "Origem dos dados", content: "O relatório UTM agrupa os dados de cliques (views) e vendas atribuídas por parâmetros UTM: Campaign, Medium, Content e Source." },
-      { title: "Como interpretar", content: "Campaign identifica a campanha; Medium o canal (ex: facebook, google); Content diferencia criativos; Source a origem do tráfego. Use esses dados para identificar quais campanhas e canais geram mais vendas." },
-      { title: "Taxa e Ticket Médio", content: "A taxa mostra a conversão por agrupamento UTM. O ticket médio é o valor médio por venda. Valores nulos aparecem como '(not set)'." },
+      { title: "Origem dos dados", content: "O relatório UTM agrupa dados de cliques e vendas por parâmetros UTM: Campaign, Medium, Content e Source." },
+      { title: "Como interpretar", content: "Campaign identifica a campanha; Medium o canal; Content diferencia criativos; Source a origem do tráfego." },
+      { title: "Exportação", content: "Exporte os dados em CSV ou Excel para análises externas." },
     ],
   },
   webhookLogs: {
     title: "Tutorial — Webhook Logs",
     sections: [
-      { title: "Como funciona", content: "Quando uma venda é realizada na sua plataforma de vendas, ela envia um webhook para a URL configurada. O sistema processa o webhook, identifica a plataforma e tenta atribuir a venda a um click_id." },
-      { title: "Status", content: "• approved: venda confirmada e atribuída\n• duplicate: transação já processada anteriormente\n• ignored: evento não relevante (ex: abandono)\n• error: falha no processamento\n• refunded/chargedback/canceled: estornos e cancelamentos" },
-      { title: "Atribuição", content: "Quando o webhook contém um click_id válido, a venda é atribuída ao Smart Link e variante correspondentes. Vendas sem click_id ficam como 'Não atribuído'." },
+      { title: "Como funciona", content: "Quando uma venda é realizada, sua plataforma envia um webhook para a URL configurada. O sistema processa e tenta atribuir a venda a um click_id." },
+      { title: "Status", content: "• approved: venda confirmada\n• duplicate: já processada\n• ignored: evento não relevante\n• error: falha no processamento\n• refunded/chargedback/canceled: estornos" },
+      { title: "Atribuição", content: "Vendas com click_id válido são atribuídas ao Smart Link correspondente. Vendas sem click_id ficam como 'Não atribuído'." },
     ],
   },
   settings: {
     title: "Tutorial — Configurações",
     sections: [
-      { title: "Domínio personalizado do Tracker", content: "Você pode usar seu próprio subdomínio para os Smart Links. Para configurar:\n\n1. Acesse seu provedor de DNS\n2. Crie um registro CNAME:\n   • Nome: tracker (ou o subdomínio desejado)\n   • Apontar para: ykgawuawtfpghshuwmde.supabase.co\n3. Aguarde a propagação DNS (até 48h)\n4. O domínio deve responder via HTTPS" },
-      { title: "URL do Webhook", content: "Copie a URL do webhook e cole na configuração de webhook da sua plataforma de vendas. Cada projeto tem uma URL única. Todas as vendas recebidas são automaticamente processadas." },
-      { title: "Webhook Secret", content: "O Webhook Secret é opcional e adiciona uma camada extra de segurança. Se configurado, envie o header 'x-webhook-secret' em cada webhook. Apenas webhooks com o secret correto serão aceitos." },
+      { title: "Projetos", content: "Crie e gerencie múltiplos projetos. Cada projeto possui Smart Links, webhooks e relatórios independentes." },
+      { title: "Equipe e Papéis", content: "Convide membros com papéis diferenciados:\n• Visualizador: apenas visualização\n• Membro: criar e editar (exclusão requer aprovação)\n• Administrador: controle total\n• Owner: proprietário" },
+      { title: "URL do Webhook", content: "Copie a URL do webhook e cole na configuração da sua plataforma de vendas. Cada projeto tem uma URL única." },
+      { title: "Assinatura", content: "Gerencie seu plano e faça upgrade para desbloquear mais recursos. Super admins possuem acesso ao plano Ouro automaticamente." },
     ],
   },
 };
