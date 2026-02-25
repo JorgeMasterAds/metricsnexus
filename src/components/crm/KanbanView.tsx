@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { useDroppable } from "@dnd-kit/core";
-import { Plus, MoreHorizontal, Trash2, Edit2 } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Plus, MoreHorizontal, Trash2, Edit2, GripVertical, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,22 +12,100 @@ interface Props {
   stages: any[];
 }
 
-function DroppableColumn({ stage, leads, onSelectLead }: { stage: any; leads: any[]; onSelectLead: (l: any) => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+function InlineLeadForm({ stageId, onClose }: { stageId: string; onClose: () => void }) {
+  const { createLead } = useCRM();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    createLead.mutate({ name: name.trim(), phone: phone.trim() || undefined });
+    onClose();
+  };
+
+  return (
+    <div className="p-2 rounded-lg border border-primary/30 bg-card space-y-2">
+      <Input placeholder="Nome do lead..." value={name} onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleSubmit()} autoFocus className="text-xs h-8" />
+      <Input placeholder="Telefone (opcional)" value={phone} onChange={(e) => setPhone(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleSubmit()} className="text-xs h-8" />
+      <div className="flex gap-1.5">
+        <Button size="sm" onClick={handleSubmit} className="text-xs h-7 flex-1">Criar</Button>
+        <Button size="sm" variant="outline" onClick={onClose} className="text-xs h-7">✕</Button>
+      </div>
+    </div>
+  );
+}
+
+function KanbanColumn({
+  stage,
+  leads,
+  onSelectLead,
+  onDropLead,
+  onDragColumnStart,
+  onDragColumnOver,
+  onDragColumnDrop,
+  columnIndex,
+}: {
+  stage: any;
+  leads: any[];
+  onSelectLead: (l: any) => void;
+  onDropLead: (e: React.DragEvent, stageId: string, stageName: string) => void;
+  onDragColumnStart: (e: React.DragEvent, index: number) => void;
+  onDragColumnOver: (e: React.DragEvent, index: number) => void;
+  onDragColumnDrop: (e: React.DragEvent, index: number) => void;
+  columnIndex: number;
+}) {
   const { deleteStage, updateStage } = useCRM();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(stage.name);
+  const [showInlineCreate, setShowInlineCreate] = useState(false);
+  const [isOverColumn, setIsOverColumn] = useState(false);
 
   return (
     <div
-      ref={setNodeRef}
+      draggable
+      onDragStart={(e) => {
+        // Only drag column if grip handle was used
+        if ((e.target as HTMLElement).closest("[data-column-grip]")) {
+          e.dataTransfer.setData("columnIndex", String(columnIndex));
+          e.dataTransfer.effectAllowed = "move";
+        } else {
+          e.preventDefault();
+        }
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        const hasColumn = e.dataTransfer.types.includes("columnindex");
+        const hasLead = e.dataTransfer.types.includes("leadid");
+        if (hasColumn) {
+          onDragColumnOver(e, columnIndex);
+        }
+        if (hasLead) {
+          setIsOverColumn(true);
+        }
+      }}
+      onDragLeave={() => setIsOverColumn(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsOverColumn(false);
+        const colIdx = e.dataTransfer.getData("columnIndex");
+        if (colIdx !== "") {
+          onDragColumnDrop(e, columnIndex);
+          return;
+        }
+        onDropLead(e, stage.id, stage.name);
+      }}
       className={cn(
-        "flex-shrink-0 w-[280px] bg-muted/20 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-260px)]",
-        isOver && "ring-2 ring-primary/50"
+        "flex-shrink-0 w-[280px] bg-muted/20 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-260px)] transition-all",
+        isOverColumn && "ring-2 ring-primary/50"
       )}
     >
       <div className="p-3 border-b border-border/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <div data-column-grip className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+            <GripVertical className="h-3.5 w-3.5" />
+          </div>
           <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: stage.color }} />
           {editingName ? (
             <Input
@@ -44,31 +121,42 @@ function DroppableColumn({ stage, leads, onSelectLead }: { stage: any; leads: an
           )}
           <span className="text-xs text-muted-foreground bg-muted rounded-full px-1.5">{leads.length}</span>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6">
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setEditingName(true)}>
-              <Edit2 className="h-3.5 w-3.5 mr-2" /> Renomear
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => deleteStage.mutate(stage.id)} className="text-destructive">
-              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowInlineCreate(true)}>
+            <UserPlus className="h-3.5 w-3.5" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="z-50 bg-popover border border-border shadow-lg">
+              <DropdownMenuItem onClick={() => setEditingName(true)}>
+                <Edit2 className="h-3.5 w-3.5 mr-2" /> Renomear
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => deleteStage.mutate(stage.id)} className="text-destructive">
+                <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="p-2 space-y-2 overflow-y-auto flex-1">
+        {showInlineCreate && (
+          <InlineLeadForm stageId={stage.id} onClose={() => setShowInlineCreate(false)} />
+        )}
         {leads.map((lead) => (
           <div
             key={lead.id}
             onClick={() => onSelectLead(lead)}
             className="p-3 rounded-lg bg-card border border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
             draggable
-            onDragStart={(e) => { e.dataTransfer.setData("leadId", lead.id); }}
+            onDragStart={(e) => {
+              e.dataTransfer.setData("leadId", lead.id);
+              e.stopPropagation();
+            }}
           >
             {lead.source && (
               <span className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted/50 text-muted-foreground mb-1.5 inline-block">
@@ -98,12 +186,12 @@ function DroppableColumn({ stage, leads, onSelectLead }: { stage: any; leads: an
 }
 
 export default function KanbanView({ onSelectLead, pipelineId, stages }: Props) {
-  const { leads, moveLeadToStage, createStage } = useCRM();
+  const { leads, moveLeadToStage, createStage, reorderStages } = useCRM();
   const [showNewStage, setShowNewStage] = useState(false);
   const [newStageName, setNewStageName] = useState("");
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  const handleDrop = (e: React.DragEvent, stageId: string, stageName: string) => {
-    e.preventDefault();
+  const handleDropLead = (e: React.DragEvent, stageId: string, stageName: string) => {
     const leadId = e.dataTransfer.getData("leadId");
     if (leadId) {
       moveLeadToStage.mutate({ leadId, stageId, stageName });
@@ -117,18 +205,44 @@ export default function KanbanView({ onSelectLead, pipelineId, stages }: Props) 
     setShowNewStage(false);
   };
 
+  const handleColumnDragStart = useCallback((e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData("columnIndex", String(index));
+  }, []);
+
+  const handleColumnDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }, []);
+
+  const handleColumnDrop = useCallback((e: React.DragEvent, targetIndex: number) => {
+    const sourceIndex = parseInt(e.dataTransfer.getData("columnIndex"));
+    if (isNaN(sourceIndex) || sourceIndex === targetIndex) {
+      setDragOverIndex(null);
+      return;
+    }
+    const ordered = [...stages];
+    const [moved] = ordered.splice(sourceIndex, 1);
+    ordered.splice(targetIndex, 0, moved);
+    reorderStages.mutate(ordered.map((s: any) => s.id));
+    setDragOverIndex(null);
+  }, [stages, reorderStages]);
+
   return (
     <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-      {stages.map((stage: any) => {
+      {stages.map((stage: any, index: number) => {
         const stageLeads = leads.filter((l: any) => l.stage_id === stage.id);
         return (
-          <div
+          <KanbanColumn
             key={stage.id}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleDrop(e, stage.id, stage.name)}
-          >
-            <DroppableColumn stage={stage} leads={stageLeads} onSelectLead={onSelectLead} />
-          </div>
+            stage={stage}
+            leads={stageLeads}
+            onSelectLead={onSelectLead}
+            onDropLead={handleDropLead}
+            onDragColumnStart={handleColumnDragStart}
+            onDragColumnOver={handleColumnDragOver}
+            onDragColumnDrop={handleColumnDrop}
+            columnIndex={index}
+          />
         );
       })}
 
@@ -142,7 +256,8 @@ export default function KanbanView({ onSelectLead, pipelineId, stages }: Props) 
           <div className="p-2 space-y-2 overflow-y-auto flex-1">
             {leads.filter((l: any) => !l.stage_id).map((lead: any) => (
               <div key={lead.id} onClick={() => onSelectLead(lead)}
-                className="p-3 rounded-lg bg-card border border-border/50 cursor-pointer hover:border-primary/30 transition-colors">
+                className="p-3 rounded-lg bg-card border border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
+                draggable onDragStart={(e) => { e.dataTransfer.setData("leadId", lead.id); }}>
                 <p className="text-sm font-medium">{lead.name}</p>
                 <span className="text-xs text-primary">R$ {Number(lead.total_value || 0).toFixed(2)}</span>
               </div>
