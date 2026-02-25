@@ -31,7 +31,7 @@ import {
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
-const SECTION_IDS = ["gamification", "metrics", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
+const SECTION_IDS = ["gamification", "metrics", "investment-roas", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
 
 const TOOLTIP_STYLE = {
   backgroundColor: "hsl(240, 6%, 10%)",
@@ -169,6 +169,7 @@ export default function Dashboard() {
 
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [goalInput, setGoalInput] = useState("");
+  const [investmentInput, setInvestmentInput] = useState("");
 
   const { data: revenueGoal } = useQuery({
     queryKey: ["revenue-goal", activeAccountId, activeProjectId],
@@ -438,6 +439,77 @@ export default function Dashboard() {
           </div>
         );
 
+      case "investment-roas": {
+        const investmentValue = parseFloat(investmentInput.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
+        const roas = investmentValue > 0 ? computed.totalRevenue / investmentValue : 0;
+        const roasColor = roas >= 3 ? "hsl(var(--success))" : roas >= 1 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Investment Input */}
+            <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow flex flex-col justify-center">
+              <div className="flex items-center gap-2 mb-3">
+                <DollarSign className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold">Investimento</h3>
+                <UITooltip>
+                  <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[240px] text-xs">Insira o valor total investido em ads no período para calcular o ROAS.</TooltipContent>
+                </UITooltip>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                <Input
+                  value={investmentInput}
+                  onChange={(e) => setInvestmentInput(e.target.value)}
+                  placeholder="0,00"
+                  className="pl-10 font-mono text-lg h-12 bg-secondary/50 border-border/50"
+                />
+              </div>
+            </div>
+
+            {/* Faturamento vs Investimento */}
+            <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow flex flex-col justify-center">
+              <h3 className="text-xs font-semibold mb-3 flex items-center gap-2 text-muted-foreground uppercase">Comparativo</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Investimento</span>
+                  <span className="font-mono font-bold text-sm">{fmt(investmentValue)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Faturamento</span>
+                  <span className="font-mono font-bold text-sm text-primary">{fmt(computed.totalRevenue)}</span>
+                </div>
+                <div className="h-px bg-border/50" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Lucro Bruto</span>
+                  <span className="font-mono font-bold text-sm" style={{ color: computed.totalRevenue - investmentValue >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
+                    {fmt(computed.totalRevenue - investmentValue)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* ROAS Gauge */}
+            <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow flex flex-col items-center justify-center">
+              <h3 className="text-xs font-semibold mb-2 flex items-center gap-2 text-muted-foreground uppercase">
+                ROAS
+                <UITooltip>
+                  <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[240px] text-xs">Return on Ad Spend = Faturamento ÷ Investimento. Acima de 3x é considerado bom.</TooltipContent>
+                </UITooltip>
+              </h3>
+              <div className="text-4xl font-black font-mono" style={{ color: roasColor }}>
+                {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {investmentValue > 0
+                  ? roas >= 3 ? "Excelente" : roas >= 2 ? "Bom" : roas >= 1 ? "Atenção" : "Negativo"
+                  : "Insira o investimento"}
+              </p>
+            </div>
+          </div>
+        );
+      }
+
       case "traffic-chart":
         return (
           <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
@@ -574,25 +646,13 @@ export default function Dashboard() {
       case "smartlinks":
         return (
           <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden mb-6">
-            <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold">Smart Links</h3>
-                <UITooltip>
-                  <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[260px] text-xs">{CHART_TOOLTIPS["smartlinks"]}</TooltipContent>
-                </UITooltip>
-              </div>
-              <ExportMenu
-                data={computed.linkStats.map((l: any) => ({ nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", ticket: l.ticket.toFixed(2), status: l.is_active ? "Ativo" : "Pausado" }))}
-                filename="smart-links"
-                title="Smart Links — Nexus Metrics"
-                kpis={[
-                  { label: "Total Views", value: computed.totalViews.toLocaleString("pt-BR") },
-                  { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
-                  { label: "Faturamento", value: fmt(computed.totalRevenue) },
-                ]}
-              />
+            <div className="px-5 py-4 border-b border-border/50 flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Smart Links</h3>
+              <UITooltip>
+                <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] text-xs">{CHART_TOOLTIPS["smartlinks"]}</TooltipContent>
+              </UITooltip>
             </div>
             {smartLinks.length === 0 ? (
               <EmptyState text="Nenhum Smart Link criado." />
