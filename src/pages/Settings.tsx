@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download } from "lucide-react";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
@@ -227,6 +227,7 @@ export default function Settings() {
     await (supabase as any).from("projects").update({ name: editingProjectName.trim() }).eq("id", id);
     setEditingProjectId(null);
     qc.invalidateQueries({ queryKey: ["projects"] });
+    qc.invalidateQueries({ queryKey: ["sidebar-active-project"] });
     toast({ title: "Nome do projeto atualizado!" });
   };
 
@@ -350,10 +351,10 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Projects section */}
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+          {/* Projects section - highlighted */}
+          <div className="rounded-xl bg-card border-2 border-primary/30 card-shadow p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold">Projetos</h2>
+              <h2 className="text-sm font-semibold flex items-center gap-2"><FolderOpen className="h-4 w-4 text-primary" />Projetos</h2>
               <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setCreateProjectOpen(true)}>
                 <Plus className="h-3.5 w-3.5" /> Novo Projeto
               </Button>

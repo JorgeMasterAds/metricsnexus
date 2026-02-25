@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Plus, Trash2, Link2 } from "lucide-react";
+import { Copy, Plus, Trash2, Link2, Pencil, Check, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,8 @@ export default function WebhookManager() {
   const [platform, setPlatform] = useState("hotmart");
   const [platformName, setPlatformName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
@@ -87,6 +89,14 @@ export default function WebhookManager() {
     await (supabase as any).from("webhooks").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["webhooks"] });
     toast({ title: "Webhook excluído" });
+  };
+
+  const renameWebhook = async (id: string) => {
+    if (!editingName.trim()) return;
+    await (supabase as any).from("webhooks").update({ name: editingName.trim() }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["webhooks"] });
+    setEditingId(null);
+    toast({ title: "Nome atualizado!" });
   };
 
   const copy = (text: string) => {
@@ -188,7 +198,33 @@ export default function WebhookManager() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-sm font-semibold truncate">{wh.name}</h3>
+                    {editingId === wh.id ? (
+                      <span className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                        <Input
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          className="h-7 text-sm w-48"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") renameWebhook(wh.id);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                        />
+                        <button onClick={() => renameWebhook(wh.id)} className="p-1 rounded hover:bg-accent text-success"><Check className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setEditingId(null)} className="p-1 rounded hover:bg-accent text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
+                      </span>
+                    ) : (
+                      <h3 className="text-sm font-semibold truncate flex items-center gap-1.5">
+                        {wh.name}
+                        <button
+                          onClick={() => { setEditingId(wh.id); setEditingName(wh.name); }}
+                          className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent transition-colors"
+                          title="Renomear"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </h3>
+                    )}
                     <Badge variant="outline" className="text-[10px] capitalize">
                       {getPlatformLabel(wh)}
                     </Badge>
