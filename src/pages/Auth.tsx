@@ -43,7 +43,6 @@ export default function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else if (mode === "register") {
-        // Check user limit before registration
         const { data: limitData, error: limitError } = await supabase.functions.invoke("check-user-limit");
         if (limitError) throw limitError;
         if (!limitData?.canRegister) {
@@ -74,21 +73,22 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-background flex">
+      {/* Left side - Login form */}
+      <div className="w-full lg:w-[480px] flex flex-col justify-center p-8 lg:p-12">
         {/* Logo */}
-        <div className="flex items-center gap-2 justify-center mb-8">
+        <div className="flex items-center gap-2 mb-10">
           <Activity className="h-6 w-6 text-primary" />
           <span className="font-bold text-xl tracking-tight">
             Nexus <span className="gradient-text">Metrics</span>
           </span>
         </div>
 
-        <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-          <h1 className="text-lg font-semibold mb-1">
+        <div className="w-full max-w-sm">
+          <h1 className="text-2xl font-bold mb-1">
             {mode === "login" ? "Entrar" : mode === "register" ? "Criar conta" : "Recuperar senha"}
           </h1>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-sm text-muted-foreground mb-8">
             {mode === "login"
               ? "Acesse sua conta Nexus Metrics"
               : mode === "register"
@@ -158,12 +158,12 @@ export default function Auth() {
             </Button>
           </form>
 
-          <div className="mt-4 text-sm text-center space-y-2">
+          <div className="mt-6 text-sm space-y-2">
             {mode === "login" && (
               <>
                 <button
                   onClick={() => setMode("forgot")}
-                  className="text-muted-foreground hover:text-foreground transition-colors block w-full"
+                  className="text-muted-foreground hover:text-foreground transition-colors block w-full text-left"
                 >
                   Esqueceu a senha?
                 </button>
@@ -180,6 +180,22 @@ export default function Auth() {
                 ← Voltar ao login
               </button>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Right side - Background image */}
+      <div className="hidden lg:block flex-1 relative bg-card border-l border-border/50">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center space-y-4 px-12">
+            <div className="h-24 w-24 rounded-2xl gradient-bg mx-auto flex items-center justify-center">
+              <Activity className="h-12 w-12 text-primary-foreground" />
+            </div>
+            <h2 className="text-2xl font-bold">Nexus Metrics</h2>
+            <p className="text-muted-foreground text-sm max-w-sm">
+              Rastreie, analise e otimize seus resultados com inteligência e precisão.
+            </p>
           </div>
         </div>
       </div>

@@ -18,6 +18,7 @@ import UtmReport from "./pages/UtmReport";
 import Support from "./pages/Support";
 import Integrations from "./pages/Integrations";
 import Resources from "./pages/Resources";
+import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import PublicSmartLinkRedirect from "./pages/PublicSmartLinkRedirect";
 
@@ -90,6 +91,7 @@ function AppRoutes() {
       <Route path="/integrations" element={<Protected><Integrations /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />
       <Route path="/resources" element={<Protected><Resources /></Protected>} />
+      <Route path="/admin" element={<Protected><AdminSettings /></Protected>} />
       <Route path="/support" element={<Protected><Support /></Protected>} />
       <Route path="/" element={<Navigate to={session ? "/dashboard" : "/auth"} replace />} />
       <Route path="/:slug" element={<PublicSmartLinkRedirect />} />
