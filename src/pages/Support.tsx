@@ -140,21 +140,20 @@ export default function Support() {
               </Tooltip>
             </div>
           </div>
-        </div>
-
-        {/* Quick help */}
-        <div className="rounded-xl bg-card border border-border/50 card-shadow p-6 text-center">
-          <h3 className="text-sm font-semibold mb-2">Precisa de ajuda rápida?</h3>
-          <p className="text-xs text-muted-foreground mb-4">
-            Nossa equipe está disponível de segunda a sexta, das 9h às 18h.
-          </p>
-          <Button
-            className="gradient-bg border-0 text-primary-foreground hover:opacity-90 gap-2"
-            onClick={() => window.open(WHATSAPP_URL, "_blank")}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Falar com suporte
-          </Button>
+          {/* Quick help */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6 text-center">
+            <h3 className="text-sm font-semibold mb-2">Precisa de ajuda rápida?</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Nossa equipe está disponível de segunda a sexta, das 9h às 18h.
+            </p>
+            <Button
+              className="gradient-bg border-0 text-primary-foreground hover:opacity-90 gap-2"
+              onClick={() => window.open(WHATSAPP_URL, "_blank")}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Falar com suporte
+            </Button>
+          </div>
         </div>
       </div>
     </DashboardLayout>
