@@ -42,7 +42,7 @@ const integrationSubItems = [
 
 const settingsSubItems = [
   { icon: Settings, label: "Dados Pessoais", path: "/settings?tab=personal" },
-  { icon: Building2, label: "Minha Organização", path: "/settings?tab=organization" },
+  
   { icon: FolderOpen, label: "Projetos", path: "/settings?tab=projects" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
