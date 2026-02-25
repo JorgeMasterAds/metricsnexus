@@ -394,12 +394,24 @@ export default function Settings() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {plans.map((plan: any) => {
                 const isCurrentPlan = subscription?.plan_id === plan.id || (!subscription?.plan_id && plan.name === 'free');
+                // Build dynamic features from plan limits
+                const dynamicFeatures = [
+                  `${plan.max_projects ?? 1} ${(plan.max_projects ?? 1) === 1 ? 'projeto' : 'projetos'}`,
+                  `${plan.max_smartlinks ?? 1} ${(plan.max_smartlinks ?? 1) === 1 ? 'smartlink' : 'smartlinks'}`,
+                  plan.max_webhooks === -1 ? 'Webhooks ilimitados' : `${plan.max_webhooks ?? 1} ${(plan.max_webhooks ?? 1) === 1 ? 'webhook' : 'webhooks'}`,
+                  `${plan.max_users ?? 1} ${(plan.max_users ?? 1) === 1 ? 'usuário' : 'usuários'}`,
+                ];
+                // Append non-limit features from the features array (e.g. "Suporte dedicado")
+                const extraFeatures = (plan.features || []).filter((f: string) =>
+                  !/^\d+\s+(projeto|smartlink|webhook|usuário)/i.test(f) && !/ilimitado/i.test(f)
+                );
+                const allFeatures = [...dynamicFeatures, ...extraFeatures];
                 return (
                   <div key={plan.id} className={`p-4 rounded-xl border transition-colors ${isCurrentPlan ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/50"}`}>
                     <h3 className="font-semibold capitalize mb-1">{plan.name}</h3>
                     <p className="text-xl font-bold mb-3">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
                     <ul className="space-y-1">
-                      {(plan.features || []).map((f: string, i: number) => (
+                      {allFeatures.map((f: string, i: number) => (
                         <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}</li>
                       ))}
                     </ul>
