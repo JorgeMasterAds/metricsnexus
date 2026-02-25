@@ -221,6 +221,7 @@ export type Database = {
           device_type: string | null
           id: string
           ip: string | null
+          project_id: string | null
           referrer: string | null
           smartlink_id: string | null
           user_agent: string | null
@@ -239,6 +240,7 @@ export type Database = {
           device_type?: string | null
           id?: string
           ip?: string | null
+          project_id?: string | null
           referrer?: string | null
           smartlink_id?: string | null
           user_agent?: string | null
@@ -257,6 +259,7 @@ export type Database = {
           device_type?: string | null
           id?: string
           ip?: string | null
+          project_id?: string | null
           referrer?: string | null
           smartlink_id?: string | null
           user_agent?: string | null
@@ -273,6 +276,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clicks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -441,6 +451,7 @@ export type Database = {
           paid_at: string | null
           platform: string | null
           product_name: string | null
+          project_id: string | null
           raw_payload: Json | null
           smartlink_id: string | null
           status: Database["public"]["Enums"]["conversion_status"] | null
@@ -459,6 +470,7 @@ export type Database = {
           paid_at?: string | null
           platform?: string | null
           product_name?: string | null
+          project_id?: string | null
           raw_payload?: Json | null
           smartlink_id?: string | null
           status?: Database["public"]["Enums"]["conversion_status"] | null
@@ -477,6 +489,7 @@ export type Database = {
           paid_at?: string | null
           platform?: string | null
           product_name?: string | null
+          project_id?: string | null
           raw_payload?: Json | null
           smartlink_id?: string | null
           status?: Database["public"]["Enums"]["conversion_status"] | null
@@ -490,6 +503,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
