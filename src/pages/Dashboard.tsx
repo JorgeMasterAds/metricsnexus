@@ -169,7 +169,7 @@ export default function Dashboard() {
   const qc = useQueryClient();
 
   const periodKey = `${sinceISO}__${untilISO}`;
-  const { investmentInput, setInvestmentInput, investmentValue } = useInvestment(periodKey);
+  const { investmentInput, handleInvestmentChange, investmentValue } = useInvestment(periodKey);
 
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [goalInput, setGoalInput] = useState("");
@@ -440,7 +440,7 @@ export default function Dashboard() {
               </div>
               <input
                 value={investmentInput}
-                onChange={(e) => setInvestmentInput(e.target.value)}
+                onChange={handleInvestmentChange}
                 placeholder="R$ 0,00"
                 className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
               />

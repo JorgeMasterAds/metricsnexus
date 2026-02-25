@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 
 const STORAGE_KEY = "nexus_investments";
 
-// Load from localStorage on init
 const listeners = new Set<() => void>();
 let globalInvestments: Record<string, string> = (() => {
   try {
@@ -20,6 +19,22 @@ function notify() {
   } catch {}
 }
 
+/** Format a raw numeric string (cents) to BRL display: 1.234,56 */
+export function formatBRL(rawCents: string): string {
+  if (!rawCents) return "";
+  const num = parseInt(rawCents, 10);
+  if (isNaN(num)) return "";
+  const intPart = Math.floor(num / 100);
+  const decPart = String(num % 100).padStart(2, "0");
+  const formatted = intPart.toLocaleString("pt-BR");
+  return `${formatted},${decPart}`;
+}
+
+/** Strip non-digits from display value to get raw cents string */
+function toRawCents(display: string): string {
+  return display.replace(/\D/g, "");
+}
+
 export function useInvestment(periodKey: string) {
   const [, forceUpdate] = useState(0);
 
@@ -29,14 +44,32 @@ export function useInvestment(periodKey: string) {
     return () => { listeners.delete(cb); };
   }, []);
 
-  const value = globalInvestments[periodKey] || "";
+  // stored as raw cents string e.g. "150000" = R$ 1.500,00
+  const rawCents = globalInvestments[periodKey] || "";
 
-  const setValue = useCallback((v: string) => {
-    globalInvestments[periodKey] = v;
+  const setFromDisplay = useCallback((displayValue: string) => {
+    const cents = toRawCents(displayValue);
+    globalInvestments[periodKey] = cents;
     notify();
   }, [periodKey]);
 
-  const numericValue = parseFloat(value.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
+  const setRawCents = useCallback((cents: string) => {
+    globalInvestments[periodKey] = cents;
+    notify();
+  }, [periodKey]);
 
-  return { investmentInput: value, setInvestmentInput: setValue, investmentValue: numericValue };
+  const displayValue = rawCents ? `R$ ${formatBRL(rawCents)}` : "";
+  const numericValue = rawCents ? parseInt(rawCents, 10) / 100 : 0;
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "");
+    setRawCents(digits);
+  }, [setRawCents]);
+
+  return {
+    investmentInput: displayValue,
+    investmentValue: numericValue,
+    handleInvestmentChange: handleChange,
+    setInvestmentInput: setFromDisplay,
+  };
 }
