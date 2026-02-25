@@ -116,8 +116,11 @@ export async function exportToPdf(
     },
     margin: { left: 14, right: 14 },
     didDrawPage: (data: any) => {
-      // Footer on each page
+      // Black background on every page
       const pageH = doc.internal.pageSize.getHeight();
+      doc.setFillColor(10, 10, 10);
+      doc.rect(0, 0, pageWidth, pageH, "F");
+      // Footer
       doc.setFontSize(7);
       doc.setTextColor(80, 80, 80);
       doc.text("Nexus Metrics — Relatório exportado automaticamente", pageWidth / 2, pageH - 8, { align: "center" });
