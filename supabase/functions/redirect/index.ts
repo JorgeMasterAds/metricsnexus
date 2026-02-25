@@ -1,15 +1,21 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*' } });
+    return new Response(null, { headers: corsHeaders });
   }
 
   const url = new URL(req.url);
   const slug = url.searchParams.get('slug');
+  const accountId = url.searchParams.get('account_id');
 
   if (!slug) {
-    return new Response('Missing slug', { status: 400 });
+    return new Response('Slug ausente', { status: 400, headers: corsHeaders });
   }
 
   const supabase = createClient(
@@ -17,16 +23,21 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  // Get smartlink
-  const { data: smartLink, error: slError } = await supabase
+  // Build query - if account_id provided, scope to that account
+  let query = supabase
     .from('smartlinks')
     .select('id, account_id, is_active')
     .eq('slug', slug)
-    .eq('is_active', true)
-    .maybeSingle();
+    .eq('is_active', true);
+
+  if (accountId) {
+    query = query.eq('account_id', accountId);
+  }
+
+  const { data: smartLink, error: slError } = await query.maybeSingle();
 
   if (slError || !smartLink) {
-    return new Response('Smart Link not found', { status: 404 });
+    return new Response('Smart Link não encontrado', { status: 404, headers: corsHeaders });
   }
 
   // Get active variants
@@ -37,11 +48,11 @@ Deno.serve(async (req) => {
     .eq('is_active', true);
 
   if (vError || !variants || variants.length === 0) {
-    return new Response('No active variants', { status: 404 });
+    return new Response('Nenhuma variante ativa', { status: 404, headers: corsHeaders });
   }
 
   // Weighted random selection
-  const totalWeight = variants.reduce((sum, v) => sum + (v.weight || 1), 0);
+  const totalWeight = variants.reduce((sum: number, v: any) => sum + (v.weight || 1), 0);
   let random = Math.random() * totalWeight;
   let selectedVariant = variants[0];
   for (const v of variants) {
@@ -52,7 +63,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Generate click_id
+  // Generate unique click_id
   const clickId = crypto.randomUUID().replace(/-/g, '');
 
   // Extract UTMs and metadata
@@ -77,11 +88,9 @@ Deno.serve(async (req) => {
 
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
                    req.headers.get('x-real-ip') || null;
-
-  // Country from Cloudflare header
   const country = req.headers.get('cf-ipcountry') || null;
 
-  // Insert click (fire and forget)
+  // Insert click - persisted with all relations
   supabase.from('clicks').insert({
     account_id: smartLink.account_id,
     smartlink_id: smartLink.id,
@@ -99,20 +108,24 @@ Deno.serve(async (req) => {
     country,
   }).then(() => {});
 
-  // Build redirect URL
+  // Build redirect URL with click_id
   let destinationUrl: URL;
   try {
     destinationUrl = new URL(selectedVariant.url);
     if (!['http:', 'https:'].includes(destinationUrl.protocol)) {
-      return new Response('Invalid redirect URL protocol', { status: 400 });
+      return new Response('Protocolo de URL inválido', { status: 400, headers: corsHeaders });
     }
   } catch {
-    return new Response('Invalid redirect URL', { status: 400 });
+    return new Response('URL de redirecionamento inválida', { status: 400, headers: corsHeaders });
   }
+
+  // Forward UTMs
   if (utmSource) destinationUrl.searchParams.set('utm_source', utmSource);
   if (utmMedium) destinationUrl.searchParams.set('utm_medium', utmMedium);
   if (utmCampaign) destinationUrl.searchParams.set('utm_campaign', utmCampaign);
   if (utmContent) destinationUrl.searchParams.set('utm_content', utmContent);
+  
+  // Always set click_id for attribution
   destinationUrl.searchParams.set('utm_term', clickId);
   destinationUrl.searchParams.set('click_id', clickId);
   destinationUrl.searchParams.set('sck', clickId);
@@ -122,6 +135,8 @@ Deno.serve(async (req) => {
     headers: {
       'Location': destinationUrl.toString(),
       'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+      ...corsHeaders,
     },
   });
 });
