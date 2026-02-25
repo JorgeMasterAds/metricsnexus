@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
-import { FileBarChart, ChevronLeft, ChevronRight, DollarSign, HelpCircle, Pencil, Check, TrendingUp } from "lucide-react";
+import { FileBarChart, ChevronLeft, ChevronRight, DollarSign, HelpCircle, Pencil, Check, TrendingUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ExportMenu from "@/components/ExportMenu";
@@ -47,11 +47,26 @@ export default function UtmReport() {
   const [fTerm, setFTerm] = useState("all");
   const [fProduct, setFProduct] = useState("all");
   const [fPayment, setFPayment] = useState("all");
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("nexus_excluded_conversions");
+      return stored ? new Set(JSON.parse(stored)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+
+  const excludeConversions = useCallback((ids: string[]) => {
+    setExcludedIds(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.add(id));
+      localStorage.setItem("nexus_excluded_conversions", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
   const periodKey = `${since}__${until}`;
-  const { investmentInput, setInvestmentInput, investmentValue } = useInvestment(periodKey);
+  const { investmentInput, handleInvestmentChange, investmentValue } = useInvestment(periodKey);
 
   const { data: clicks = [] } = useQuery({
     queryKey: ["utm-clicks", since, until, activeAccountId, activeProjectId],
@@ -98,11 +113,15 @@ export default function UtmReport() {
   }, [clicks, conversions]);
 
   const { displayRows, totalSales, totalRevenue } = useMemo(() => {
-    // Add computed date field to conversions
-    const withDate = conversions.map((c: any) => ({
-      ...c,
-      date: new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
-    }));
+    const testPattern = /teste|test/i;
+    const isTestValue = (val: any) => typeof val === "string" && testPattern.test(val);
+
+    const withDate = conversions
+      .filter((c: any) => !excludedIds.has(c.id))
+      .map((c: any) => ({
+        ...c,
+        date: new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
+      }));
 
     const filtered = withDate.filter((c: any) => {
       if (fSource !== "all" && (c.utm_source || '') !== fSource) return false;
@@ -134,11 +153,16 @@ export default function UtmReport() {
     filtered.forEach((c: any) => {
       const key = makeKey(c);
       const entry = groups.get(key) || {
-        views: 0, sales: 0, revenue: 0,
+        views: 0, sales: 0, revenue: 0, _conversionIds: [] as string[], _isTest: false,
         ...Object.fromEntries(activeGroups.map(g => [g, c[g] || "(não informado)"])),
       };
       entry.sales++;
       entry.revenue += Number(c.amount);
+      entry._conversionIds.push(c.id);
+      // Check if any field contains test-related text
+      if (isTestValue(c.utm_source) || isTestValue(c.utm_campaign) || isTestValue(c.utm_medium) || isTestValue(c.utm_content) || isTestValue(c.utm_term) || isTestValue(c.product_name) || isTestValue(c.transaction_id)) {
+        entry._isTest = true;
+      }
       groups.set(key, entry);
     });
 
@@ -164,7 +188,7 @@ export default function UtmReport() {
       totalSales: tSales,
       totalRevenue: tRevenue,
     };
-  }, [clicks, conversions, sortKey, sortDir, fSource, fMedium, fCampaign, fContent, fTerm, fProduct, fPayment, activeGroups]);
+  }, [clicks, conversions, sortKey, sortDir, fSource, fMedium, fCampaign, fContent, fTerm, fProduct, fPayment, activeGroups, excludedIds]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -226,7 +250,7 @@ export default function UtmReport() {
           </div>
           <input
             value={investmentInput}
-            onChange={(e) => setInvestmentInput(e.target.value)}
+            onChange={handleInvestmentChange}
             placeholder="R$ 0,00"
             className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
           />
@@ -319,10 +343,11 @@ export default function UtmReport() {
                     })}
                     <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                     <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
+                    <th className="px-2 py-3 w-10"></th>
                   </tr></thead>
                   <tbody>
                     {paginatedRows.length === 0 ? (
-                      <tr><td colSpan={activeGroups.length + 2} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
+                      <tr><td colSpan={activeGroups.length + 3} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
                     ) : (
                       <>
                         {paginatedRows.map((r: any, i: number) => {
@@ -340,6 +365,17 @@ export default function UtmReport() {
                               })}
                               <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{r.sales.toLocaleString("pt-BR")}</td>
                               <td className="text-right px-4 py-3 font-mono text-xs tabular-nums font-medium">{fmt(r.revenue)}</td>
+                              <td className="px-2 py-3 text-center">
+                                {r._isTest && (
+                                  <button
+                                    onClick={() => excludeConversions(r._conversionIds)}
+                                    className="text-destructive/60 hover:text-destructive transition-colors"
+                                    title="Excluir evento de teste"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -350,6 +386,7 @@ export default function UtmReport() {
                           ))}
                           <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{totalSales.toLocaleString("pt-BR")}</td>
                           <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(totalRevenue)}</td>
+                          <td></td>
                         </tr>
                       </>
                     )}
