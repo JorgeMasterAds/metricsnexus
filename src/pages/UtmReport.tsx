@@ -9,40 +9,37 @@ import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type SortKey = "utm_source" | "utm_campaign" | "utm_medium" | "utm_content" | "utm_term" | "product_name" | "payment_method" | "views" | "sales" | "revenue" | "rate" | "ticket";
+type GroupKey = "utm_source" | "utm_campaign" | "utm_medium" | "utm_content" | "utm_term" | "product_name" | "payment_method";
+type SortKey = GroupKey | "views" | "sales" | "revenue" | "rate" | "ticket";
 
-interface UtmRow {
-  utm_source: string;
-  utm_campaign: string;
-  utm_medium: string;
-  utm_content: string;
-  utm_term: string;
-  product_name: string;
-  payment_method: string;
-  views: number;
-  sales: number;
-  revenue: number;
-  rate: number;
-  ticket: number;
-}
+const GROUP_OPTIONS: { value: GroupKey; label: string }[] = [
+  { value: "utm_source", label: "Source" },
+  { value: "utm_campaign", label: "Campaign" },
+  { value: "utm_medium", label: "Medium" },
+  { value: "utm_content", label: "Content" },
+  { value: "utm_term", label: "Term" },
+  { value: "product_name", label: "Produto" },
+  { value: "payment_method", label: "Pagamento" },
+];
 
 export default function UtmReport() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [activeGroups, setActiveGroups] = useState<GroupKey[]>(["utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"]);
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
 
-  const [fSource, setFSource] = useState("");
-  const [fMedium, setFMedium] = useState("");
-  const [fCampaign, setFCampaign] = useState("");
-  const [fContent, setFContent] = useState("");
-  const [fTerm, setFTerm] = useState("");
-  const [fProduct, setFProduct] = useState("");
-  const [fPayment, setFPayment] = useState("");
+  const [fSource, setFSource] = useState("all");
+  const [fMedium, setFMedium] = useState("all");
+  const [fCampaign, setFCampaign] = useState("all");
+  const [fContent, setFContent] = useState("all");
+  const [fTerm, setFTerm] = useState("all");
+  const [fProduct, setFProduct] = useState("all");
+  const [fPayment, setFPayment] = useState("all");
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
@@ -73,78 +70,77 @@ export default function UtmReport() {
     enabled: !!activeAccountId,
   });
 
+  // Extract unique values for dropdowns
+  const distinctValues = useMemo(() => {
+    const extract = (key: string) => {
+      const set = new Set<string>();
+      conversions.forEach((c: any) => { if (c[key]) set.add(c[key]); });
+      clicks.forEach((c: any) => { if (c[key]) set.add(c[key]); });
+      return Array.from(set).sort();
+    };
+    return {
+      sources: extract("utm_source"),
+      mediums: extract("utm_medium"),
+      campaigns: extract("utm_campaign"),
+      contents: extract("utm_content"),
+      terms: extract("utm_term"),
+      products: Array.from(new Set(conversions.map((c: any) => c.product_name).filter(Boolean))).sort() as string[],
+      payments: Array.from(new Set(conversions.map((c: any) => c.payment_method).filter(Boolean))).sort() as string[],
+    };
+  }, [clicks, conversions]);
+
   const { displayRows, totalSales, totalRevenue } = useMemo(() => {
-    // Filter conversions
     const filtered = conversions.filter((c: any) => {
-      if (fSource && !(c.utm_source || '').toLowerCase().includes(fSource.toLowerCase())) return false;
-      if (fMedium && !(c.utm_medium || '').toLowerCase().includes(fMedium.toLowerCase())) return false;
-      if (fCampaign && !(c.utm_campaign || '').toLowerCase().includes(fCampaign.toLowerCase())) return false;
-      if (fContent && !(c.utm_content || '').toLowerCase().includes(fContent.toLowerCase())) return false;
-      if (fTerm && !(c.utm_term || '').toLowerCase().includes(fTerm.toLowerCase())) return false;
-      if (fProduct && !(c.product_name || '').toLowerCase().includes(fProduct.toLowerCase())) return false;
-      if (fPayment && !(c.payment_method || '').toLowerCase().includes(fPayment.toLowerCase())) return false;
+      if (fSource !== "all" && (c.utm_source || '') !== fSource) return false;
+      if (fMedium !== "all" && (c.utm_medium || '') !== fMedium) return false;
+      if (fCampaign !== "all" && (c.utm_campaign || '') !== fCampaign) return false;
+      if (fContent !== "all" && (c.utm_content || '') !== fContent) return false;
+      if (fTerm !== "all" && (c.utm_term || '') !== fTerm) return false;
+      if (fProduct !== "all" && (c.product_name || '') !== fProduct) return false;
+      if (fPayment !== "all" && (c.payment_method || '') !== fPayment) return false;
       return true;
     });
 
-    // Filter clicks
     const filteredClicks = clicks.filter((v: any) => {
-      if (fSource && !(v.utm_source || '').toLowerCase().includes(fSource.toLowerCase())) return false;
-      if (fMedium && !(v.utm_medium || '').toLowerCase().includes(fMedium.toLowerCase())) return false;
-      if (fCampaign && !(v.utm_campaign || '').toLowerCase().includes(fCampaign.toLowerCase())) return false;
-      if (fContent && !(v.utm_content || '').toLowerCase().includes(fContent.toLowerCase())) return false;
-      if (fTerm && !(v.utm_term || '').toLowerCase().includes(fTerm.toLowerCase())) return false;
+      if (fSource !== "all" && (v.utm_source || '') !== fSource) return false;
+      if (fMedium !== "all" && (v.utm_medium || '') !== fMedium) return false;
+      if (fCampaign !== "all" && (v.utm_campaign || '') !== fCampaign) return false;
+      if (fContent !== "all" && (v.utm_content || '') !== fContent) return false;
+      if (fTerm !== "all" && (v.utm_term || '') !== fTerm) return false;
       return true;
     });
 
-    // Build composite key per conversion for full-detail rows
-    const convByClick = new Map<string, any[]>();
-    filtered.forEach((c: any) => { if (c.click_id) { const arr = convByClick.get(c.click_id) || []; arr.push(c); convByClick.set(c.click_id, arr); } });
+    // Build composite key from active groups only
+    const makeKey = (item: any) => activeGroups.map(g => item[g] || "(não informado)").join("||");
 
-    // Group by composite key: source+campaign+medium+content+term+product+payment
-    const groups = new Map<string, { views: number; sales: number; revenue: number; utm_source: string; utm_campaign: string; utm_medium: string; utm_content: string; utm_term: string; product_name: string; payment_method: string }>();
-
-    const makeKey = (s: string, ca: string, m: string, co: string, t: string, p: string, pm: string) => `${s}||${ca}||${m}||${co}||${t}||${p}||${pm}`;
+    const groups = new Map<string, any>();
 
     filtered.forEach((c: any) => {
-      const s = c.utm_source || "(não informado)";
-      const ca = c.utm_campaign || "(não informado)";
-      const m = c.utm_medium || "(não informado)";
-      const co = c.utm_content || "(não informado)";
-      const t = c.utm_term || "(não informado)";
-      const p = c.product_name || "(não informado)";
-      const pm = c.payment_method || "(não informado)";
-      const key = makeKey(s, ca, m, co, t, p, pm);
-
-      const entry = groups.get(key) || { views: 0, sales: 0, revenue: 0, utm_source: s, utm_campaign: ca, utm_medium: m, utm_content: co, utm_term: t, product_name: p, payment_method: pm };
+      const key = makeKey(c);
+      const entry = groups.get(key) || {
+        views: 0, sales: 0, revenue: 0,
+        ...Object.fromEntries(activeGroups.map(g => [g, c[g] || "(não informado)"])),
+      };
       entry.sales++;
       entry.revenue += Number(c.amount);
       groups.set(key, entry);
     });
 
-    // Count views from clicks matching same UTM
     filteredClicks.forEach((v: any) => {
-      const s = v.utm_source || "(não informado)";
-      const ca = v.utm_campaign || "(não informado)";
-      const m = v.utm_medium || "(não informado)";
-      const co = v.utm_content || "(não informado)";
-      const t = v.utm_term || "(não informado)";
-      // Attribute views to all groups with matching UTMs
-      groups.forEach((entry) => {
-        if (entry.utm_source === s && entry.utm_campaign === ca && entry.utm_medium === m) {
-          entry.views++;
-        }
-      });
+      const key = makeKey(v);
+      const entry = groups.get(key);
+      if (entry) entry.views++;
     });
 
-    const rows: UtmRow[] = Array.from(groups.values()).map(val => ({
+    const rows = Array.from(groups.values()).map(val => ({
       ...val,
       rate: val.views > 0 ? (val.sales / val.views) * 100 : 0,
       ticket: val.sales > 0 ? val.revenue / val.sales : 0,
     }));
 
-    rows.sort((a, b) => {
-      const aV = (a as any)[sortKey];
-      const bV = (b as any)[sortKey];
+    rows.sort((a: any, b: any) => {
+      const aV = a[sortKey];
+      const bV = b[sortKey];
       if (typeof aV === "string") return sortDir === "asc" ? aV.localeCompare(bV) : bV.localeCompare(aV);
       return sortDir === "asc" ? aV - bV : bV - aV;
     });
@@ -154,11 +150,15 @@ export default function UtmReport() {
       totalSales: filtered.length,
       totalRevenue: filtered.reduce((s: number, c: any) => s + Number(c.amount), 0),
     };
-  }, [clicks, conversions, sortKey, sortDir, fSource, fMedium, fCampaign, fContent, fTerm, fProduct, fPayment]);
+  }, [clicks, conversions, sortKey, sortDir, fSource, fMedium, fCampaign, fContent, fTerm, fProduct, fPayment, activeGroups]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
+  };
+
+  const toggleGroup = (g: GroupKey) => {
+    setActiveGroups(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
   };
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -174,20 +174,42 @@ export default function UtmReport() {
         </div>
       }
     >
-      {/* Filters - always visible */}
+      {/* Filters - dropdown selects */}
       <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
         <div className="flex items-center gap-2 mb-3">
           <FileBarChart className="h-4 w-4 text-primary" />
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtros</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-          <FilterInput label="utm_source" value={fSource} onChange={setFSource} placeholder="google" />
-          <FilterInput label="utm_medium" value={fMedium} onChange={setFMedium} placeholder="cpc" />
-          <FilterInput label="utm_campaign" value={fCampaign} onChange={setFCampaign} placeholder="black-friday" />
-          <FilterInput label="utm_content" value={fContent} onChange={setFContent} placeholder="banner" />
-          <FilterInput label="utm_term" value={fTerm} onChange={setFTerm} placeholder="keyword" />
-          <FilterInput label="Produto" value={fProduct} onChange={setFProduct} placeholder="Curso X" />
-          <FilterInput label="Pagamento" value={fPayment} onChange={setFPayment} placeholder="PIX" />
+          <DropdownFilter label="utm_source" value={fSource} onChange={setFSource} options={distinctValues.sources} />
+          <DropdownFilter label="utm_medium" value={fMedium} onChange={setFMedium} options={distinctValues.mediums} />
+          <DropdownFilter label="utm_campaign" value={fCampaign} onChange={setFCampaign} options={distinctValues.campaigns} />
+          <DropdownFilter label="utm_content" value={fContent} onChange={setFContent} options={distinctValues.contents} />
+          <DropdownFilter label="utm_term" value={fTerm} onChange={setFTerm} options={distinctValues.terms} />
+          <DropdownFilter label="Produto" value={fProduct} onChange={setFProduct} options={distinctValues.products} />
+          <DropdownFilter label="Pagamento" value={fPayment} onChange={setFPayment} options={distinctValues.payments} />
+        </div>
+      </div>
+
+      {/* Grouping selector */}
+      <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {GROUP_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => toggleGroup(opt.value)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                activeGroups.includes(opt.value)
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -214,11 +236,12 @@ export default function UtmReport() {
       {/* Export */}
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs text-muted-foreground">{displayRows.length} agrupamento(s)</span>
-        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => exportToCsv(displayRows.map(r => ({
-          utm_source: r.utm_source, utm_campaign: r.utm_campaign, utm_medium: r.utm_medium, utm_content: r.utm_content, utm_term: r.utm_term,
-          produto: r.product_name, pagamento: r.payment_method,
-          views: r.views, vendas: r.sales, receita: r.revenue.toFixed(2), taxa: r.rate.toFixed(2) + "%", ticket_medio: r.ticket.toFixed(2),
-        })), "utm-report")}>
+        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => exportToCsv(displayRows.map((r: any) => {
+          const row: any = {};
+          activeGroups.forEach(g => { row[g] = r[g]; });
+          row.views = r.views; row.vendas = r.sales; row.receita = r.revenue.toFixed(2); row.taxa = r.rate.toFixed(2) + "%"; row.ticket_medio = r.ticket.toFixed(2);
+          return row;
+        }), "utm-report")}>
           <Download className="h-3.5 w-3.5" /> CSV
         </Button>
       </div>
@@ -228,13 +251,10 @@ export default function UtmReport() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border/30">
-              <SortHeader label="Source" sortKey="utm_source" current={sortKey} dir={sortDir} onClick={toggleSort} />
-              <SortHeader label="Campaign" sortKey="utm_campaign" current={sortKey} dir={sortDir} onClick={toggleSort} />
-              <SortHeader label="Medium" sortKey="utm_medium" current={sortKey} dir={sortDir} onClick={toggleSort} />
-              <SortHeader label="Content" sortKey="utm_content" current={sortKey} dir={sortDir} onClick={toggleSort} />
-              <SortHeader label="Term" sortKey="utm_term" current={sortKey} dir={sortDir} onClick={toggleSort} />
-              <SortHeader label="Produto" sortKey="product_name" current={sortKey} dir={sortDir} onClick={toggleSort} />
-              <SortHeader label="Pagamento" sortKey="payment_method" current={sortKey} dir={sortDir} onClick={toggleSort} />
+              {activeGroups.map(g => {
+                const label = GROUP_OPTIONS.find(o => o.value === g)?.label || g;
+                return <SortHeader key={g} label={label} sortKey={g} current={sortKey} dir={sortDir} onClick={toggleSort} />;
+              })}
               <SortHeader label="Views" sortKey="views" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
               <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
               <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
@@ -243,20 +263,16 @@ export default function UtmReport() {
             </tr></thead>
             <tbody>
               {displayRows.length === 0 ? (
-                <tr><td colSpan={12} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
-              ) : displayRows.map((r, i) => (
+                <tr><td colSpan={activeGroups.length + 5} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
+              ) : displayRows.map((r: any, i: number) => (
                 <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                  <td className="px-4 py-3 text-xs font-medium truncate max-w-[100px]" title={r.utm_source}>{r.utm_source}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[100px]" title={r.utm_campaign}>{r.utm_campaign}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[80px]" title={r.utm_medium}>{r.utm_medium}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[80px]" title={r.utm_content}>{r.utm_content}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[80px]" title={r.utm_term}>{r.utm_term}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[100px]" title={r.product_name}>{r.product_name}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[80px]" title={r.payment_method}>{r.payment_method}</td>
+                  {activeGroups.map((g, gi) => (
+                    <td key={g} className={`px-4 py-3 text-xs truncate max-w-[120px] ${gi === 0 ? "font-medium" : "text-muted-foreground"}`} title={r[g]}>{r[g]}</td>
+                  ))}
                   <td className="text-right px-4 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
                   <td className="text-right px-4 py-3 font-mono text-xs">{r.sales.toLocaleString("pt-BR")}</td>
                   <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.revenue)}</td>
-                  <td className="text-right px-4 py-3 font-mono text-xs text-success">{r.rate.toFixed(2)}%</td>
+                  <td className="text-right px-4 py-3 font-mono text-xs" style={{ color: "hsl(1, 100%, 57%)" }}>{r.rate.toFixed(2)}%</td>
                   <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.ticket)}</td>
                 </tr>
               ))}
@@ -268,11 +284,17 @@ export default function UtmReport() {
   );
 }
 
-function FilterInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
+function DropdownFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
   return (
     <div>
       <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</Label>
-      <Input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-8 text-xs mt-1" />
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos</SelectItem>
+          {options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

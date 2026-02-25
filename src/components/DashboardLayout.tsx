@@ -5,7 +5,6 @@ import {
   BarChart3,
   GitBranch,
   Settings,
-  Webhook,
   LogOut,
   Menu,
   FileBarChart,
@@ -18,6 +17,9 @@ import {
   FolderOpen,
   Layers,
   User,
+  Shield,
+  ScrollText,
+  Webhook,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,16 +31,18 @@ const mainNavItems = [
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
   { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
   { icon: FileBarChart, label: "Relatório UTM", path: "/utm-report" },
-  { icon: Plug, label: "Integrações", path: "/integrations" },
 ];
 
+const integrationSubItems = [
+  { icon: Webhook, label: "Webhooks", path: "/integrations?tab=webhooks" },
+  { icon: ScrollText, label: "Webhook Logs", path: "/integrations?tab=logs" },
+];
 
 const settingsSubItems = [
   { icon: Settings, label: "Dados Pessoais", path: "/settings?tab=personal" },
   { icon: Building2, label: "Minha Organização", path: "/settings?tab=organization" },
   { icon: FolderOpen, label: "Projetos", path: "/settings?tab=projects" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
-  { icon: Webhook, label: "Webhook Logs", path: "/settings?tab=webhooks" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
 ];
 
@@ -52,11 +56,11 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings" || location.pathname === "/webhook-logs");
+  const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
+  const [integrationsOpen, setIntegrationsOpen] = useState(location.pathname === "/integrations");
   
   const { activeAccountId } = useAccount();
 
-  // Fetch logged-in user profile
   const { data: userProfile } = useQuery({
     queryKey: ["sidebar-user-profile"],
     queryFn: async () => {
@@ -71,12 +75,22 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
     },
   });
 
+  const { data: isSuperAdmin } = useQuery({
+    queryKey: ["sidebar-is-super-admin"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      const { data } = await (supabase as any).from("super_admins").select("id").eq("user_id", user.id).maybeSingle();
+      return !!data;
+    },
+  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
 
   const isSettingsActive = location.pathname === "/settings";
+  const isIntegrationsActive = location.pathname === "/integrations";
 
   const SidebarContent = () => (
     <>
@@ -112,47 +126,29 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           );
         })}
 
-        {/* Recursos - abre página Domínios diretamente */}
-        <Link
-          to="/resources"
-          onClick={() => setMobileOpen(false)}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-            location.pathname === "/resources"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-          )}
-        >
-          <Layers className={cn("h-4 w-4", location.pathname === "/resources" && "text-primary")} />
-          Recursos
-        </Link>
-
-        {/* Configurações with submenu */}
+        {/* Integrações with submenu */}
         <div>
           <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
+            onClick={() => setIntegrationsOpen(!integrationsOpen)}
             className={cn(
               "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors",
-              isSettingsActive || location.pathname === "/webhook-logs"
+              isIntegrationsActive
                 ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                 : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}
           >
             <span className="flex items-center gap-3">
-              <Settings className={cn("h-4 w-4", (isSettingsActive || location.pathname === "/webhook-logs") && "text-primary")} />
-              Configurações
+              <Plug className={cn("h-4 w-4", isIntegrationsActive && "text-primary")} />
+              Integrações
             </span>
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", settingsOpen && "rotate-180")} />
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", integrationsOpen && "rotate-180")} />
           </button>
-          {settingsOpen && (
+          {integrationsOpen && (
             <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
-              {settingsSubItems.map((item) => {
-                const isWebhookLog = item.path === "/webhook-logs";
+              {integrationSubItems.map((item) => {
                 const tabParam = new URL(item.path, "http://x").searchParams.get("tab");
-                const currentTab = new URLSearchParams(location.search).get("tab") || "personal";
-                const active = isWebhookLog
-                  ? location.pathname === "/webhook-logs"
-                  : isSettingsActive && currentTab === tabParam;
+                const currentTab = new URLSearchParams(location.search).get("tab") || "webhooks";
+                const active = isIntegrationsActive && currentTab === tabParam;
                 return (
                   <Link
                     key={item.path}
@@ -174,6 +170,82 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           )}
         </div>
 
+        {/* Recursos */}
+        <Link
+          to="/resources"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+            location.pathname === "/resources"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <Layers className={cn("h-4 w-4", location.pathname === "/resources" && "text-primary")} />
+          Recursos
+        </Link>
+
+        {/* Configurações with submenu */}
+        <div>
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={cn(
+              "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors",
+              isSettingsActive
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <span className="flex items-center gap-3">
+              <Settings className={cn("h-4 w-4", isSettingsActive && "text-primary")} />
+              Configurações
+            </span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", settingsOpen && "rotate-180")} />
+          </button>
+          {settingsOpen && (
+            <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
+              {settingsSubItems.map((item) => {
+                const tabParam = new URL(item.path, "http://x").searchParams.get("tab");
+                const currentTab = new URLSearchParams(location.search).get("tab") || "personal";
+                const active = isSettingsActive && currentTab === tabParam;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-colors",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("h-3.5 w-3.5", active && "text-primary")} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Admin - only for super admins */}
+        {isSuperAdmin && (
+          <Link
+            to="/admin"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+              location.pathname === "/admin"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <Shield className={cn("h-4 w-4", location.pathname === "/admin" && "text-primary")} />
+            Administração
+          </Link>
+        )}
+
         <Link
           to="/support"
           onClick={() => setMobileOpen(false)}
@@ -190,7 +262,6 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       </nav>
 
       <div className="border-t border-sidebar-border pt-4 mt-4 space-y-3">
-        {/* Logged-in user */}
         {userProfile && (
           <Link
             to="/settings?tab=personal"

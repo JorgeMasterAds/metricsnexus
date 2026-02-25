@@ -236,7 +236,6 @@ export default function Settings() {
     { key: "organization", label: "Minha Organização", icon: Building2 },
     { key: "projects", label: "Projetos", icon: FolderOpen },
     { key: "team", label: "Equipe", icon: Users },
-    { key: "webhooks", label: "Webhook Logs", icon: Webhook },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
   ];
 
@@ -553,12 +552,7 @@ export default function Settings() {
         </div>
       )}
 
-      {/* ===== WEBHOOK LOGS ===== */}
-      {activeTab === "webhooks" && (
-        <div className="max-w-5xl w-full mx-auto">
-          <WebhookLogsTab accountId={activeAccountId} />
-        </div>
-      )}
+      {/* Webhook Logs moved to Integrations */}
 
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
       <EditProjectModal open={!!editProject} onOpenChange={(o) => { if (!o) setEditProject(null); }} project={editProject} />

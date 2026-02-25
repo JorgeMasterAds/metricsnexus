@@ -3,12 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, ComposedChart, Line,
+  BarChart, Bar, ComposedChart, Line, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import {
   MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download,
   ShoppingCart, CreditCard, Pencil, Check, Target, Globe, Megaphone,
-  Monitor, FileText, Package, Eye, Percent,
+  Monitor, FileText, Package, Eye, Percent, Layers,
 } from "lucide-react";
 import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
@@ -24,9 +24,21 @@ import { SortableSection } from "@/components/SortableSection";
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 
-const SECTION_IDS = ["gamification", "metrics", "traffic-chart", "products", "smartlinks", "sales-chart", "mini-charts"];
+const SECTION_IDS = ["gamification", "metrics", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
 const CHART_STYLE = { backgroundColor: "hsl(240, 5%, 7%)", border: "1px solid hsl(240, 4%, 16%)", borderRadius: 8, fontSize: 12 };
 const TICK_STYLE = { fontSize: 11, fill: "hsl(240, 5%, 55%)" };
+
+// Red tone palette for charts
+const RED_TONES = [
+  "hsl(1, 100%, 57%)",   // Primary red
+  "hsl(1, 90%, 45%)",    // Dark red
+  "hsl(10, 85%, 52%)",   // Red-orange
+  "hsl(350, 80%, 50%)",  // Crimson
+  "hsl(1, 70%, 38%)",    // Deep red
+  "hsl(15, 75%, 55%)",   // Coral red
+  "hsl(340, 65%, 45%)",  // Berry red
+  "hsl(1, 60%, 30%)",    // Maroon
+];
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
@@ -143,6 +155,16 @@ export default function Dashboard() {
       .map(([name, v]) => ({ name, vendas: v.vendas, receita: v.receita, ticket: v.vendas > 0 ? v.receita / v.vendas : 0, percentual: tr > 0 ? (v.receita / tr) * 100 : 0, isOrderBump: v.isOrderBump }))
       .sort((a, b) => b.receita - a.receita);
 
+    // Order bumps stats
+    const mainProducts = conversions.filter((c: any) => !c.is_order_bump);
+    const orderBumps = conversions.filter((c: any) => c.is_order_bump);
+    const obRate = mainProducts.length > 0 ? (orderBumps.length / mainProducts.length) * 100 : 0;
+    const obRevenue = orderBumps.reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const obData = [
+      { name: "Produtos Principais", value: mainProducts.length, revenue: mainProducts.reduce((s: number, c: any) => s + Number(c.amount), 0) },
+      { name: "Order Bumps", value: orderBumps.length, revenue: obRevenue },
+    ];
+
     const linkStats = smartLinks.map((link: any) => {
       const lv = clicks.filter((c: any) => c.smartlink_id === link.id).length;
       const lConvs = conversions.filter((c: any) => c.smartlink_id === link.id);
@@ -160,6 +182,9 @@ export default function Dashboard() {
       contentData: groupBy("utm_content"),
       productChartData: productData.map(p => ({ name: p.name, value: p.receita })).slice(0, 8),
       linkStats,
+      obData, obRate, obRevenue,
+      mainProductsCount: mainProducts.length,
+      orderBumpsCount: orderBumps.length,
     };
   }, [clicks, conversions, smartLinks, dateRange]);
 
@@ -203,14 +228,14 @@ export default function Dashboard() {
                 <AreaChart data={computed.chartData}>
                   <defs>
                     <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient>
-                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(1, 90%, 45%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(1, 90%, 45%)" stopOpacity={0} /></linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={CHART_STYLE} />
                   <Area type="monotone" dataKey="views" name="Views" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="sales" name="Vendas" stroke="hsl(142, 71%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="sales" name="Vendas" stroke="hsl(1, 90%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhum dado no período" />}
@@ -241,8 +266,12 @@ export default function Dashboard() {
                       <td className="text-right px-5 py-3 font-mono text-xs">{p.vendas}</td>
                       <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.receita)}</td>
                       <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.ticket)}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs text-success">{p.percentual.toFixed(1)}%</td>
-                      <td className="px-5 py-3"><span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-warning/20 text-warning" : "bg-primary/20 text-primary"}`}>{p.isOrderBump ? "Order Bump" : "Principal"}</span></td>
+                      <td className="text-right px-5 py-3 font-mono text-xs" style={{ color: "hsl(1, 100%, 57%)" }}>{p.percentual.toFixed(1)}%</td>
+                      <td className="px-5 py-3">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-[hsl(10,85%,52%)]/20 text-[hsl(10,85%,52%)]" : "bg-primary/20 text-primary"}`}>
+                          {p.isOrderBump ? "Order Bump" : "Principal"}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -250,6 +279,50 @@ export default function Dashboard() {
             </div>
           </div>
         ) : null;
+
+      case "order-bumps":
+        return (
+          <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              Produtos vs Order Bumps
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                {computed.obData.some(d => d.value > 0) ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={computed.obData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                        <Cell fill={RED_TONES[0]} />
+                        <Cell fill={RED_TONES[1]} />
+                      </Pie>
+                      <Tooltip contentStyle={CHART_STYLE} formatter={(v: number, name: string) => [v, name]} />
+                      <Legend wrapperStyle={{ fontSize: 13, paddingTop: 8 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <EmptyState text="Sem dados de Order Bump" />}
+              </div>
+              <div className="flex flex-col justify-center space-y-3">
+                <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
+                  <p className="text-[11px] text-muted-foreground">Vendas Principais</p>
+                  <p className="text-lg font-bold">{computed.mainProductsCount}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
+                  <p className="text-[11px] text-muted-foreground">Order Bumps</p>
+                  <p className="text-lg font-bold">{computed.orderBumpsCount}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
+                  <p className="text-[11px] text-muted-foreground">Taxa de Conversão OB</p>
+                  <p className="text-lg font-bold" style={{ color: "hsl(1, 100%, 57%)" }}>{computed.obRate.toFixed(1)}%</p>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
+                  <p className="text-[11px] text-muted-foreground">Receita Order Bumps</p>
+                  <p className="text-lg font-bold">{fmt(computed.obRevenue)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
 
       case "smartlinks":
         return (
@@ -286,11 +359,11 @@ export default function Dashboard() {
                         <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
                         <td className="text-right px-5 py-3 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
                         <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs text-success">{link.rate.toFixed(2)}%</td>
+                        <td className="text-right px-5 py-3 font-mono text-xs" style={{ color: "hsl(1, 100%, 57%)" }}>{link.rate.toFixed(2)}%</td>
                         <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.ticket)}</td>
                         <td className="text-right px-5 py-3">
-                          <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-success" : "bg-muted-foreground"}`} />
+                          <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-primary" : "bg-muted-foreground"}`} />
                             {link.is_active ? "Ativo" : "Pausado"}
                           </span>
                         </td>
@@ -319,7 +392,7 @@ export default function Dashboard() {
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={CHART_STYLE} />
                   <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.8} />
-                  <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={false} />
+                  <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(1, 90%, 45%)" strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhuma venda no período" />}
@@ -329,12 +402,12 @@ export default function Dashboard() {
       case "mini-charts":
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {computed.sourceData.length > 0 && <MiniBarChart title="Receita por Origem" icon={<Globe className="h-4 w-4 text-primary" />} data={computed.sourceData} color="hsl(var(--primary))" fmt={fmt} />}
-            {computed.campaignData.length > 0 && <MiniBarChart title="Receita por Campanha" icon={<Megaphone className="h-4 w-4 text-primary" />} data={computed.campaignData} color="hsl(280, 60%, 55%)" fmt={fmt} />}
-            {computed.mediumData.length > 0 && <MiniBarChart title="Receita por Medium" icon={<Monitor className="h-4 w-4 text-primary" />} data={computed.mediumData} color="hsl(142, 71%, 45%)" fmt={fmt} />}
-            {computed.contentData.length > 0 && <MiniBarChart title="Receita por Content" icon={<FileText className="h-4 w-4 text-primary" />} data={computed.contentData} color="hsl(40, 90%, 55%)" fmt={fmt} />}
-            {computed.productChartData.length > 0 && <MiniBarChart title="Receita por Produto" icon={<Package className="h-4 w-4 text-primary" />} data={computed.productChartData} color="hsl(330, 70%, 55%)" fmt={fmt} />}
-            {computed.paymentData.length > 0 && <MiniBarChart title="Meios de Pagamento" icon={<CreditCard className="h-4 w-4 text-primary" />} data={computed.paymentData.map(p => ({ name: p.name, value: p.receita }))} color="hsl(200, 80%, 55%)" fmt={fmt} />}
+            {computed.sourceData.length > 0 && <MiniBarChart title="Receita por Origem" icon={<Globe className="h-4 w-4 text-primary" />} data={computed.sourceData} colorIdx={0} fmt={fmt} />}
+            {computed.campaignData.length > 0 && <MiniBarChart title="Receita por Campanha" icon={<Megaphone className="h-4 w-4 text-primary" />} data={computed.campaignData} colorIdx={1} fmt={fmt} />}
+            {computed.mediumData.length > 0 && <MiniBarChart title="Receita por Medium" icon={<Monitor className="h-4 w-4 text-primary" />} data={computed.mediumData} colorIdx={2} fmt={fmt} />}
+            {computed.contentData.length > 0 && <MiniBarChart title="Receita por Content" icon={<FileText className="h-4 w-4 text-primary" />} data={computed.contentData} colorIdx={3} fmt={fmt} />}
+            {computed.productChartData.length > 0 && <MiniBarChart title="Receita por Produto" icon={<Package className="h-4 w-4 text-primary" />} data={computed.productChartData} colorIdx={4} fmt={fmt} />}
+            {computed.paymentData.length > 0 && <MiniBarChart title="Meios de Pagamento" icon={<CreditCard className="h-4 w-4 text-primary" />} data={computed.paymentData.map(p => ({ name: p.name, value: p.receita }))} colorIdx={5} fmt={fmt} />}
           </div>
         );
 
@@ -373,16 +446,17 @@ function EmptyState({ text }: { text: string }) {
   return <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">{text}</div>;
 }
 
-function MiniBarChart({ title, icon, data, color, fmt }: { title: string; icon?: React.ReactNode; data: { name: string; value: number }[]; color: string; fmt: (v: number) => string }) {
+function MiniBarChart({ title, icon, data, colorIdx, fmt }: { title: string; icon?: React.ReactNode; data: { name: string; value: number }[]; colorIdx: number; fmt: (v: number) => string }) {
+  const color = RED_TONES[colorIdx % RED_TONES.length];
   return (
     <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
       <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">{icon}{title}</h3>
-      <ResponsiveContainer width="100%" height={150}>
+      <ResponsiveContainer width="100%" height={170}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
-          <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} interval={0} angle={-25} textAnchor="end" height={45} />
-          <YAxis tick={{ fontSize: 9, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={CHART_STYLE} formatter={(v: number) => fmt(v)} />
+          <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
+          <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ backgroundColor: "hsl(240, 5%, 7%)", border: "1px solid hsl(240, 4%, 16%)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => fmt(v)} />
           <Bar dataKey="value" name="Receita" fill={color} radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
