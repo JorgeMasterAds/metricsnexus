@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download, FolderOpen, Filter, Webhook } from "lucide-react";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download, FolderOpen, Filter, Webhook, Gift, ExternalLink, CheckCircle, Clock, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
@@ -142,6 +142,56 @@ export default function Settings() {
     enabled: !!activeAccountId,
   });
 
+  // Referral data
+  const { data: referralCode } = useQuery({
+    queryKey: ["referral-code", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("referral_codes").select("*").eq("account_id", activeAccountId).eq("is_active", true).maybeSingle();
+      return data;
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const { data: referrals = [] } = useQuery({
+    queryKey: ["referrals", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("referrals").select("*, commissions(*)").eq("referrer_account_id", activeAccountId).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const { data: commissions = [] } = useQuery({
+    queryKey: ["commissions", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("commissions").select("*").eq("account_id", activeAccountId).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const { data: connectStatus } = useQuery({
+    queryKey: ["connect-status", activeAccountId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("connect-onboarding", { body: { action: "status" } });
+      if (error) return { status: "not_started" };
+      return data;
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const [connectLoading, setConnectLoading] = useState(false);
+  const startConnectOnboarding = async () => {
+    setConnectLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("connect-onboarding", { body: { action: "onboard" } });
+      if (error) throw error;
+      if (data?.url) window.location.href = data.url;
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setConnectLoading(false); }
+  };
+
   const uploadAvatar = async (file: File) => {
     if (!user) return;
     const ext = file.name.split(".").pop();
@@ -265,6 +315,7 @@ export default function Settings() {
     { key: "projects", label: "Projetos", icon: FolderOpen },
     { key: "team", label: "Equipe", icon: Users },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
+    { key: "referrals", label: "Indicações", icon: Gift },
   ];
 
   return (
@@ -420,7 +471,7 @@ export default function Settings() {
                     ) : plan.name === 'free' ? null : (
                       <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={async () => {
                         if (!plan.stripe_price_id) { toast({ title: "Plano indisponível", variant: "destructive" }); return; }
-                        try { const { data, error } = await supabase.functions.invoke("create-checkout", { body: { priceId: plan.stripe_price_id } }); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" }); }
+                        try { const refCode = localStorage.getItem("referral_code"); const { data, error } = await supabase.functions.invoke("create-checkout", { body: { priceId: plan.stripe_price_id, referralCode: refCode || undefined } }); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" }); }
                       }}>{subscription?.stripe_subscription_id ? "Alterar plano" : "Assinar"}</Button>
                     )}
                   </div>
@@ -553,6 +604,100 @@ export default function Settings() {
                       </div>
                     </div>
                     <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== REFERRALS ===== */}
+      {activeTab === "referrals" && (
+        <div className="max-w-4xl w-full mx-auto space-y-6">
+          {/* Referral Link */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Gift className="h-4 w-4 text-primary" />Seu Link de Indicação</h2>
+            <p className="text-xs text-muted-foreground mb-4">Compartilhe seu link e ganhe <span className="text-primary font-semibold">50% de comissão</span> sobre a primeira mensalidade de cada indicado.</p>
+            {referralCode ? (
+              <div className="flex items-center gap-2">
+                <Input readOnly value={`${window.location.origin}/auth?ref=${referralCode.code}`} className="text-xs font-mono" />
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/auth?ref=${referralCode.code}`);
+                  toast({ title: "Link copiado!" });
+                }}>
+                  <Copy className="h-3.5 w-3.5" /> Copiar
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Código de indicação não encontrado.</p>
+            )}
+          </div>
+
+          {/* Stripe Connect Status */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" />Conta de Recebimento (Stripe Connect)</h2>
+            <p className="text-xs text-muted-foreground mb-4">Para receber comissões automaticamente, conecte sua conta ao Stripe.</p>
+
+            {connectStatus?.status === 'active' ? (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-success/10 border border-success/20">
+                <CheckCircle className="h-4 w-4 text-success" />
+                <span className="text-sm text-success font-medium">Conta conectada e ativa</span>
+              </div>
+            ) : connectStatus?.status === 'pending' ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                  <Clock className="h-4 w-4 text-warning" />
+                  <span className="text-sm text-warning font-medium">Cadastro incompleto</span>
+                </div>
+                <Button onClick={startConnectOnboarding} disabled={connectLoading} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {connectLoading ? "Carregando..." : "Completar cadastro"}
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={startConnectOnboarding} disabled={connectLoading} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                {connectLoading ? "Carregando..." : "Conectar conta Stripe"}
+              </Button>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 text-center">
+              <p className="text-2xl font-bold">{referrals.length}</p>
+              <p className="text-xs text-muted-foreground">Indicações</p>
+            </div>
+            <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 text-center">
+              <p className="text-2xl font-bold text-success">R$ {commissions.filter((c: any) => c.status === 'paid').reduce((sum: number, c: any) => sum + Number(c.amount), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+              <p className="text-xs text-muted-foreground">Comissões Pagas</p>
+            </div>
+            <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 text-center">
+              <p className="text-2xl font-bold text-warning">R$ {commissions.filter((c: any) => c.status === 'pending').reduce((sum: number, c: any) => sum + Number(c.amount), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+              <p className="text-xs text-muted-foreground">Comissões Pendentes</p>
+            </div>
+          </div>
+
+          {/* Commissions List */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Histórico de Comissões</h2>
+            {commissions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhuma comissão registrada ainda. Compartilhe seu link de indicação para começar a ganhar!</p>
+            ) : (
+              <div className="space-y-2">
+                {commissions.map((c: any) => (
+                  <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
+                    <div>
+                      <p className="text-sm font-medium">{c.description || "Comissão de indicação"}</p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold">R$ {Number(c.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                      <Badge variant={c.status === 'paid' ? 'default' : 'secondary'} className={`text-[10px] ${c.status === 'paid' ? 'bg-success/20 text-success border-success/30' : ''}`}>
+                        {c.status === 'paid' ? 'Pago' : c.status === 'pending' ? 'Pendente' : c.status}
+                      </Badge>
+                    </div>
                   </div>
                 ))}
               </div>

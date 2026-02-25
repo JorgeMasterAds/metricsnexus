@@ -63,9 +63,9 @@ Deno.serve(async (req) => {
         const planType = PRODUCT_PLAN_MAP[productId] || 'bronze';
 
         // Find plan_id
-        const { data: planRow } = await supabase.from('plans').select('id').eq('name', planType).maybeSingle();
+        const { data: planRow } = await supabase.from('plans').select('id, price').eq('name', planType).maybeSingle();
 
-        // Find user by email using secure RPC (avoids loading all users)
+        // Find user by email using secure RPC
         const { data: userId } = await supabase.rpc('find_user_id_by_email', { _email: customerEmail });
         if (!userId) { console.error(`Usuário não encontrado: ${customerEmail}`); break; }
 
@@ -92,6 +92,70 @@ Deno.serve(async (req) => {
             max_webhooks: planLimits.max_webhooks,
             max_users: planLimits.max_users,
           }).eq('account_id', accountIds[0]);
+        }
+
+        // === REFERRAL COMMISSION ===
+        const referralCodeId = session.metadata?.referral_code_id;
+        const referrerAccountId = session.metadata?.referrer_account_id;
+        const referrerConnectId = session.metadata?.referrer_connect_id;
+
+        if (referralCodeId && referrerAccountId && referrerConnectId && planRow?.price) {
+          const commissionAmount = Math.round(planRow.price * 50) ; // 50% in cents (price is in BRL)
+
+          // Create referral record
+          const { data: referral } = await supabase.from('referrals').insert({
+            referrer_account_id: referrerAccountId,
+            referred_account_id: accountIds[0],
+            referral_code_id: referralCodeId,
+          }).select('id').single();
+
+          if (referral && commissionAmount > 0) {
+            try {
+              // Create Stripe transfer to referrer's Connect account
+              const transfer = await stripe.transfers.create({
+                amount: commissionAmount,
+                currency: 'brl',
+                destination: referrerConnectId,
+                description: `Comissão de indicação - Plano ${planType}`,
+                metadata: {
+                  referral_id: referral.id,
+                  referred_account_id: accountIds[0],
+                  plan_type: planType,
+                },
+              });
+
+              // Record commission
+              await supabase.from('commissions').insert({
+                referral_id: referral.id,
+                account_id: referrerAccountId,
+                amount: planRow.price * 0.5,
+                status: 'paid',
+                stripe_transfer_id: transfer.id,
+                description: `50% do Plano ${planType} (R$ ${planRow.price.toFixed(2)})`,
+              });
+
+              // Mark referral as commission paid
+              await supabase.from('referrals').update({
+                commission_paid: true,
+                stripe_transfer_id: transfer.id,
+              }).eq('id', referral.id);
+
+              console.log(`[STRIPE-WEBHOOK] Comissão de R$ ${(planRow.price * 0.5).toFixed(2)} paga para conta ${referrerAccountId}`);
+            } catch (transferErr) {
+              console.error('[STRIPE-WEBHOOK] Erro ao processar comissão:', transferErr);
+
+              // Record commission as pending if transfer fails
+              if (referral) {
+                await supabase.from('commissions').insert({
+                  referral_id: referral.id,
+                  account_id: referrerAccountId,
+                  amount: planRow.price * 0.5,
+                  status: 'pending',
+                  description: `50% do Plano ${planType} (R$ ${planRow.price.toFixed(2)}) - Transferência pendente`,
+                });
+              }
+            }
+          }
         }
 
         console.log(`[STRIPE-WEBHOOK] Assinatura criada para conta ${accountIds[0]}, plano: ${planType}`);

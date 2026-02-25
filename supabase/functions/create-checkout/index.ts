@@ -16,6 +16,12 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_ANON_KEY')!
   );
 
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { persistSession: false } }
+  );
+
   try {
     const authHeader = req.headers.get('Authorization')!;
     const token = authHeader.replace('Bearer ', '');
@@ -23,7 +29,7 @@ Deno.serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error('Usuário não autenticado');
 
-    const { priceId } = await req.json();
+    const { priceId, referralCode } = await req.json();
     if (!priceId) throw new Error('priceId é obrigatório');
 
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2025-08-27.basil' });
@@ -36,15 +42,50 @@ Deno.serve(async (req) => {
 
     const origin = req.headers.get('origin') || 'http://localhost:3000';
 
-    const session = await stripe.checkout.sessions.create({
+    // Build metadata
+    const metadata: Record<string, string> = { user_id: user.id };
+
+    // If referral code provided, look up the referrer's Stripe Connect account
+    let transferData: Stripe.Checkout.SessionCreateParams.SubscriptionData | undefined;
+
+    if (referralCode) {
+      const { data: refCode } = await supabaseAdmin
+        .from('referral_codes')
+        .select('id, account_id, is_active')
+        .eq('code', referralCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (refCode) {
+        // Get referrer's Stripe Connect account
+        const { data: referrerAccount } = await supabaseAdmin
+          .from('accounts')
+          .select('stripe_connect_account_id, stripe_connect_status')
+          .eq('id', refCode.account_id)
+          .single();
+
+        if (referrerAccount?.stripe_connect_account_id && referrerAccount.stripe_connect_status === 'active') {
+          metadata.referral_code_id = refCode.id;
+          metadata.referrer_account_id = refCode.account_id;
+          metadata.referrer_connect_id = referrerAccount.stripe_connect_account_id;
+        }
+      }
+    }
+
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
       success_url: `${origin}/settings?tab=subscription&checkout=success`,
       cancel_url: `${origin}/settings?tab=subscription&checkout=cancel`,
-      metadata: { user_id: user.id },
-    });
+      metadata,
+      subscription_data: {
+        metadata,
+      },
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -61,6 +61,8 @@ export type Database = {
           phone: string | null
           responsible_name: string | null
           slug: string | null
+          stripe_connect_account_id: string | null
+          stripe_connect_status: string | null
           tax_rate: number | null
           timezone: string | null
           updated_at: string
@@ -76,6 +78,8 @@ export type Database = {
           phone?: string | null
           responsible_name?: string | null
           slug?: string | null
+          stripe_connect_account_id?: string | null
+          stripe_connect_status?: string | null
           tax_rate?: number | null
           timezone?: string | null
           updated_at?: string
@@ -91,6 +95,8 @@ export type Database = {
           phone?: string | null
           responsible_name?: string | null
           slug?: string | null
+          stripe_connect_account_id?: string | null
+          stripe_connect_status?: string | null
           tax_rate?: number | null
           timezone?: string | null
           updated_at?: string
@@ -309,31 +315,37 @@ export type Database = {
           account_id: string
           amount: number
           created_at: string
+          description: string | null
           id: string
           period_end: string | null
           period_start: string | null
           referral_id: string
           status: Database["public"]["Enums"]["payout_status"] | null
+          stripe_transfer_id: string | null
         }
         Insert: {
           account_id: string
           amount?: number
           created_at?: string
+          description?: string | null
           id?: string
           period_end?: string | null
           period_start?: string | null
           referral_id: string
           status?: Database["public"]["Enums"]["payout_status"] | null
+          stripe_transfer_id?: string | null
         }
         Update: {
           account_id?: string
           amount?: number
           created_at?: string
+          description?: string | null
           id?: string
           period_end?: string | null
           period_start?: string | null
           referral_id?: string
           status?: Database["public"]["Enums"]["payout_status"] | null
+          stripe_transfer_id?: string | null
         }
         Relationships: [
           {
@@ -1208,25 +1220,31 @@ export type Database = {
       }
       referrals: {
         Row: {
+          commission_paid: boolean | null
           created_at: string
           id: string
           referral_code_id: string | null
           referred_account_id: string
           referrer_account_id: string
+          stripe_transfer_id: string | null
         }
         Insert: {
+          commission_paid?: boolean | null
           created_at?: string
           id?: string
           referral_code_id?: string | null
           referred_account_id: string
           referrer_account_id: string
+          stripe_transfer_id?: string | null
         }
         Update: {
+          commission_paid?: boolean | null
           created_at?: string
           id?: string
           referral_code_id?: string | null
           referred_account_id?: string
           referrer_account_id?: string
+          stripe_transfer_id?: string | null
         }
         Relationships: [
           {
