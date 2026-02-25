@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,11 +23,13 @@ const PLATFORMS = [
   { value: "kiwify", label: "Kiwify" },
   { value: "eduzz", label: "Eduzz" },
   { value: "monetizze", label: "Monetizze" },
+  { value: "cakto", label: "Cakto" },
   { value: "other", label: "Outra" },
 ];
 
 export default function WebhookManager() {
   const { activeAccountId } = useAccount();
+  const { activeProjectId } = useActiveProject();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -46,13 +49,15 @@ export default function WebhookManager() {
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
   const { data: webhooks = [], isLoading } = useQuery({
-    queryKey: ["webhooks", activeAccountId],
+    queryKey: ["webhooks", activeAccountId, activeProjectId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      let q = (supabase as any)
         .from("webhooks")
         .select("*, webhook_products(product_id, products:product_id(id, name, external_id))")
         .eq("account_id", activeAccountId)
         .order("created_at", { ascending: false });
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
@@ -68,6 +73,7 @@ export default function WebhookManager() {
     try {
       const { error } = await (supabase as any).from("webhooks").insert({
         account_id: activeAccountId,
+        project_id: activeProjectId || null,
         name: name.trim(),
         platform,
         platform_name: platform === "other" ? platformName.trim() : null,
