@@ -109,7 +109,16 @@ Deno.serve(async (req) => {
                    req.headers.get('x-real-ip') || null;
   const country = req.headers.get('cf-ipcountry') || null;
 
-  // Insert click - persisted with all relations
+  // Hash IP for LGPD compliance — never store raw IP
+  let ipHash: string | null = null;
+  if (clientIp) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(clientIp);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    ipHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Insert click - persisted with all relations (IP stored as irreversible hash only)
   supabase.from('clicks').insert({
     account_id: smartLink.account_id,
     project_id: smartLink.project_id || null,
@@ -122,7 +131,8 @@ Deno.serve(async (req) => {
     utm_term: utmTerm,
     utm_content: utmContent,
     referrer,
-    ip: clientIp,
+    ip: null,
+    ip_hash: ipHash,
     user_agent: userAgent,
     device_type: deviceType,
     country,

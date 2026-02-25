@@ -105,7 +105,7 @@ export default function Settings() {
 
   const { data: plans = [] } = useQuery({
     queryKey: ["plans"],
-    queryFn: async () => { const { data } = await (supabase as any).from("plans").select("*").order("price"); return data || []; },
+    queryFn: async () => { const { data } = await (supabase as any).from("plans_public").select("*").order("price"); return data || []; },
   });
 
   const { data: projectMembers = [] } = useQuery({
