@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccount } from "@/hooks/useAccount";
 
 interface Project {
   id: string;
@@ -27,20 +28,23 @@ const ProjectContext = createContext<ProjectContextType>({
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
+  const { activeAccountId } = useAccount();
   const [activeId, setActiveId] = useState<string | null>(() => {
     return localStorage.getItem("activeProjectId");
   });
 
   const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", activeAccountId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("projects")
         .select("*")
+        .eq("account_id", activeAccountId)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data || []) as Project[];
     },
+    enabled: !!activeAccountId,
   });
 
   useEffect(() => {
@@ -54,15 +58,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const activeProject = projects.find((p) => p.id === activeId) || projects[0] || null;
 
   const createProject = async (name: string) => {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) throw new Error("Não autenticado");
+    if (!activeAccountId) throw new Error("Sem conta ativa");
     const { data, error } = await (supabase as any)
       .from("projects")
-      .insert({ name, user_id: userData.user.id })
+      .insert({ name, account_id: activeAccountId })
       .select()
       .single();
     if (error) throw error;
-    qc.invalidateQueries({ queryKey: ["projects"] });
+    qc.invalidateQueries({ queryKey: ["projects", activeAccountId] });
+    qc.invalidateQueries({ queryKey: ["active-projects"] });
     if (data) {
       setActiveId(data.id);
       localStorage.setItem("activeProjectId", data.id);

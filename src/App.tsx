@@ -11,6 +11,8 @@ import { I18nProvider } from "@/lib/i18n";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import CreateProjectScreen from "./components/CreateProjectScreen";
+import { ProjectProvider, useProject } from "./hooks/useProject";
 import Dashboard from "./pages/Dashboard";
 import SmartLinks from "./pages/SmartLinks";
 import WebhookLogs from "./pages/WebhookLogs";
@@ -45,6 +47,28 @@ function RequireAccount({ children }: { children: React.ReactNode }) {
         <p className="text-muted-foreground text-sm">Carregando conta...</p>
       </div>
     );
+  }
+
+  return (
+    <ProjectProvider>
+      <RequireProject>{children}</RequireProject>
+    </ProjectProvider>
+  );
+}
+
+function RequireProject({ children }: { children: React.ReactNode }) {
+  const { projects, isLoading } = useProject();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (projects.length === 0) {
+    return <CreateProjectScreen />;
   }
 
   return <>{children}</>;
