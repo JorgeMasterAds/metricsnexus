@@ -1,4 +1,5 @@
 import { ReactNode, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -58,6 +59,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
   const [integrationsOpen, setIntegrationsOpen] = useState(location.pathname === "/integrations");
@@ -89,6 +91,9 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   });
 
   const handleLogout = async () => {
+    localStorage.removeItem("activeAccountId");
+    localStorage.removeItem("activeProjectId");
+    queryClient.clear();
     await supabase.auth.signOut();
   };
 
