@@ -2,13 +2,21 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Download, ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, ChevronLeft, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const STATUS_COLOR: Record<string, string> = {
   approved: "bg-success/20 text-success",
@@ -27,13 +35,48 @@ export default function WebhookLogs() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [page, setPage] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [webhookFilter, setWebhookFilter] = useState<string>("all");
   const { activeAccountId } = useAccount();
+  const { activeProjectId } = useActiveProject();
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
+  // Fetch webhooks for filter dropdown
+  const { data: webhooks = [] } = useQuery({
+    queryKey: ["wh-filter-list", activeAccountId, activeProjectId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("webhooks")
+        .select("id, name")
+        .eq("account_id", activeAccountId)
+        .order("name");
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data } = await q;
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+
+  // Fetch projects for name display
+  const { data: projects = [] } = useQuery({
+    queryKey: ["wh-projects", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("projects")
+        .select("id, name")
+        .eq("account_id", activeAccountId);
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const projectMap = new Map<string, string>(projects.map((p: any) => [p.id, p.name]));
+  const webhookMap = new Map<string, string>(webhooks.map((w: any) => [w.id, w.name]));
+
   const { data, isLoading } = useQuery({
-    queryKey: ["webhook-logs", activeAccountId, since, until, page],
+    queryKey: ["webhook-logs", activeAccountId, activeProjectId, since, until, page, statusFilter, webhookFilter],
     queryFn: async () => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -45,6 +88,9 @@ export default function WebhookLogs() {
         .order("created_at", { ascending: false })
         .range(from, to);
       if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      if (statusFilter !== "all") q = q.eq("status", statusFilter);
+      if (webhookFilter !== "all") q = q.eq("webhook_id", webhookFilter);
       const { data, error, count } = await q;
       if (error) throw error;
       return { logs: data || [], total: count || 0 };
@@ -68,7 +114,38 @@ export default function WebhookLogs() {
         </div>
       }
     >
-      <div className="flex justify-between items-center mb-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Filter className="h-3.5 w-3.5" /> Filtros:
+        </div>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
+          <SelectTrigger className="w-[140px] h-8 text-xs">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="refunded">Refunded</SelectItem>
+            <SelectItem value="error">Error</SelectItem>
+            <SelectItem value="ignored">Ignored</SelectItem>
+            <SelectItem value="duplicate">Duplicate</SelectItem>
+            <SelectItem value="canceled">Canceled</SelectItem>
+            <SelectItem value="chargedback">Chargedback</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={webhookFilter} onValueChange={(v) => { setWebhookFilter(v); setPage(0); }}>
+          <SelectTrigger className="w-[180px] h-8 text-xs">
+            <SelectValue placeholder="Webhook" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os webhooks</SelectItem>
+            {webhooks.map((w: any) => (
+              <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex-1" />
         <span className="text-xs text-muted-foreground">{total} registro(s)</span>
         <Button
           variant="outline"
@@ -76,6 +153,8 @@ export default function WebhookLogs() {
           className="text-xs gap-1.5"
           onClick={() => exportToCsv(logs.map((l: any) => ({
             data: new Date(l.created_at).toLocaleString("pt-BR"),
+            projeto: projectMap.get(l.project_id) || "—",
+            webhook: webhookMap.get(l.webhook_id) || "—",
             plataforma: l.platform,
             evento: l.event_type,
             transaction_id: l.transaction_id,
@@ -105,62 +184,25 @@ export default function WebhookLogs() {
                   <tr className="border-b border-border/30">
                     <th className="w-8" />
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Data</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Projeto</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Webhook</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Plataforma</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Evento</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Transaction ID</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Transaction</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Atribuição</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Motivo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {logs.map((log: any) => (
-                    <>
-                      <tr
-                        key={log.id}
-                        className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer"
-                        onClick={() => setExpanded(expanded === log.id ? null : log.id)}
-                      >
-                        <td className="px-2 py-3 text-center">
-                          {expanded === log.id ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleString("pt-BR")}
-                        </td>
-                        <td className="px-4 py-3"><span className="text-xs capitalize font-medium">{log.platform}</span></td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{log.event_type || "—"}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{log.transaction_id || "—"}</td>
-                        <td className="px-4 py-3">
-                          <span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_COLOR[log.status] || "bg-muted text-muted-foreground")}>
-                            {log.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {log.is_attributed ? (
-                            <span className="text-xs text-success">✓ Atribuído</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Não atribuído</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground max-w-[200px] truncate">{log.ignore_reason || "—"}</td>
-                      </tr>
-                      {expanded === log.id && (
-                        <tr key={`${log.id}-exp`} className="border-b border-border/10">
-                          <td colSpan={8} className="px-4 py-3 bg-muted/30">
-                            <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
-                            <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">
-                              {JSON.stringify(log.raw_payload, null, 2)}
-                            </pre>
-                            {log.attributed_click_id && (
-                              <div className="mt-2 text-xs">
-                                <span className="text-muted-foreground">Click ID atribuído: </span>
-                                <span className="font-mono text-primary">{log.attributed_click_id}</span>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </>
+                    <LogRow
+                      key={log.id}
+                      log={log}
+                      expanded={expanded === log.id}
+                      onToggle={() => setExpanded(expanded === log.id ? null : log.id)}
+                      projectName={projectMap.get(log.project_id) || "—"}
+                      webhookName={webhookMap.get(log.webhook_id) || "—"}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -173,22 +215,10 @@ export default function WebhookLogs() {
                 Página {page + 1} de {totalPages}
               </span>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 0}
-                  onClick={() => setPage(p => p - 1)}
-                  className="text-xs gap-1"
-                >
+                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-xs gap-1">
                   <ChevronLeft className="h-3.5 w-3.5" /> Anterior
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages - 1}
-                  onClick={() => setPage(p => p + 1)}
-                  className="text-xs gap-1"
-                >
+                <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="text-xs gap-1">
                   Próxima <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -197,5 +227,61 @@ export default function WebhookLogs() {
         </>
       )}
     </DashboardLayout>
+  );
+}
+
+function LogRow({ log, expanded, onToggle, projectName, webhookName }: {
+  log: any; expanded: boolean; onToggle: () => void; projectName: string; webhookName: string;
+}) {
+  return (
+    <>
+      <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer" onClick={onToggle}>
+        <td className="px-2 py-3 text-center">
+          {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+        </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">
+          {new Date(log.created_at).toLocaleString("pt-BR")}
+        </td>
+        <td className="px-4 py-3 text-xs font-medium truncate max-w-[120px]">{projectName}</td>
+        <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[140px]">{webhookName}</td>
+        <td className="px-4 py-3"><span className="text-xs capitalize font-medium">{log.platform}</span></td>
+        <td className="px-4 py-3 text-xs text-muted-foreground">{log.event_type || "—"}</td>
+        <td className="px-4 py-3 font-mono text-xs text-muted-foreground truncate max-w-[120px]">{log.transaction_id || "—"}</td>
+        <td className="px-4 py-3">
+          <span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_COLOR[log.status] || "bg-muted text-muted-foreground")}>
+            {log.status}
+          </span>
+        </td>
+        <td className="px-4 py-3">
+          {log.is_attributed ? (
+            <span className="text-xs text-success">✓ Atribuído</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Não atribuído</span>
+          )}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="border-b border-border/10">
+          <td colSpan={9} className="px-4 py-3 bg-muted/30">
+            {log.ignore_reason && (
+              <div className="text-xs mb-2">
+                <span className="text-muted-foreground">Motivo: </span>
+                <span className="text-foreground">{log.ignore_reason}</span>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
+            <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">
+              {JSON.stringify(log.raw_payload, null, 2)}
+            </pre>
+            {log.attributed_click_id && (
+              <div className="mt-2 text-xs">
+                <span className="text-muted-foreground">Click ID atribuído: </span>
+                <span className="font-mono text-primary">{log.attributed_click_id}</span>
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

@@ -5,7 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Basic field sanitization for critical string fields
 const sanitizeString = (val: unknown, maxLen = 500): string | null => {
   if (val === null || val === undefined) return null;
   if (typeof val !== 'string') return String(val).slice(0, maxLen);
@@ -25,6 +24,183 @@ function checkRateLimit(ip: string): boolean {
   }
   entry.count++;
   return entry.count <= RATE_LIMIT;
+}
+
+// ── PLATFORM NORMALIZERS ──
+
+interface NormalizedSale {
+  transactionId: string;
+  refId: string | null;
+  amount: number;
+  baseAmount: number;
+  fees: number;
+  netAmount: number;
+  currency: string;
+  productName: string;
+  externalProductId: string | null;
+  paidAt: string;
+  isOrderBump: boolean;
+  status: string;
+  paymentMethod: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  clickId: string | null;
+  eventType: string;
+  customerEmail: string | null;
+  orderBumps: Array<{ name: string; amount: number }>;
+}
+
+const STATUS_MAP: Record<string, string> = {
+  'approved': 'approved',
+  'paid': 'approved',
+  'completed': 'approved',
+  'refunded': 'refunded',
+  'canceled': 'canceled',
+  'cancelled': 'canceled',
+  'expired': 'canceled',
+  'chargedback': 'chargedback',
+  'chargeback': 'chargedback',
+  'dispute': 'chargedback',
+};
+
+function normalizeStatus(event: string | null, status: string | null): string {
+  // Check event first
+  if (event) {
+    const evLower = event.toLowerCase();
+    if (evLower.includes('refund')) return 'refunded';
+    if (evLower.includes('chargeback')) return 'chargedback';
+    if (evLower.includes('cancel') || evLower.includes('expired')) return 'canceled';
+    if (evLower.includes('approved') || evLower.includes('paid') || evLower.includes('completed')) return 'approved';
+  }
+  if (status) {
+    const sLower = status.toLowerCase();
+    return STATUS_MAP[sLower] || 'received';
+  }
+  return 'received';
+}
+
+/** Parse amount: NEVER divide by 100 if value looks like decimal (has fractional part or < 1000 for small amounts) */
+function parseAmount(val: unknown): number {
+  if (val === null || val === undefined) return 0;
+  const num = typeof val === 'number' ? val : parseFloat(String(val));
+  if (isNaN(num)) return 0;
+  // Values are expected in decimal (e.g. 26.99), NOT in cents
+  // Only divide by 100 if the value is clearly in cents (integer > 999)
+  return num;
+}
+
+function extractUtms(data: any): { utmSource: string | null; utmMedium: string | null; utmCampaign: string | null; utmContent: string | null; utmTerm: string | null } {
+  // Try multiple locations where UTMs might be
+  const sources = [data, data?.data, data?.data?.purchase, data?.data?.checkout];
+  for (const src of sources) {
+    if (!src) continue;
+    const utmSource = src.utm_source || src.utmSource || src.src || null;
+    if (utmSource) {
+      return {
+        utmSource: sanitizeString(utmSource, 200),
+        utmMedium: sanitizeString(src.utm_medium || src.utmMedium || null, 200),
+        utmCampaign: sanitizeString(src.utm_campaign || src.utmCampaign || null, 200),
+        utmContent: sanitizeString(src.utm_content || src.utmContent || null, 200),
+        utmTerm: sanitizeString(src.utm_term || src.utmTerm || src.sck || null, 200),
+      };
+    }
+  }
+  return { utmSource: null, utmMedium: null, utmCampaign: null, utmContent: null, utmTerm: null };
+}
+
+function extractClickId(data: any): string | null {
+  if (!data) return null;
+  const sources = [data, data?.data, data?.data?.purchase, data?.data?.checkout];
+  for (const src of sources) {
+    if (!src) continue;
+    const candidates = [src.click_id, src.utm_term, src.sck];
+    for (const c of candidates) {
+      if (c && typeof c === 'string' && c.trim()) return c.trim();
+    }
+  }
+  return null;
+}
+
+/** Normalize sale from any platform payload */
+function normalizeSale(payload: any): NormalizedSale | null {
+  const data = payload.data || payload;
+  const event = payload.event || data.event || data.status || null;
+  const status = normalizeStatus(event, data.status);
+
+  // ── CAKTO / Generic format: data.amount, data.product, data.customer ──
+  if (data.amount !== undefined || data.baseAmount !== undefined) {
+    const amount = parseAmount(data.amount);
+    const baseAmount = parseAmount(data.baseAmount || data.amount);
+    const fees = parseAmount(data.fees || 0);
+    const discount = parseAmount(data.discount || 0);
+    const netAmount = amount - fees;
+
+    return {
+      transactionId: sanitizeString(data.id || data.refId || data.transaction_id || '', 200) || '',
+      refId: sanitizeString(data.refId || data.ref_id || null, 200),
+      amount,
+      baseAmount,
+      fees,
+      netAmount: netAmount > 0 ? netAmount : amount,
+      currency: sanitizeString(data.currency || data.offer?.currency || 'BRL', 10) || 'BRL',
+      productName: sanitizeString(data.product?.name || data.productName || 'Unknown', 300) || 'Unknown',
+      externalProductId: data.product?.id ? sanitizeString(String(data.product.id), 100) : null,
+      paidAt: data.paidAt ? new Date(data.paidAt).toISOString() : new Date().toISOString(),
+      isOrderBump: data.offer_type ? data.offer_type !== 'main' : false,
+      status,
+      paymentMethod: sanitizeString(data.paymentMethodName || data.paymentMethod || data.payment_method || null, 100),
+      ...extractUtms(payload),
+      clickId: extractClickId(payload),
+      eventType: sanitizeString(event, 100) || status,
+      customerEmail: sanitizeString(data.customer?.email || null, 200),
+      orderBumps: [],
+    };
+  }
+
+  // ── HOTMART format: data.purchase, data.product ──
+  const purchase = data.purchase;
+  const product = data.product;
+  if (purchase) {
+    const amount = parseAmount(purchase.price?.value);
+    const fees = parseAmount(purchase.price?.fees || 0);
+    return {
+      transactionId: sanitizeString(purchase.transaction, 200) || '',
+      refId: sanitizeString(purchase.transaction, 200),
+      amount,
+      baseAmount: amount,
+      fees,
+      netAmount: amount - fees,
+      currency: sanitizeString(purchase.price?.currency_value, 10) || 'BRL',
+      productName: sanitizeString(product?.name, 300) || 'Unknown',
+      externalProductId: product?.id ? sanitizeString(String(product.id), 100) : null,
+      paidAt: purchase.order_date ? new Date(purchase.order_date).toISOString() : new Date().toISOString(),
+      isOrderBump: purchase.order_bump?.is_order_bump === true,
+      status,
+      paymentMethod: sanitizeString(purchase.payment?.type || null, 100),
+      ...extractUtms(payload),
+      clickId: extractClickId(payload),
+      eventType: sanitizeString(event, 100) || status,
+      customerEmail: sanitizeString(data.buyer?.email || null, 200),
+      orderBumps: (purchase.order_bump?.order_bump_items || []).map((b: any) => ({
+        name: b.name || 'Order Bump',
+        amount: parseAmount(b.price?.value || b.amount || 0),
+      })),
+    };
+  }
+
+  return null;
+}
+
+function detectPlatform(payload: Record<string, unknown>): string {
+  const data = payload as any;
+  if (data.event && typeof data.event === 'string' && data.event.startsWith('PURCHASE')) return 'hotmart';
+  if (data.data?.purchase) return 'hotmart';
+  if (data.data?.amount !== undefined || data.data?.baseAmount !== undefined) return 'cakto';
+  if (data.event === 'purchase_approved' || data.data?.status === 'paid') return 'sale_platform';
+  return 'unknown';
 }
 
 Deno.serve(async (req) => {
@@ -50,7 +226,6 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  // Enforce payload size limit (100KB)
   const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
   if (contentLength > 102400) {
     return new Response(JSON.stringify({ error: 'Payload too large' }), {
@@ -83,20 +258,20 @@ Deno.serve(async (req) => {
   }
 
   // ── TOKEN-BASED ROUTING ──
-  // Extract token from URL path: /webhook/{token}
   const url = new URL(req.url);
   const pathParts = url.pathname.split('/').filter(Boolean);
   const token = pathParts[pathParts.length - 1];
 
   let accountId: string | null = null;
   let webhookId: string | null = null;
+  let projectId: string | null = null;
   let linkedProductIds: string[] = [];
+  let webhookPlatform: string | null = null;
 
   if (token && token !== 'webhook') {
-    // Token-based lookup (new architecture)
     const { data: webhook } = await supabase
       .from('webhooks')
-      .select('id, account_id, is_active, platform')
+      .select('id, account_id, is_active, platform, project_id')
       .eq('token', token)
       .maybeSingle();
 
@@ -120,6 +295,8 @@ Deno.serve(async (req) => {
         status: 'ignored',
         ignore_reason: 'Webhook is inactive',
         account_id: webhook.account_id,
+        webhook_id: webhook.id,
+        project_id: webhook.project_id,
       });
       return new Response(JSON.stringify({ error: 'Webhook inactive' }), {
         status: 403,
@@ -129,8 +306,9 @@ Deno.serve(async (req) => {
 
     accountId = webhook.account_id;
     webhookId = webhook.id;
+    projectId = webhook.project_id;
+    webhookPlatform = webhook.platform;
 
-    // Fetch linked products
     const { data: wpRows } = await supabase
       .from('webhook_products')
       .select('product_id')
@@ -138,7 +316,6 @@ Deno.serve(async (req) => {
     linkedProductIds = (wpRows || []).map((r: any) => r.product_id);
 
   } else {
-    // No valid token
     await supabase.from('webhook_logs').insert({
       platform: 'unknown',
       raw_payload: rawPayload,
@@ -151,259 +328,236 @@ Deno.serve(async (req) => {
     });
   }
 
-  const platform = detectPlatform(rawPayload);
+  const detectedPlatform = detectPlatform(rawPayload);
+  const platform = webhookPlatform || detectedPlatform;
 
-  let logEntry: Record<string, unknown> = {
-    platform,
-    raw_payload: rawPayload,
-    status: 'received',
-    account_id: accountId,
-  };
+  // Try to normalize the sale
+  const sale = normalizeSale(rawPayload);
 
-  if (platform === 'sale_platform') {
-    const result = await processSale(rawPayload, supabase, accountId, linkedProductIds, webhookId);
-    logEntry = { ...logEntry, ...result };
-  } else {
-    logEntry.status = 'ignored';
-    logEntry.ignore_reason = 'Unknown platform or event format';
-  }
-
-  // Attribute click if found
-  if (logEntry.attributed_click_id) {
-    const { data: click } = await supabase
-      .from('clicks')
-      .select('account_id, smartlink_id, variant_id')
-      .eq('click_id', logEntry.attributed_click_id as string)
-      .maybeSingle();
-    if (click) {
-      if (!accountId) logEntry.account_id = click.account_id;
-    }
-  }
-
-  await supabase.from('webhook_logs').insert(logEntry);
-
-  return new Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-});
-
-function detectPlatform(payload: Record<string, unknown>): string {
-  const data = payload as any;
-  if (data.event && typeof data.event === 'string' && data.event.startsWith('PURCHASE')) return 'sale_platform';
-  if (data.data?.purchase) return 'sale_platform';
-  if (data.event === 'purchase_approved' || data.data?.status === 'paid' || data.data?.amount !== undefined) return 'sale_platform';
-  return 'unknown';
-}
-
-async function processSale(
-  payload: Record<string, unknown>,
-  supabase: ReturnType<typeof createClient>,
-  accountId: string | null,
-  linkedProductIds: string[],
-  webhookId: string | null,
-) {
-  const data = payload as any;
-  const event = data.event;
-
-  const negativeEvents: Record<string, string> = {
-    'PURCHASE_REFUNDED': 'refunded',
-    'PURCHASE_CHARGEBACK': 'chargedback',
-    'PURCHASE_CANCELED': 'canceled',
-    'PURCHASE_EXPIRED': 'canceled',
-  };
-
-  const negativeStatuses: Record<string, string> = {
-    'refunded': 'refunded',
-    'canceled': 'canceled',
-    'chargedback': 'chargedback',
-  };
-
-  // Negative events
-  if (negativeEvents[event]) {
-    const purchase = data.data?.purchase;
-    const transactionId = purchase?.transaction;
-    if (transactionId) {
-      await supabase.from('conversions').update({ status: negativeEvents[event] }).eq('transaction_id', transactionId);
-      await supabase.from('conversion_events').insert({
-        transaction_id: transactionId,
-        event_type: negativeEvents[event],
-        account_id: accountId,
-        raw_payload: payload,
-      });
-    }
-    return {
-      event_type: event,
-      transaction_id: transactionId,
-      status: negativeEvents[event],
-      attributed_click_id: extractClickId(purchase || {}),
-      is_attributed: !!extractClickId(purchase || {}),
+  if (!sale) {
+    const logEntry = {
+      platform,
+      raw_payload: rawPayload,
+      status: 'ignored',
+      ignore_reason: 'Unknown payload format',
+      account_id: accountId,
+      webhook_id: webhookId,
+      project_id: projectId,
     };
+    await supabase.from('webhook_logs').insert(logEntry);
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
-  const status = data.data?.status;
-  if (negativeStatuses[status]) {
-    const orderData = data.data || data;
-    const transactionId = String(orderData.id || '');
-    if (transactionId) {
-      await supabase.from('conversions').update({ status: negativeStatuses[status] }).eq('transaction_id', transactionId);
-      await supabase.from('conversion_events').insert({
-        transaction_id: transactionId,
-        event_type: negativeStatuses[status],
-        account_id: accountId,
-        raw_payload: payload,
-      });
-    }
-    return {
-      event_type: event || status,
-      transaction_id: transactionId || null,
-      status: negativeStatuses[status],
-      attributed_click_id: extractClickId(orderData),
-      is_attributed: !!extractClickId(orderData),
-    };
+  // Check if negative event
+  const isNegative = ['refunded', 'chargedback', 'canceled'].includes(sale.status);
+
+  if (isNegative && sale.transactionId) {
+    // Update existing conversion
+    await supabase.from('conversions').update({ status: sale.status }).eq('transaction_id', sale.transactionId);
+    await supabase.from('conversion_events').insert({
+      transaction_id: sale.transactionId,
+      event_type: sale.status,
+      account_id: accountId,
+      raw_payload: rawPayload,
+    });
+
+    await supabase.from('webhook_logs').insert({
+      platform,
+      raw_payload: rawPayload,
+      status: sale.status,
+      event_type: sale.eventType,
+      transaction_id: sale.transactionId,
+      attributed_click_id: sale.clickId,
+      is_attributed: !!sale.clickId,
+      account_id: accountId,
+      webhook_id: webhookId,
+      project_id: projectId,
+    });
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
-  // Positive events
-  const isApproved = event === 'PURCHASE_APPROVED' || event === 'purchase_approved' || status === 'paid';
-  if (!isApproved) {
-    return { event_type: event || status, status: 'ignored', ignore_reason: `Not approved: ${event || status}` };
+  // Not approved? Ignore
+  if (sale.status !== 'approved') {
+    await supabase.from('webhook_logs').insert({
+      platform,
+      raw_payload: rawPayload,
+      status: 'ignored',
+      event_type: sale.eventType,
+      ignore_reason: `Not approved: ${sale.eventType}`,
+      account_id: accountId,
+      webhook_id: webhookId,
+      project_id: projectId,
+    });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
-  const purchase = data.data?.purchase;
-  const product = data.data?.product;
-  const orderData = data.data || data;
-
-  let transactionId: string, amount: number, currency: string, productName: string, paidAt: string, isOrderBump: boolean;
-  let externalProductId: string | null = null;
-
-  if (purchase) {
-    transactionId = sanitizeString(purchase.transaction, 200) || '';
-    amount = typeof purchase.price?.value === 'number' ? purchase.price.value : 0;
-    currency = sanitizeString(purchase.price?.currency_value, 10) || 'BRL';
-    productName = sanitizeString(product?.name, 300) || 'Unknown';
-    externalProductId = product?.id ? sanitizeString(String(product.id), 100) : null;
-    paidAt = purchase.order_date ? new Date(purchase.order_date).toISOString() : new Date().toISOString();
-    isOrderBump = purchase.order_bump?.is_order_bump === true;
-  } else {
-    transactionId = sanitizeString(String(orderData.id || ''), 200) || '';
-    const rawAmount = orderData.amount;
-    amount = typeof rawAmount === 'number' ? rawAmount / 100 : 0;
-    currency = sanitizeString(orderData.offer?.currency, 10) || 'BRL';
-    productName = sanitizeString(orderData.product?.name, 300) || 'Unknown';
-    externalProductId = orderData.product?.id ? sanitizeString(String(orderData.product.id), 100) : null;
-    paidAt = orderData.paidAt ? new Date(orderData.paidAt).toISOString() : new Date().toISOString();
-    isOrderBump = orderData.offer_type && orderData.offer_type !== 'main';
+  if (!sale.transactionId) {
+    await supabase.from('webhook_logs').insert({
+      platform,
+      raw_payload: rawPayload,
+      status: 'error',
+      event_type: sale.eventType,
+      ignore_reason: 'Missing transaction id',
+      account_id: accountId,
+      webhook_id: webhookId,
+      project_id: projectId,
+    });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
-  if (!transactionId) return { event_type: event, status: 'error', ignore_reason: 'Missing transaction id' };
-
-  // Validate product linkage if webhook has linked products
-  if (linkedProductIds.length > 0 && externalProductId && accountId) {
+  // Validate product linkage
+  if (linkedProductIds.length > 0 && sale.externalProductId && accountId) {
     const { data: matchedProduct } = await supabase
       .from('products')
       .select('id')
       .eq('account_id', accountId)
-      .eq('external_id', externalProductId)
+      .eq('external_id', sale.externalProductId)
       .in('id', linkedProductIds)
       .maybeSingle();
 
     if (!matchedProduct) {
-      return {
-        event_type: event,
+      await supabase.from('webhook_logs').insert({
+        platform,
+        raw_payload: rawPayload,
         status: 'ignored',
-        ignore_reason: `Product ${externalProductId} not linked to this webhook`,
-        transaction_id: transactionId,
-      };
+        event_type: sale.eventType,
+        transaction_id: sale.transactionId,
+        ignore_reason: `Product ${sale.externalProductId} not linked to this webhook`,
+        account_id: accountId,
+        webhook_id: webhookId,
+        project_id: projectId,
+      });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
   }
 
-  const clickId = extractClickId(purchase || orderData);
-
-  const { data: existing } = await supabase.from('conversions').select('id').eq('transaction_id', transactionId).maybeSingle();
+  // Deduplication
+  const { data: existing } = await supabase.from('conversions').select('id').eq('transaction_id', sale.transactionId).maybeSingle();
   if (existing) {
-    return { event_type: event, transaction_id: transactionId, status: 'duplicate', ignore_reason: 'Duplicate', attributed_click_id: clickId, is_attributed: !!clickId };
+    await supabase.from('webhook_logs').insert({
+      platform,
+      raw_payload: rawPayload,
+      status: 'duplicate',
+      event_type: sale.eventType,
+      transaction_id: sale.transactionId,
+      ignore_reason: 'Duplicate',
+      attributed_click_id: sale.clickId,
+      is_attributed: !!sale.clickId,
+      account_id: accountId,
+      webhook_id: webhookId,
+      project_id: projectId,
+    });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   // Attribute via click
-  let smartlinkId = null, variantId = null, projectId = null;
-  if (clickId) {
-    const { data: click } = await supabase.from('clicks').select('smartlink_id, variant_id, account_id, project_id').eq('click_id', clickId).maybeSingle();
+  let smartlinkId = null, variantId = null;
+  if (sale.clickId) {
+    const { data: click } = await supabase.from('clicks').select('smartlink_id, variant_id, account_id, project_id').eq('click_id', sale.clickId).maybeSingle();
     if (click) {
       smartlinkId = click.smartlink_id;
       variantId = click.variant_id;
-      projectId = click.project_id;
+      if (!projectId) projectId = click.project_id;
       if (!accountId) accountId = click.account_id;
     }
   }
 
-  // If no project_id from click, try to resolve from webhook's project
+  // If still no project_id, use webhook's project
   if (!projectId && webhookId) {
     const { data: wh } = await supabase.from('webhooks').select('project_id').eq('id', webhookId).maybeSingle();
     if (wh?.project_id) projectId = wh.project_id;
   }
 
+  // Insert conversion with UTMs, payment, fees
   const { data: convRow } = await supabase.from('conversions').insert({
     account_id: accountId,
     project_id: projectId,
-    click_id: clickId,
+    click_id: sale.clickId,
     smartlink_id: smartlinkId,
     variant_id: variantId,
-    transaction_id: transactionId,
-    platform: 'sale_platform',
-    product_name: productName,
-    amount,
-    currency,
-    is_order_bump: !!isOrderBump,
+    transaction_id: sale.transactionId,
+    ref_id: sale.refId,
+    platform,
+    product_name: sale.productName,
+    amount: sale.amount,
+    fees: sale.fees,
+    net_amount: sale.netAmount,
+    currency: sale.currency,
+    is_order_bump: sale.isOrderBump,
     status: 'approved',
-    paid_at: paidAt,
-    raw_payload: payload,
+    paid_at: sale.paidAt,
+    payment_method: sale.paymentMethod,
+    utm_source: sale.utmSource,
+    utm_medium: sale.utmMedium,
+    utm_campaign: sale.utmCampaign,
+    utm_content: sale.utmContent,
+    utm_term: sale.utmTerm,
+    raw_payload: rawPayload,
   }).select('id').single();
 
   if (convRow) {
     const items: Array<Record<string, unknown>> = [{
       conversion_id: convRow.id,
       account_id: accountId,
-      product_name: productName,
-      amount,
-      is_order_bump: !!isOrderBump,
+      product_name: sale.productName,
+      amount: sale.amount,
+      is_order_bump: sale.isOrderBump,
     }];
 
-    const orderBumps = purchase?.order_bump?.order_bump_items || orderData?.order_bumps || [];
-    if (Array.isArray(orderBumps)) {
-      for (const bump of orderBumps) {
-        items.push({
-          conversion_id: convRow.id,
-          account_id: accountId,
-          product_name: bump.name || bump.product_name || 'Order Bump',
-          amount: bump.price?.value || bump.amount || 0,
-          is_order_bump: true,
-        });
-      }
+    for (const bump of sale.orderBumps) {
+      items.push({
+        conversion_id: convRow.id,
+        account_id: accountId,
+        product_name: bump.name,
+        amount: bump.amount,
+        is_order_bump: true,
+      });
     }
     await supabase.from('conversion_items').insert(items);
   }
 
   await supabase.from('conversion_events').insert({
-    transaction_id: transactionId,
+    transaction_id: sale.transactionId,
     event_type: 'approved',
     account_id: accountId,
-    raw_payload: payload,
+    raw_payload: rawPayload,
   });
 
-  return {
-    event_type: event,
-    transaction_id: transactionId,
+  // Log
+  await supabase.from('webhook_logs').insert({
+    platform,
+    raw_payload: rawPayload,
     status: 'approved',
-    attributed_click_id: clickId,
-    is_attributed: !!clickId,
-  };
-}
+    event_type: sale.eventType,
+    transaction_id: sale.transactionId,
+    attributed_click_id: sale.clickId,
+    is_attributed: !!sale.clickId,
+    account_id: accountId,
+    webhook_id: webhookId,
+    project_id: projectId,
+  });
 
-function extractClickId(data: Record<string, unknown>): string | null {
-  if (!data) return null;
-  const candidates = [(data as any).click_id, (data as any).utm_term, (data as any).sck];
-  for (const c of candidates) {
-    if (c && typeof c === 'string' && c.trim()) return c.trim();
-  }
-  return null;
-}
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+});

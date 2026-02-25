@@ -446,17 +446,26 @@ export type Database = {
           click_id: string | null
           created_at: string
           currency: string | null
+          fees: number | null
           id: string
           is_order_bump: boolean | null
+          net_amount: number | null
           paid_at: string | null
+          payment_method: string | null
           platform: string | null
           product_name: string | null
           project_id: string | null
           raw_payload: Json | null
+          ref_id: string | null
           smartlink_id: string | null
           status: Database["public"]["Enums"]["conversion_status"] | null
           transaction_id: string
           updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
           variant_id: string | null
         }
         Insert: {
@@ -465,17 +474,26 @@ export type Database = {
           click_id?: string | null
           created_at?: string
           currency?: string | null
+          fees?: number | null
           id?: string
           is_order_bump?: boolean | null
+          net_amount?: number | null
           paid_at?: string | null
+          payment_method?: string | null
           platform?: string | null
           product_name?: string | null
           project_id?: string | null
           raw_payload?: Json | null
+          ref_id?: string | null
           smartlink_id?: string | null
           status?: Database["public"]["Enums"]["conversion_status"] | null
           transaction_id: string
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           variant_id?: string | null
         }
         Update: {
@@ -484,17 +502,26 @@ export type Database = {
           click_id?: string | null
           created_at?: string
           currency?: string | null
+          fees?: number | null
           id?: string
           is_order_bump?: boolean | null
+          net_amount?: number | null
           paid_at?: string | null
+          payment_method?: string | null
           platform?: string | null
           product_name?: string | null
           project_id?: string | null
           raw_payload?: Json | null
+          ref_id?: string | null
           smartlink_id?: string | null
           status?: Database["public"]["Enums"]["conversion_status"] | null
           transaction_id?: string
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           variant_id?: string | null
         }
         Relationships: [
@@ -1464,9 +1491,11 @@ export type Database = {
           ignore_reason: string | null
           is_attributed: boolean | null
           platform: string | null
+          project_id: string | null
           raw_payload: Json | null
           status: string | null
           transaction_id: string | null
+          webhook_id: string | null
         }
         Insert: {
           account_id?: string | null
@@ -1477,9 +1506,11 @@ export type Database = {
           ignore_reason?: string | null
           is_attributed?: boolean | null
           platform?: string | null
+          project_id?: string | null
           raw_payload?: Json | null
           status?: string | null
           transaction_id?: string | null
+          webhook_id?: string | null
         }
         Update: {
           account_id?: string | null
@@ -1490,9 +1521,11 @@ export type Database = {
           ignore_reason?: string | null
           is_attributed?: boolean | null
           platform?: string | null
+          project_id?: string | null
           raw_payload?: Json | null
           status?: string | null
           transaction_id?: string | null
+          webhook_id?: string | null
         }
         Relationships: [
           {
@@ -1500,6 +1533,20 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhooks"
             referencedColumns: ["id"]
           },
         ]
