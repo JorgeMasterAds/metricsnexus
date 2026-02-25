@@ -32,17 +32,18 @@ export default function SmartLinks() {
   const { maxSmartlinks } = useUsageLimits();
 
   // Fetch active custom domain for this account
+  // Fetch active custom domain for THIS PROJECT (never cross-project)
   const { data: customDomain } = useQuery({
-    queryKey: ["active-custom-domain", activeAccountId],
+    queryKey: ["active-custom-domain", activeAccountId, activeProjectId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      let q = (supabase as any)
         .from("custom_domains")
         .select("domain")
         .eq("account_id", activeAccountId)
         .eq("is_verified", true)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
+        .eq("is_active", true);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data } = await q.limit(1).maybeSingle();
       return data?.domain || null;
     },
     enabled: !!activeAccountId,
@@ -337,9 +338,9 @@ export default function SmartLinks() {
                     onClick={() => setExpandedId(isExpanded ? null : link.id)}
                     className="flex-1 flex items-center gap-3 text-left"
                   >
-                    <span className={cn("h-2 w-2 rounded-full shrink-0", link.is_active ? "bg-success" : "bg-muted-foreground")} />
+                    <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", link.is_active ? "bg-success" : "bg-muted-foreground")} />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">{link.name}</div>
+                      <div className="font-semibold text-sm">{link.name}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {editingSlug === link.id ? (
                           <span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -362,14 +363,10 @@ export default function SmartLinks() {
                             onDoubleClick={(e) => { e.stopPropagation(); setEditingSlug(link.id); setSlugValue(link.slug); }}
                             title="Duplo clique para editar"
                           >
-                            /{link.slug}
+                            /{link.slug} · {link.smartlink_variants?.length || 0} variantes
                           </span>
                         )}
-                        {" · "}{link.smartlink_variants?.length || 0} variantes · {linkData.views} views · {convRate}% · Ticket R$ {ticket}
                       </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground font-mono hidden sm:block">
-                      R$ {linkData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </div>
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
                   </button>
@@ -393,7 +390,31 @@ export default function SmartLinks() {
                   </div>
                 </div>
 
-                <div className="px-5 pb-3 -mt-1">
+                {/* KPI cards for this SmartLink */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-5 pb-4">
+                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Views</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums">{linkData.views.toLocaleString("pt-BR")}</div>
+                  </div>
+                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Vendas</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums">{linkData.sales.toLocaleString("pt-BR")}</div>
+                  </div>
+                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums">R$ {linkData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                  </div>
+                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Conv.</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums text-primary">{convRate}%</div>
+                  </div>
+                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ticket</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums">R$ {ticket}</div>
+                  </div>
+                </div>
+
+                <div className="px-5 pb-3">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-1.5">
                     <span className="font-mono truncate">{getRedirectUrl(link.slug)}</span>
                     <button onClick={() => copyLink(link.slug)} className="shrink-0 hover:text-foreground"><Copy className="h-3 w-3" /></button>

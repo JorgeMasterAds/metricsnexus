@@ -607,6 +607,27 @@ export default function Dashboard() {
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.dashboard} />
+          <ExportMenu
+            data={[
+              ...computed.productData.map((p: any) => ({
+                produto: p.name,
+                vendas: p.vendas,
+                receita: p.receita.toFixed(2),
+                ticket_medio: p.ticket.toFixed(2),
+                percentual: p.percentual.toFixed(1) + "%",
+                tipo: p.isOrderBump ? "Order Bump" : "Principal",
+              })),
+            ]}
+            filename="dashboard-nexus"
+            title="Dashboard — Nexus Metrics"
+            kpis={[
+              { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
+              { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
+              { label: "Faturamento", value: fmt(computed.totalRevenue) },
+              { label: "Ticket Médio", value: fmt(computed.avgTicket) },
+              { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
+            ]}
+          />
           <Button variant={editMode ? "default" : "outline"} size="sm" className="text-xs gap-1.5" onClick={toggleEdit}>
             {editMode ? <><Check className="h-3.5 w-3.5" /> Salvar Layout</> : <><Pencil className="h-3.5 w-3.5" /> Editar Layout</>}
           </Button>
