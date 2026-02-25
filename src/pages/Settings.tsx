@@ -334,17 +334,18 @@ export default function Settings() {
       subtitle="Gerencie sua conta e organização"
       actions={<ProductTour {...TOURS.settings} triggerLabel="Tutorial" />}
     >
-      <div className="w-full flex items-center gap-1 mb-6 border-b border-border/50 overflow-x-auto scrollbar-thin">
+      <div className="w-full flex items-center gap-0.5 sm:gap-1 mb-6 border-b border-border/50">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2 sm:px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
+            title={tab.label}
           >
-            <tab.icon className="h-3.5 w-3.5" />
-            {tab.label}
+            <tab.icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -483,9 +484,9 @@ export default function Settings() {
                         ))}
                       </ul>
                       {isCurrentPlan ? (
-                        <Badge className="w-full mt-3 justify-center text-xs">Plano atual</Badge>
+                        <Badge className="mt-3 justify-center text-xs">Plano atual</Badge>
                       ) : plan.name === 'free' ? null : (
-                        <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={async () => {
+                        <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={async () => {
                           if (!plan.stripe_price_id) { toast({ title: "Plano indisponível", variant: "destructive" }); return; }
                           try { const refCode = localStorage.getItem("referral_code"); const { data, error } = await supabase.functions.invoke("create-checkout", { body: { priceId: plan.stripe_price_id, referralCode: refCode || undefined } }); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" }); }
                         }}>{subscription?.stripe_subscription_id ? "Alterar plano" : "Assinar"}</Button>
