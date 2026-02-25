@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // Basic field sanitization for critical string fields
@@ -86,11 +86,7 @@ Deno.serve(async (req) => {
   // Extract token from URL path: /webhook/{token}
   const url = new URL(req.url);
   const pathParts = url.pathname.split('/').filter(Boolean);
-  // Path is like: /webhook/TOKEN or /functions/v1/webhook/TOKEN
   const token = pathParts[pathParts.length - 1];
-
-  // Also support legacy x-webhook-secret header
-  const headerSecret = req.headers.get('x-webhook-secret');
 
   let accountId: string | null = null;
   let webhookId: string | null = null;
@@ -141,34 +137,13 @@ Deno.serve(async (req) => {
       .eq('webhook_id', webhook.id);
     linkedProductIds = (wpRows || []).map((r: any) => r.product_id);
 
-  } else if (headerSecret) {
-    // Legacy header-based lookup (backward compat)
-    const { data: account } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('webhook_secret', headerSecret)
-      .maybeSingle();
-
-    if (!account) {
-      await supabase.from('webhook_logs').insert({
-        platform: 'unknown',
-        raw_payload: rawPayload,
-        status: 'error',
-        ignore_reason: 'Invalid x-webhook-secret header',
-      });
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    accountId = account.id;
   } else {
-    // No authentication at all
+    // No valid token
     await supabase.from('webhook_logs').insert({
       platform: 'unknown',
       raw_payload: rawPayload,
       status: 'error',
-      ignore_reason: 'No token in URL and no x-webhook-secret header',
+      ignore_reason: 'No valid token in URL',
     });
     return new Response(JSON.stringify({ error: 'Missing authentication' }), {
       status: 401,

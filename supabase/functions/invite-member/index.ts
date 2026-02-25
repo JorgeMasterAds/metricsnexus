@@ -87,14 +87,17 @@ Deno.serve(async (req) => {
     // Find user by email using secure RPC (avoids loading all users)
     const { data: targetUserId } = await supabase.rpc('find_user_id_by_email', { _email: email });
 
+    // Generic response to prevent email enumeration
+    const genericSuccess = { success: true, message: 'Convite enviado se o usuário existir.' };
+
     if (!targetUserId) {
-      return new Response(JSON.stringify({ error: 'Usuário não encontrado. Ele precisa criar uma conta primeiro.' }), {
-        status: 404,
+      // Return same response whether user exists or not
+      return new Response(JSON.stringify(genericSuccess), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check if already a member
+    // Check if already a member (silent - same generic response)
     const { data: existing } = await supabase
       .from('project_users')
       .select('id')
@@ -103,8 +106,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing) {
-      return new Response(JSON.stringify({ error: 'Usuário já é membro deste projeto' }), {
-        status: 409,
+      return new Response(JSON.stringify(genericSuccess), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -122,7 +124,7 @@ Deno.serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    return new Response(JSON.stringify({ success: true, message: `${email} adicionado ao projeto` }), {
+    return new Response(JSON.stringify(genericSuccess), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
