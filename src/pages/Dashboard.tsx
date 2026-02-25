@@ -724,7 +724,6 @@ export default function Dashboard() {
         </div>
       }
     >
-      <div id="dashboard-export-root">
       <div className="mb-6">
         <GamificationBar
           since={sinceISO}
@@ -751,6 +750,8 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      <div id="dashboard-export-root">
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>

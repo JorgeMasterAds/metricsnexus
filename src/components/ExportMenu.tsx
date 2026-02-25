@@ -20,14 +20,25 @@ async function exportSnapshotPdf(selector: string, filename: string) {
   const el = document.querySelector(selector) as HTMLElement | null;
   if (!el) { toast.error("Elemento não encontrado para exportação"); return; }
 
-  toast.info("Gerando PDF…", { duration: 3000 });
+  toast.info("Gerando PDF…", { duration: 5000 });
 
   const html2canvas = (await import("html2canvas")).default;
   const { default: jsPDF } = await import("jspdf");
 
+  // Collect vertical breakpoints from direct children (section boundaries)
+  const children = Array.from(el.children) as HTMLElement[];
+  const elRect = el.getBoundingClientRect();
+  const breakPoints: number[] = []; // pixel offsets from top of el
+  children.forEach((child) => {
+    const r = child.getBoundingClientRect();
+    breakPoints.push(r.top - elRect.top);
+  });
+  breakPoints.push(el.scrollHeight);
+
   // Capture at 2x for quality
+  const scale = 2;
   const canvas = await html2canvas(el, {
-    scale: 2,
+    scale,
     useCORS: true,
     backgroundColor: "#0f0f12",
     logging: false,
@@ -35,57 +46,66 @@ async function exportSnapshotPdf(selector: string, filename: string) {
     windowHeight: el.scrollHeight,
   });
 
-  const imgData = canvas.toDataURL("image/png");
   const imgW = canvas.width;
   const imgH = canvas.height;
 
-  // Use landscape A4, fit content width to page
-  const doc = new jsPDF({
-    orientation: imgW > imgH ? "landscape" : "portrait",
-    unit: "mm",
-    format: "a4",
-  });
-
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
   const margin = 8;
   const usableW = pw - margin * 2;
+  const usableH = ph - margin * 2;
 
-  const ratio = imgH / imgW;
-  const scaledH = usableW * ratio;
+  // Pixels per mm in the scaled canvas
+  const pxPerMm = imgW / usableW;
+  const pageHeightPx = usableH * pxPerMm;
 
-  // If content fits in one page
-  if (scaledH <= ph - margin * 2) {
+  // Build page slices using breakpoints to avoid cutting sections
+  const scaledBreaks = breakPoints.map(bp => bp * scale);
+  const slices: { srcY: number; srcH: number }[] = [];
+  let currentY = 0;
+
+  while (currentY < imgH) {
+    let idealEnd = currentY + pageHeightPx;
+
+    if (idealEnd >= imgH) {
+      slices.push({ srcY: currentY, srcH: imgH - currentY });
+      break;
+    }
+
+    // Find the closest breakpoint that doesn't exceed idealEnd
+    let bestBreak = idealEnd;
+    for (const bp of scaledBreaks) {
+      if (bp > currentY + 10 && bp <= idealEnd) {
+        bestBreak = bp;
+      }
+    }
+
+    // If no good break found, just use idealEnd
+    slices.push({ srcY: currentY, srcH: bestBreak - currentY });
+    currentY = bestBreak;
+  }
+
+  // Render each slice to a page
+  slices.forEach((slice, i) => {
+    if (i > 0) doc.addPage();
     doc.setFillColor(15, 15, 18);
     doc.rect(0, 0, pw, ph, "F");
-    doc.addImage(imgData, "PNG", margin, margin, usableW, scaledH);
-  } else {
-    // Multi-page: slice the canvas into page-sized chunks
-    const pageContentH = ph - margin * 2;
-    const srcSliceH = (pageContentH / scaledH) * imgH;
-    let srcY = 0;
-    let pageIdx = 0;
 
-    while (srcY < imgH) {
-      if (pageIdx > 0) doc.addPage();
-      doc.setFillColor(15, 15, 18);
-      doc.rect(0, 0, pw, ph, "F");
+    const sliceCanvas = document.createElement("canvas");
+    sliceCanvas.width = imgW;
+    sliceCanvas.height = slice.srcH;
+    const ctx = sliceCanvas.getContext("2d")!;
+    ctx.drawImage(canvas, 0, slice.srcY, imgW, slice.srcH, 0, 0, imgW, slice.srcH);
 
-      const sliceH = Math.min(srcSliceH, imgH - srcY);
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = imgW;
-      sliceCanvas.height = sliceH;
-      const ctx = sliceCanvas.getContext("2d")!;
-      ctx.drawImage(canvas, 0, srcY, imgW, sliceH, 0, 0, imgW, sliceH);
+    const destH = (slice.srcH / pxPerMm);
+    doc.addImage(sliceCanvas.toDataURL("image/png"), "PNG", margin, margin, usableW, destH);
 
-      const sliceImg = sliceCanvas.toDataURL("image/png");
-      const destH = (sliceH / imgH) * scaledH;
-      doc.addImage(sliceImg, "PNG", margin, margin, usableW, destH);
-
-      srcY += sliceH;
-      pageIdx++;
-    }
-  }
+    // Footer
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 85);
+    doc.text(`Nexus Metrics — Página ${i + 1}/${slices.length}`, pw / 2, ph - 4, { align: "center" });
+  });
 
   const { formatDateForFilename } = await import("@/lib/csv");
   doc.save(`${filename}_${formatDateForFilename()}.pdf`);
