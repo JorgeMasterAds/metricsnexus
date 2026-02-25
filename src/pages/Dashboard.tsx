@@ -249,7 +249,7 @@ export default function Dashboard() {
     const cr = tv > 0 ? (ts / tv) * 100 : 0;
     const at = ts > 0 ? tr / ts : 0;
 
-    const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000));
+    const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)) + 1;
     const dayMap = new Map<string, { views: number; sales: number; revenue: number }>();
     for (let i = 0; i < days; i++) {
       const d = new Date(dateRange.from.getTime() + i * 86400000);

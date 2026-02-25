@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   BarChart3,
@@ -20,7 +20,6 @@ import {
   Shield,
   ScrollText,
   Webhook,
-  Megaphone,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,21 +57,12 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
   const [integrationsOpen, setIntegrationsOpen] = useState(location.pathname === "/integrations");
-  const [novidadesOpen, setNovidadesOpen] = useState(false);
   
   const { activeAccountId } = useAccount();
-
-  const { data: announcements = [] } = useQuery({
-    queryKey: ["sidebar-announcements"],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from("system_announcements").select("id, title, body, published_at").order("published_at", { ascending: false }).limit(10);
-      return data || [];
-    },
-    staleTime: 120000,
-  });
 
   const { data: userProfile } = useQuery({
     queryKey: ["sidebar-user-profile"],
@@ -141,21 +131,31 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
 
         {/* Integrações with submenu */}
         <div>
-          <button
-            onClick={() => setIntegrationsOpen(!integrationsOpen)}
-            className={cn(
-              "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors",
-              isIntegrationsActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}
-          >
-            <span className="flex items-center gap-3">
+          <div className="flex items-center">
+            <button
+              onClick={() => { navigate("/integrations?tab=webhooks"); setMobileOpen(false); }}
+              className={cn(
+                "flex items-center gap-3 flex-1 px-3 py-2.5 rounded-l-lg text-sm transition-colors",
+                isIntegrationsActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
               <Plug className={cn("h-4 w-4", isIntegrationsActive && "text-primary")} />
               Integrações
-            </span>
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", integrationsOpen && "rotate-180")} />
-          </button>
+            </button>
+            <button
+              onClick={() => setIntegrationsOpen(!integrationsOpen)}
+              className={cn(
+                "px-2 py-2.5 rounded-r-lg text-sm transition-colors",
+                isIntegrationsActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", integrationsOpen && "rotate-180")} />
+            </button>
+          </div>
           {integrationsOpen && (
             <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
               {integrationSubItems.map((item) => {
@@ -200,21 +200,31 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
 
         {/* Configurações with submenu */}
         <div>
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
-            className={cn(
-              "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors",
-              isSettingsActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}
-          >
-            <span className="flex items-center gap-3">
+          <div className="flex items-center">
+            <button
+              onClick={() => { navigate("/settings?tab=personal"); setMobileOpen(false); }}
+              className={cn(
+                "flex items-center gap-3 flex-1 px-3 py-2.5 rounded-l-lg text-sm transition-colors",
+                isSettingsActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
               <Settings className={cn("h-4 w-4", isSettingsActive && "text-primary")} />
               Configurações
-            </span>
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", settingsOpen && "rotate-180")} />
-          </button>
+            </button>
+            <button
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className={cn(
+                "px-2 py-2.5 rounded-r-lg text-sm transition-colors",
+                isSettingsActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", settingsOpen && "rotate-180")} />
+            </button>
+          </div>
           {settingsOpen && (
             <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
               {settingsSubItems.map((item) => {
@@ -265,37 +275,20 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
         </Tooltip>
 
-        {/* Novidades (feed) */}
-        <div>
-          <button
-            onClick={() => setNovidadesOpen(!novidadesOpen)}
-            className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-          >
-            <span className="flex items-center gap-3">
-              <Sparkles className="h-4 w-4" />
-              Novidades
-              {announcements.length > 0 && (
-                <span className="h-4 min-w-[16px] px-1 rounded-full bg-primary text-[9px] text-primary-foreground font-bold flex items-center justify-center">
-                  {announcements.length}
-                </span>
-              )}
-            </span>
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", novidadesOpen && "rotate-180")} />
-          </button>
-          {novidadesOpen && (
-            <div className="ml-4 mt-1 border-l border-sidebar-border pl-3 space-y-2 max-h-[300px] overflow-y-auto">
-              {announcements.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground px-2 py-1">Nenhuma novidade.</p>
-              ) : announcements.map((a: any) => (
-                <div key={a.id} className="px-2 py-2 rounded-lg bg-sidebar-accent/30 border border-sidebar-border/50">
-                  <p className="text-[11px] font-semibold text-sidebar-foreground">{a.title}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-3">{a.body}</p>
-                  <p className="text-[9px] text-muted-foreground/70 mt-1">{new Date(a.published_at).toLocaleDateString("pt-BR")}</p>
-                </div>
-              ))}
-            </div>
+        {/* Novidades - link to page */}
+        <Link
+          to="/novidades"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+            location.pathname === "/novidades"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
           )}
-        </div>
+        >
+          <Sparkles className={cn("h-4 w-4", location.pathname === "/novidades" && "text-primary")} />
+          Novidades
+        </Link>
 
         {/* Admin - only for super admins */}
         {isSuperAdmin && (

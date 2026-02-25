@@ -22,6 +22,7 @@ import Resources from "./pages/Resources";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import PublicSmartLinkRedirect from "./pages/PublicSmartLinkRedirect";
+import Novidades from "./pages/Novidades";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30000, retry: 1 } },
@@ -94,6 +95,7 @@ function AppRoutes() {
       <Route path="/resources" element={<Protected><Resources /></Protected>} />
       <Route path="/admin" element={<Protected><AdminSettings /></Protected>} />
       <Route path="/support" element={<Protected><Support /></Protected>} />
+      <Route path="/novidades" element={<Protected><Novidades /></Protected>} />
       <Route path="/" element={<Navigate to={session ? "/dashboard" : "/auth"} replace />} />
       <Route path="/:slug" element={<PublicSmartLinkRedirect />} />
       <Route path="*" element={<NotFound />} />
