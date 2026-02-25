@@ -375,13 +375,17 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       )}
 
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        <header className="h-14 border-b border-border/50 flex items-center px-4 lg:px-6 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
+        <header className="h-16 border-b border-border/50 flex items-center px-4 lg:px-6 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
           <button
             onClick={() => setMobileOpen(true)}
             className="lg:hidden p-1.5 text-muted-foreground hover:text-foreground mr-3"
           >
             <Menu className="h-5 w-5" />
           </button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            {subtitle && <p className="text-xs text-muted-foreground hidden sm:block">{subtitle}</p>}
+          </div>
           <div className="flex items-center gap-2 ml-auto">
             {actions}
             <NotificationBell />
@@ -390,10 +394,6 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
 
         <div className="flex-1 p-4 lg:p-8 overflow-auto">
           <div className="max-w-[1400px] mx-auto w-full">
-            <div className="mt-4 mb-6">
-              <h1 className="text-2xl font-bold">{title}</h1>
-              {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
-            </div>
             {children}
           </div>
         </div>
