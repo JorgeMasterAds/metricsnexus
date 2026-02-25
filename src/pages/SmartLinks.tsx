@@ -406,7 +406,7 @@ export default function SmartLinks() {
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Conv.</div>
-                    <div className="text-base font-bold mt-0.5 tabular-nums text-primary">{convRate}%</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums text-success">{convRate}%</div>
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ticket</div>
