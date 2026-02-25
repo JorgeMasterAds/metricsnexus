@@ -152,6 +152,50 @@ export default function Settings() {
     enabled: !!activeAccountId,
   });
 
+  // Pending invites for current user
+  const { data: pendingInvites = [] } = useQuery({
+    queryKey: ["settings-pending-invites"],
+    queryFn: async () => {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) return [];
+      const { data, error } = await (supabase as any)
+        .from("project_users")
+        .select("id, project_id, role, invited_at")
+        .eq("user_id", u.id)
+        .is("accepted_at", null)
+        .not("invited_at", "is", null);
+      if (error) return [];
+      if (!data || data.length === 0) return [];
+      const pIds = data.map((d: any) => d.project_id);
+      const { data: pNames } = await (supabase as any).from("projects").select("id, name").in("id", pIds);
+      const pMap = new Map((pNames || []).map((p: any) => [p.id, p.name]));
+      return data.map((inv: any) => ({ ...inv, project_name: pMap.get(inv.project_id) || "Projeto" }));
+    },
+  });
+
+  const acceptInviteFromProjects = async (invite: any) => {
+    try {
+      await (supabase as any).from("project_users").update({ accepted_at: new Date().toISOString() }).eq("id", invite.id);
+      toast({ title: "Convite aceito!", description: `Você agora faz parte de "${invite.project_name}"` });
+      qc.invalidateQueries({ queryKey: ["settings-pending-invites"] });
+      qc.invalidateQueries({ queryKey: ["pending-invites"] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const rejectInviteFromProjects = async (invite: any) => {
+    try {
+      await (supabase as any).from("project_users").delete().eq("id", invite.id);
+      toast({ title: "Convite recusado" });
+      qc.invalidateQueries({ queryKey: ["settings-pending-invites"] });
+      qc.invalidateQueries({ queryKey: ["pending-invites"] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
   // Referral data
   const { data: referralCode } = useQuery({
     queryKey: ["referral-code", activeAccountId],
@@ -429,6 +473,32 @@ export default function Settings() {
               </div>
             )}
           </div>
+
+          {pendingInvites.length > 0 && (
+            <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+              <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />Convites Pendentes
+                <Badge className="text-[10px] gradient-bg border-0 text-primary-foreground">{pendingInvites.length}</Badge>
+              </h2>
+              <div className="space-y-2">
+                {pendingInvites.map((inv: any) => (
+                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
+                    <div>
+                      <p className="text-sm font-medium">{inv.project_name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Papel: <span className="capitalize">{inv.role}</span>
+                        {inv.invited_at && <> · {new Date(inv.invited_at).toLocaleDateString("pt-BR")}</>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" className="h-7 text-xs gradient-bg border-0 text-primary-foreground hover:opacity-90" onClick={() => acceptInviteFromProjects(inv)}>Aceitar</Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => rejectInviteFromProjects(inv)}>Recusar</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -605,29 +675,6 @@ export default function Settings() {
             );
           })}
 
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-primary" />Membros da Organização</h2>
-            {teamMembers.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum membro encontrado.</p>
-            ) : (
-              <div className="space-y-2">
-                {teamMembers.map((m: any) => (
-                  <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                        {m.profiles?.avatar_url ? <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" /> : m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
-                        <p className="text-[10px] text-muted-foreground">{m.accepted_at ? new Date(m.accepted_at).toLocaleDateString("pt-BR") : "Pendente"}</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
