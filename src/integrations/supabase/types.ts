@@ -2019,6 +2019,28 @@ export type Database = {
       }
     }
     Functions: {
+      admin_list_users: {
+        Args: never
+        Returns: {
+          account_id: string
+          account_name: string
+          avatar_url: string
+          created_at: string
+          email: string
+          full_name: string
+          last_sign_in_at: string
+          phone: string
+          plan_name: string
+          plan_type: string
+          subscription_created_at: string
+          subscription_status: string
+          user_id: string
+        }[]
+      }
+      admin_update_user: {
+        Args: { _full_name?: string; _phone?: string; _user_id: string }
+        Returns: undefined
+      }
       aggregate_daily_metrics: {
         Args: { p_target_date?: string }
         Returns: undefined

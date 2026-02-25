@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Copy, Globe, Settings, Users, Webhook, Sliders, UserPlus, Trash2, CreditCard, Package, Megaphone, Plus, Edit2, Check, X, ImagePlus } from "lucide-react";
+import { Shield, Copy, Globe, Settings, Users, Webhook, Sliders, UserPlus, Trash2, CreditCard, Package, Megaphone, Plus, Edit2, Check, X, ImagePlus, Search, ChevronDown, ChevronRight, Save } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -249,10 +250,11 @@ export default function AdminSettings() {
 
   const tabs = [
     { key: "novidades", label: "Novidades", icon: Megaphone },
+    { key: "users", label: "Usuários", icon: Users },
     { key: "platform", label: "Plataforma", icon: Globe },
     { key: "plans", label: "Planos", icon: Package },
     { key: "limits", label: "Limites Globais", icon: Sliders },
-    { key: "superadmins", label: "Super Admins", icon: Users },
+    { key: "superadmins", label: "Super Admins", icon: Shield },
     { key: "stripe", label: "Configuração Stripe", icon: Settings },
     { key: "webhook-stripe", label: "Webhook Stripe", icon: Webhook },
   ];
@@ -394,6 +396,8 @@ export default function AdminSettings() {
           </div>
         </div>
       )}
+
+      {activeTab === "users" && <AdminUsersTab />}
 
       {activeTab === "platform" && (
         <div className="w-full space-y-6">
@@ -583,5 +587,212 @@ export default function AdminSettings() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+/* ─── Admin Users Tab ─── */
+function AdminUsersTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState("all");
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["admin-all-users"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_list_users");
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  const filteredUsers = users.filter((u: any) => {
+    const matchesSearch = !search || 
+      (u.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (u.account_name || "").toLowerCase().includes(search.toLowerCase());
+    const matchesPlan = planFilter === "all" || (u.plan_name || "free").toLowerCase() === planFilter.toLowerCase();
+    return matchesSearch && matchesPlan;
+  });
+
+  const uniquePlans = [...new Set(users.map((u: any) => u.plan_name || "free"))];
+
+  const startEdit = (u: any) => {
+    setEditingUser(u.user_id);
+    setEditName(u.full_name || "");
+    setEditPhone(u.phone || "");
+  };
+
+  const saveEdit = async (userId: string) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("admin_update_user", {
+        _user_id: userId,
+        _full_name: editName || null,
+        _phone: editPhone || null,
+      });
+      if (error) throw error;
+      toast({ title: "Usuário atualizado!" });
+      setEditingUser(null);
+      qc.invalidateQueries({ queryKey: ["admin-all-users"] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="w-full space-y-4">
+      <div className="rounded-xl bg-card border border-border/50 card-shadow p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[200px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Buscar</Label>
+            <div className="relative mt-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nome, email ou conta..." className="pl-8 h-8 text-xs" />
+            </div>
+          </div>
+          <div className="min-w-[140px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Plano</Label>
+            <Select value={planFilter} onValueChange={setPlanFilter}>
+              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {uniquePlans.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <Badge variant="outline" className="h-8 text-xs">{filteredUsers.length} usuário(s)</Badge>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20"><div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center text-muted-foreground text-sm">Nenhum usuário encontrado.</div>
+      ) : (
+        <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px]">
+              <thead>
+                <tr className="border-b border-border/30">
+                  <th className="w-8" />
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Usuário</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Conta</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Plano</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Cadastro</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Último login</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u: any) => (
+                  <UserRow
+                    key={u.user_id}
+                    user={u}
+                    isExpanded={expandedUser === u.user_id}
+                    isEditing={editingUser === u.user_id}
+                    editName={editName}
+                    editPhone={editPhone}
+                    saving={saving}
+                    onToggle={() => setExpandedUser(expandedUser === u.user_id ? null : u.user_id)}
+                    onStartEdit={() => startEdit(u)}
+                    onCancelEdit={() => setEditingUser(null)}
+                    onSave={() => saveEdit(u.user_id)}
+                    onNameChange={setEditName}
+                    onPhoneChange={setEditPhone}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserRow({ user: u, isExpanded, isEditing, editName, editPhone, saving, onToggle, onStartEdit, onCancelEdit, onSave, onNameChange, onPhoneChange }: {
+  user: any; isExpanded: boolean; isEditing: boolean; editName: string; editPhone: string; saving: boolean;
+  onToggle: () => void; onStartEdit: () => void; onCancelEdit: () => void; onSave: () => void;
+  onNameChange: (v: string) => void; onPhoneChange: (v: string) => void;
+}) {
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const fmtDateTime = (d: string | null) => d ? new Date(d).toLocaleString("pt-BR") : "—";
+
+  return (
+    <>
+      <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer" onClick={onToggle}>
+        <td className="px-2 py-3 text-center">
+          {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-full bg-muted overflow-hidden flex items-center justify-center text-[10px] font-semibold text-muted-foreground shrink-0">
+              {u.avatar_url ? <img src={u.avatar_url} alt="" className="h-full w-full object-cover" /> : (u.full_name?.charAt(0)?.toUpperCase() || "?")}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium truncate">{u.full_name || "Sem nome"}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{u.account_name || "—"}</td>
+        <td className="px-4 py-3"><Badge variant="outline" className="text-[10px] capitalize">{u.plan_name || "free"}</Badge></td>
+        <td className="px-4 py-3">
+          <Badge variant={u.subscription_status === "active" ? "default" : "secondary"} className={cn("text-[10px] capitalize", u.subscription_status === "active" && "bg-success/20 text-success border-success/30")}>
+            {u.subscription_status || "—"}
+          </Badge>
+        </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">{fmtDate(u.created_at)}</td>
+        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">{fmtDate(u.last_sign_in_at)}</td>
+      </tr>
+      {isExpanded && (
+        <tr className="border-b border-border/10">
+          <td colSpan={7} className="px-4 py-4 bg-muted/30">
+            {isEditing ? (
+              <div className="space-y-3 max-w-lg">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Nome</Label>
+                    <Input value={editName} onChange={(e) => onNameChange(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Telefone</Label>
+                    <Input value={editPhone} onChange={(e) => onPhoneChange(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" className="h-7 text-xs gradient-bg border-0 text-primary-foreground hover:opacity-90 gap-1" disabled={saving} onClick={onSave}>
+                    <Save className="h-3 w-3" />{saving ? "Salvando..." : "Salvar"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onCancelEdit}>Cancelar</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div><span className="text-muted-foreground block">Email</span><span className="font-medium break-all">{u.email}</span></div>
+                  <div><span className="text-muted-foreground block">Telefone</span><span className="font-medium">{u.phone || "—"}</span></div>
+                  <div><span className="text-muted-foreground block">Plano</span><span className="font-medium capitalize">{u.plan_name || "free"} ({u.plan_type || "free"})</span></div>
+                  <div><span className="text-muted-foreground block">Status Assinatura</span><span className="font-medium capitalize">{u.subscription_status || "—"}</span></div>
+                  <div><span className="text-muted-foreground block">Data de Cadastro</span><span className="font-medium font-mono">{fmtDateTime(u.created_at)}</span></div>
+                  <div><span className="text-muted-foreground block">Último Login</span><span className="font-medium font-mono">{fmtDateTime(u.last_sign_in_at)}</span></div>
+                  <div><span className="text-muted-foreground block">Assinatura desde</span><span className="font-medium font-mono">{fmtDateTime(u.subscription_created_at)}</span></div>
+                  <div><span className="text-muted-foreground block">Conta (Org)</span><span className="font-medium">{u.account_name || "—"}</span></div>
+                </div>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); onStartEdit(); }}>
+                  <Edit2 className="h-3 w-3" /> Editar
+                </Button>
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
