@@ -11,16 +11,16 @@ interface MetricCardProps {
 
 export default function MetricCard({ label, value, change, changeType = "neutral", icon: Icon }: MetricCardProps) {
   return (
-    <div className="p-5 rounded-xl bg-card border border-border/50 card-shadow">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
+    <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
         {Icon && (
-          <div className="h-8 w-8 rounded-lg gradient-bg-soft flex items-center justify-center">
-            <Icon className="h-4 w-4 text-primary" />
+          <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+            <Icon className="h-3.5 w-3.5 text-primary" />
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold animate-count-up">{value}</div>
+      <div className="text-lg font-bold">{value}</div>
       {change && (
         <div className={cn(
           "text-xs mt-1 font-medium",

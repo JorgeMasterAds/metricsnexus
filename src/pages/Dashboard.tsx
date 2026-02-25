@@ -5,7 +5,11 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, ComposedChart, Line,
 } from "recharts";
-import { MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download, ShoppingCart, CreditCard, Pencil, Check } from "lucide-react";
+import {
+  MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download,
+  ShoppingCart, CreditCard, Pencil, Check, Target, Globe, Megaphone,
+  Monitor, FileText, Package, Eye, Percent,
+} from "lucide-react";
 import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
@@ -20,7 +24,7 @@ import { SortableSection } from "@/components/SortableSection";
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 
-const SECTION_IDS = ["gamification", "metrics", "traffic-chart", "sales-chart", "payment-source", "products", "smartlinks"];
+const SECTION_IDS = ["gamification", "metrics", "traffic-chart", "products", "smartlinks", "sales-chart", "mini-charts"];
 const CHART_STYLE = { backgroundColor: "hsl(240, 5%, 7%)", border: "1px solid hsl(240, 4%, 16%)", borderRadius: 8, fontSize: 12 };
 const TICK_STYLE = { fontSize: 11, fill: "hsl(240, 5%, 55%)" };
 
@@ -110,7 +114,6 @@ export default function Dashboard() {
     const chartData = Array.from(dayMap.entries()).map(([date, v]) => ({ date, views: v.views, sales: v.sales }));
     const salesChartData = Array.from(dayMap.entries()).map(([date, v]) => ({ date, vendas: v.sales, receita: v.revenue }));
 
-    // Aggregate helpers
     const groupBy = (key: string) => {
       const map = new Map<string, number>();
       conversions.forEach((c: any) => {
@@ -155,6 +158,7 @@ export default function Dashboard() {
       campaignData: groupBy("utm_campaign"),
       mediumData: groupBy("utm_medium"),
       contentData: groupBy("utm_content"),
+      productChartData: productData.map(p => ({ name: p.name, value: p.receita })).slice(0, 8),
       linkStats,
     };
   }, [clicks, conversions, smartLinks, dateRange]);
@@ -174,20 +178,26 @@ export default function Dashboard() {
     switch (id) {
       case "gamification":
         return <GamificationBar since={sinceISO} until={untilISO} />;
+
       case "metrics":
         return (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <MetricCard label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={MousePointerClick} />
-            <MetricCard label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={TrendingUp} />
-            <MetricCard label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={BarChart3} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <MetricCard label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} />
+            <MetricCard label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} />
+            <MetricCard label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} />
             <MetricCard label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} />
             <MetricCard label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} />
+            <MetricCard label="Smart Links" value={computed.linkStats.length.toLocaleString("pt-BR")} icon={Target} />
           </div>
         );
+
       case "traffic-chart":
         return (
           <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
-            <h3 className="text-sm font-semibold mb-4">Tráfego & Conversões</h3>
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Tráfego & Conversões
+            </h3>
             {computed.chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={computed.chartData}>
@@ -203,43 +213,17 @@ export default function Dashboard() {
                   <Area type="monotone" dataKey="sales" name="Vendas" stroke="hsl(142, 71%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
-            ) : <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Nenhum dado no período</div>}
+            ) : <EmptyState text="Nenhum dado no período" />}
           </div>
         );
-      case "sales-chart":
-        return (
-          <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-primary" /> Volume de Vendas Diário</h3>
-            {computed.salesChartData.some(d => d.vendas > 0) ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <ComposedChart data={computed.salesChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
-                  <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={CHART_STYLE} />
-                  <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.8} />
-                  <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Nenhuma venda no período</div>}
-          </div>
-        );
-      case "payment-source":
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {computed.paymentData.length > 0 && <MiniBarChart title="Meios de Pagamento" icon={<CreditCard className="h-4 w-4 text-primary" />} data={computed.paymentData.map(p => ({ name: p.name, value: p.receita }))} color="hsl(200, 80%, 55%)" fmt={fmt} />}
-            {computed.sourceData.length > 0 && <MiniBarChart title="Receita por Origem" data={computed.sourceData} color="hsl(var(--primary))" fmt={fmt} />}
-            {computed.campaignData.length > 0 && <MiniBarChart title="Receita por Campanha" data={computed.campaignData} color="hsl(280, 60%, 55%)" fmt={fmt} />}
-            {computed.mediumData.length > 0 && <MiniBarChart title="Receita por Medium" data={computed.mediumData} color="hsl(142, 71%, 45%)" fmt={fmt} />}
-            {computed.contentData.length > 0 && <MiniBarChart title="Receita por Content" data={computed.contentData} color="hsl(40, 90%, 55%)" fmt={fmt} />}
-            {computed.productData.length > 0 && <MiniBarChart title="Receita por Produto" data={computed.productData.map(p => ({ name: p.name, value: p.receita }))} color="hsl(330, 70%, 55%)" fmt={fmt} />}
-          </div>
-        );
+
       case "products":
         return computed.productData.length > 0 ? (
           <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden mb-6">
-            <div className="px-5 py-4 border-b border-border/50"><h3 className="text-sm font-semibold">Resumo por Produto</h3></div>
+            <div className="px-5 py-4 border-b border-border/50 flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Resumo por Produto</h3>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-border/30">
@@ -266,17 +250,21 @@ export default function Dashboard() {
             </div>
           </div>
         ) : null;
+
       case "smartlinks":
         return (
-          <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden mb-6">
             <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Smart Links</h3>
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                Smart Links
+              </h3>
               <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => exportToCsv(computed.linkStats.map((l: any) => ({ nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", ticket: l.ticket.toFixed(2), status: l.is_active ? "Ativo" : "Pausado" })), "smart-links")}>
                 <Download className="h-3.5 w-3.5" /> CSV
               </Button>
             </div>
             {smartLinks.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-sm">Nenhum Smart Link criado.</div>
+              <EmptyState text="Nenhum Smart Link criado." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -293,14 +281,14 @@ export default function Dashboard() {
                   <tbody>
                     {computed.linkStats.map((link: any) => (
                       <tr key={link.id} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                        <td className="px-5 py-4 font-medium text-sm">{link.name}</td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground font-mono">/{link.slug}</td>
-                        <td className="text-right px-5 py-4 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
-                        <td className="text-right px-5 py-4 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
-                        <td className="text-right px-5 py-4 font-mono text-xs">{fmt(link.revenue)}</td>
-                        <td className="text-right px-5 py-4 font-mono text-xs text-success">{link.rate.toFixed(2)}%</td>
-                        <td className="text-right px-5 py-4 font-mono text-xs">{fmt(link.ticket)}</td>
-                        <td className="text-right px-5 py-4">
+                        <td className="px-5 py-3 font-medium text-xs">{link.name}</td>
+                        <td className="px-5 py-3 text-xs text-muted-foreground font-mono">/{link.slug}</td>
+                        <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
+                        <td className="text-right px-5 py-3 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
+                        <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
+                        <td className="text-right px-5 py-3 font-mono text-xs text-success">{link.rate.toFixed(2)}%</td>
+                        <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.ticket)}</td>
+                        <td className="text-right px-5 py-3">
                           <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-success" : "bg-muted-foreground"}`} />
                             {link.is_active ? "Ativo" : "Pausado"}
@@ -314,6 +302,42 @@ export default function Dashboard() {
             )}
           </div>
         );
+
+      case "sales-chart":
+        return (
+          <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Volume de Vendas Diário
+            </h3>
+            {computed.salesChartData.some(d => d.vendas > 0) ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={computed.salesChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+                  <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={CHART_STYLE} />
+                  <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.8} />
+                  <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : <EmptyState text="Nenhuma venda no período" />}
+          </div>
+        );
+
+      case "mini-charts":
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {computed.sourceData.length > 0 && <MiniBarChart title="Receita por Origem" icon={<Globe className="h-4 w-4 text-primary" />} data={computed.sourceData} color="hsl(var(--primary))" fmt={fmt} />}
+            {computed.campaignData.length > 0 && <MiniBarChart title="Receita por Campanha" icon={<Megaphone className="h-4 w-4 text-primary" />} data={computed.campaignData} color="hsl(280, 60%, 55%)" fmt={fmt} />}
+            {computed.mediumData.length > 0 && <MiniBarChart title="Receita por Medium" icon={<Monitor className="h-4 w-4 text-primary" />} data={computed.mediumData} color="hsl(142, 71%, 45%)" fmt={fmt} />}
+            {computed.contentData.length > 0 && <MiniBarChart title="Receita por Content" icon={<FileText className="h-4 w-4 text-primary" />} data={computed.contentData} color="hsl(40, 90%, 55%)" fmt={fmt} />}
+            {computed.productChartData.length > 0 && <MiniBarChart title="Receita por Produto" icon={<Package className="h-4 w-4 text-primary" />} data={computed.productChartData} color="hsl(330, 70%, 55%)" fmt={fmt} />}
+            {computed.paymentData.length > 0 && <MiniBarChart title="Meios de Pagamento" icon={<CreditCard className="h-4 w-4 text-primary" />} data={computed.paymentData.map(p => ({ name: p.name, value: p.receita }))} color="hsl(200, 80%, 55%)" fmt={fmt} />}
+          </div>
+        );
+
       default: return null;
     }
   };
@@ -345,17 +369,21 @@ export default function Dashboard() {
   );
 }
 
+function EmptyState({ text }: { text: string }) {
+  return <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">{text}</div>;
+}
+
 function MiniBarChart({ title, icon, data, color, fmt }: { title: string; icon?: React.ReactNode; data: { name: string; value: number }[]; color: string; fmt: (v: number) => string }) {
   return (
-    <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow">
-      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">{icon}{title}</h3>
-      <ResponsiveContainer width="100%" height={180}>
+    <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+      <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">{icon}{title}</h3>
+      <ResponsiveContainer width="100%" height={150}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
-          <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={50} />
-          <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={{ backgroundColor: "hsl(240, 5%, 7%)", border: "1px solid hsl(240, 4%, 16%)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => fmt(v)} />
-          <Bar dataKey="value" name="Receita" fill={color} radius={[4, 4, 0, 0]} />
+          <XAxis dataKey="name" tick={{ fontSize: 8, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} interval={0} angle={-25} textAnchor="end" height={45} />
+          <YAxis tick={{ fontSize: 9, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={CHART_STYLE} formatter={(v: number) => fmt(v)} />
+          <Bar dataKey="value" name="Receita" fill={color} radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
