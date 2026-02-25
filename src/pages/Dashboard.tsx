@@ -385,6 +385,19 @@ export default function Dashboard() {
 
   const buildFullExportData = () => {
     const rows: Record<string, any>[] = [];
+    const roas = investmentValue > 0 ? computed.totalRevenue / investmentValue : 0;
+
+    // Section: KPIs Summary
+    rows.push({
+      seção: "Resumo",
+      métrica: "Total Views", valor: computed.totalViews.toLocaleString("pt-BR"),
+    });
+    rows.push({ seção: "Resumo", métrica: "Vendas", valor: computed.totalSales.toLocaleString("pt-BR") });
+    rows.push({ seção: "Resumo", métrica: "Taxa Conv.", valor: computed.convRate.toFixed(2) + "%" });
+    rows.push({ seção: "Resumo", métrica: "Investimento", valor: investmentValue > 0 ? fmt(investmentValue) : "—" });
+    rows.push({ seção: "Resumo", métrica: "Faturamento", valor: fmt(computed.totalRevenue) });
+    rows.push({ seção: "Resumo", métrica: "ROAS", valor: investmentValue > 0 ? roas.toFixed(2) + "x" : "—" });
+    rows.push({ seção: "Resumo", métrica: "Ticket Médio", valor: fmt(computed.avgTicket) });
 
     // Section: Daily traffic data
     computed.chartData.forEach((d: any) => {
@@ -471,15 +484,16 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={220}>
                 <ComposedChart data={computed.chartData}>
                   <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0} /></linearGradient>
-                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 60%, 30%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(0, 60%, 30%)" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(30, 90%, 60%)" stopOpacity={0.9} /><stop offset="100%" stopColor="hsl(30, 60%, 35%)" stopOpacity={0.4} /></linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltipContent />} />
-                  <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="hsl(30, 80%, 55%)" radius={[3, 3, 0, 0]} opacity={0.45} />
+                  <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="url(#colorRevenue)" radius={[3, 3, 0, 0]} />
                   <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(0, 85%, 55%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
                   <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(150, 60%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
                   {/* Labels rendered last so they appear on top */}
@@ -717,7 +731,7 @@ export default function Dashboard() {
           goal={revenueGoal ?? 1000000}
           onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
         />
-        <div className="flex justify-end -mt-2 mb-0">
+        <div className="flex justify-end -mt-4 -mb-2">
           <ExportMenu
             data={buildFullExportData()}
             filename="dashboard-nexus"
@@ -725,10 +739,11 @@ export default function Dashboard() {
             kpis={[
               { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
               { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
-              { label: "Faturamento", value: fmt(computed.totalRevenue) },
-              { label: "Ticket Médio", value: fmt(computed.avgTicket) },
               { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
-              { label: "Smart Links", value: computed.linkStats.length.toString() },
+              { label: "Investimento", value: investmentValue > 0 ? fmt(investmentValue) : "—" },
+              { label: "Faturamento", value: fmt(computed.totalRevenue) },
+              { label: "ROAS", value: investmentValue > 0 ? (computed.totalRevenue / investmentValue).toFixed(2) + "x" : "—" },
+              { label: "Ticket Médio", value: fmt(computed.avgTicket) },
             ]}
             size="default"
           />
@@ -811,12 +826,20 @@ function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { titl
       </h3>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data}>
+          <defs>
+            {data.map((_, i) => (
+              <linearGradient key={`miniGrad${i}`} id={`miniGrad-${paletteIdx}-${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={palette[i % palette.length]} stopOpacity={0.95} />
+                <stop offset="100%" stopColor={palette[i % palette.length]} stopOpacity={0.4} />
+              </linearGradient>
+            ))}
+          </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
           <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={65} tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 16) + "…" : v} />
           <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
           <Tooltip content={<MiniCustomTooltip />} />
           <Bar dataKey="value" name="Receita" radius={[3, 3, 0, 0]}>
-            {data.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
+            {data.map((_, i) => <Cell key={i} fill={`url(#miniGrad-${paletteIdx}-${i})`} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
