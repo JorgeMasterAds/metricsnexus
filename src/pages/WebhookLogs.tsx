@@ -115,7 +115,7 @@ export default function WebhookLogs() {
       }
     >
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Filter className="h-3.5 w-3.5" /> Filtros:
         </div>
@@ -190,7 +190,7 @@ export default function WebhookLogs() {
         <>
           <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[800px]">
                 <thead>
                   <tr className="border-b border-border/30">
                     <th className="w-8" />

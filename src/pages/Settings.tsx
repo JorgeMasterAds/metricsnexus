@@ -334,7 +334,7 @@ export default function Settings() {
       subtitle="Gerencie sua conta e organização"
       actions={<ProductTour {...TOURS.settings} triggerLabel="Tutorial" />}
     >
-      <div className="w-full flex items-center gap-1 mb-6 border-b border-border/50 flex-wrap">
+      <div className="w-full flex items-center gap-1 mb-6 border-b border-border/50 overflow-x-auto scrollbar-thin">
         {tabs.map((tab) => (
           <button
             key={tab.key}
