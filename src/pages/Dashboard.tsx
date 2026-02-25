@@ -536,27 +536,52 @@ export default function Dashboard() {
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Taxa</th>
-                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
                   </tr></thead>
                   <tbody>
-                    {computed.linkStats.map((link: any) => (
-                      <tr key={link.id} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                        <td className="px-5 py-3 font-medium text-xs">{link.name}</td>
-                        <td className="px-5 py-3 text-xs text-muted-foreground font-mono">/{link.slug}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs" style={{ color: "hsl(0, 85%, 55%)" }}>{link.rate.toFixed(2)}%</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.ticket)}</td>
-                        <td className="text-right px-5 py-3">
-                          <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-primary" : "bg-muted-foreground"}`} />
-                            {link.is_active ? "Ativo" : "Pausado"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {computed.linkStats.map((link: any) => {
+                      const variants = link.smartlink_variants || [];
+                      return (
+                        <React.Fragment key={link.id}>
+                          <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors">
+                            <td className="px-5 py-3 font-medium text-xs">{link.name}</td>
+                            <td className="px-5 py-3 text-xs text-muted-foreground font-mono">/{link.slug}</td>
+                            <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
+                            <td className="text-right px-5 py-3 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
+                            <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
+                            <td className="text-right px-5 py-3 font-mono text-xs" style={{ color: "hsl(0, 85%, 55%)" }}>{link.rate.toFixed(2)}%</td>
+                            <td className="text-right px-5 py-3">
+                              <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-primary" : "bg-muted-foreground"}`} />
+                                {link.is_active ? "Ativo" : "Pausado"}
+                              </span>
+                            </td>
+                          </tr>
+                          {variants.map((v: any) => {
+                            const vClicks = clicks.filter((c: any) => c.variant_id === v.id).length;
+                            const vConvs = conversions.filter((c: any) => c.variant_id === v.id);
+                            const vSales = vConvs.length;
+                            const vRevenue = vConvs.reduce((s: number, c: any) => s + Number(c.amount), 0);
+                            const vRate = vClicks > 0 ? ((vSales / vClicks) * 100).toFixed(2) : "0.00";
+                            return (
+                              <tr key={v.id} className="border-b border-border/10 bg-muted/10">
+                                <td className="px-5 py-2 text-xs text-muted-foreground pl-10">↳ {v.name}</td>
+                                <td className="px-5 py-2 text-xs text-muted-foreground font-mono truncate max-w-[140px]" title={v.url}>{v.url}</td>
+                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vClicks.toLocaleString("pt-BR")}</td>
+                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vSales.toLocaleString("pt-BR")}</td>
+                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{fmt(vRevenue)}</td>
+                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vRate}%</td>
+                                <td className="text-right px-5 py-2">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${v.is_active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                                    {v.is_active ? "Ativa" : "Inativa"}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

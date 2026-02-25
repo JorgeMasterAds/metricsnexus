@@ -485,7 +485,9 @@ export default function Settings() {
             const members = projectMembers.filter((m: any) => m.project_id === project.id);
             const currentUserIsMember = members.some((m: any) => m.user_id === user?.id);
             const currentUserMember = members.find((m: any) => m.user_id === user?.id);
-            const isCurrentUserAdmin = !currentUserIsMember || currentUserMember?.role === "owner" || currentUserMember?.role === "admin";
+            const accountRole = teamMembers.find((m: any) => m.user_id === user?.id)?.role;
+            const isAccountOwnerOrAdmin = accountRole === "owner" || accountRole === "admin";
+            const isCurrentUserAdmin = isAccountOwnerOrAdmin || !currentUserIsMember || currentUserMember?.role === "owner" || currentUserMember?.role === "admin";
             const allMembers = currentUserIsMember ? members : [
               { id: "current-user-owner", user_id: user?.id, role: "owner", accepted_at: new Date().toISOString(), profiles: { full_name: profile?.full_name || user?.email || "Você", avatar_url: profile?.avatar_url } },
               ...members,
