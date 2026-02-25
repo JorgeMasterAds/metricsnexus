@@ -1565,6 +1565,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_user_account_ids: { Args: { _user_id: string }; Returns: string[] }
       has_role: {
         Args: {
