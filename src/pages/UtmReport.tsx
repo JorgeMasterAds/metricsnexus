@@ -228,7 +228,7 @@ export default function UtmReport() {
             value={investmentInput}
             onChange={(e) => setInvestmentInput(e.target.value)}
             placeholder="R$ 0,00"
-            className="text-lg font-bold bg-transparent outline-none w-full px-2 py-1 rounded-md border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors"
+            className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
           />
         </div>
         <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
