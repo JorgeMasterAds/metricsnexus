@@ -356,7 +356,7 @@ export default function Settings() {
                         <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
                       </div>
                     </div>
-                    <Switch checked={p.is_active} onCheckedChange={() => toggleProject(p)} />
+                    <Badge variant={p.is_active ? "default" : "secondary"} className="text-[10px]">{p.is_active ? "Ativo" : "Inativo"}</Badge>
                   </div>
                 ))}
               </div>
