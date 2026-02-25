@@ -724,7 +724,7 @@ export default function Dashboard() {
         </div>
       }
     >
-      {/* Fixed: Meta de Faturamento + Export always on top */}
+      <div id="dashboard-export-root">
       <div className="mb-6">
         <GamificationBar
           since={sinceISO}
@@ -737,6 +737,7 @@ export default function Dashboard() {
             data={buildFullExportData()}
             filename="dashboard-nexus"
             title="Dashboard Completo — Nexus Metrics"
+            snapshotSelector="#dashboard-export-root"
             kpis={[
               { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
               { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
@@ -760,6 +761,7 @@ export default function Dashboard() {
           ))}
         </SortableContext>
       </DndContext>
+      </div>{/* end dashboard-export-root */}
 
       <Dialog open={goalModalOpen} onOpenChange={setGoalModalOpen}>
         <DialogContent className="sm:max-w-md">
