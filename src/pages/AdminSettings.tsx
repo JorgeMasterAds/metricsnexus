@@ -260,7 +260,7 @@ export default function AdminSettings() {
 
   return (
     <DashboardLayout title="Administração" subtitle="Configurações do sistema (Super Admin)">
-      <div className="w-full flex items-center gap-1 mb-6 border-b border-border/50 flex-wrap">
+      <div className="w-full flex items-center gap-1 mb-6 border-b border-border/50 overflow-x-auto scrollbar-thin">
         {tabs.map((tab) => (
           <button
             key={tab.key}

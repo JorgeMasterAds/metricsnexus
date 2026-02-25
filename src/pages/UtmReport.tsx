@@ -365,7 +365,7 @@ export default function UtmReport() {
           <>
              <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm table-fixed">
+                <table className="w-full text-sm min-w-[700px]">
                   <thead><tr className="border-b border-border/30 bg-muted/20">
                     {activeGroups.map(g => {
                       const label = GROUP_OPTIONS.find(o => o.value === g)?.label || g;

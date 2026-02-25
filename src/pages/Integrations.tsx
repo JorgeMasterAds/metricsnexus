@@ -31,7 +31,7 @@ export default function Integrations() {
   return (
     <DashboardLayout title="Integrações" subtitle="Gerencie seus webhooks e integrações">
       <div className="w-full">
-        <div className="flex items-center gap-1 mb-6 border-b border-border/50">
+        <div className="flex items-center gap-1 mb-6 border-b border-border/50 overflow-x-auto scrollbar-thin">
           {tabs.map((tab) => (
             <button
               key={tab.key}
