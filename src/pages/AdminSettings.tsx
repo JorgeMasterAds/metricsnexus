@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Copy, Globe, Settings, Users, Webhook, Sliders, UserPlus, Trash2, CreditCard, Package, Megaphone, Plus, Edit2, Check, X } from "lucide-react";
+import { Shield, Copy, Globe, Settings, Users, Webhook, Sliders, UserPlus, Trash2, CreditCard, Package, Megaphone, Plus, Edit2, Check, X, ImagePlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "react-router-dom";
@@ -143,10 +143,14 @@ export default function AdminSettings() {
   const [loginBgUrl, setLoginBgUrl] = useState("");
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementBody, setAnnouncementBody] = useState("");
+  const [announcementVersion, setAnnouncementVersion] = useState("");
+  const [announcementCoverFile, setAnnouncementCoverFile] = useState<File | null>(null);
   const [publishingAnnouncement, setPublishingAnnouncement] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null);
   const [editAnnouncementTitle, setEditAnnouncementTitle] = useState("");
   const [editAnnouncementBody, setEditAnnouncementBody] = useState("");
+  const [editAnnouncementVersion, setEditAnnouncementVersion] = useState("");
+  const [editAnnouncementCoverFile, setEditAnnouncementCoverFile] = useState<File | null>(null);
 
   const { data: announcements = [], refetch: refetchAnnouncements } = useQuery({
     queryKey: ["admin-announcements"],
@@ -157,19 +161,36 @@ export default function AdminSettings() {
     enabled: !!isSuperAdmin,
   });
 
+  const uploadCoverImage = async (file: File): Promise<string | null> => {
+    const ext = file.name.split(".").pop();
+    const path = `covers/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("announcement-covers").upload(path, file, { upsert: true });
+    if (error) { toast({ title: "Erro no upload", description: error.message, variant: "destructive" }); return null; }
+    const { data: urlData } = supabase.storage.from("announcement-covers").getPublicUrl(path);
+    return urlData.publicUrl;
+  };
+
   const publishAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) return;
     setPublishingAnnouncement(true);
     try {
+      let coverUrl: string | null = null;
+      if (announcementCoverFile) {
+        coverUrl = await uploadCoverImage(announcementCoverFile);
+      }
       const { error } = await (supabase as any).from("system_announcements").insert({
         title: announcementTitle.trim(),
         body: announcementBody.trim(),
+        version: announcementVersion.trim() || null,
+        cover_image_url: coverUrl,
         published_at: new Date().toISOString(),
       });
       if (error) throw error;
       toast({ title: "Novidade publicada!" });
       setAnnouncementTitle("");
       setAnnouncementBody("");
+      setAnnouncementVersion("");
+      setAnnouncementCoverFile(null);
       refetchAnnouncements();
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -178,13 +199,21 @@ export default function AdminSettings() {
 
   const updateAnnouncement = async () => {
     if (!editingAnnouncement) return;
+    let coverUrl = editingAnnouncement.cover_image_url;
+    if (editAnnouncementCoverFile) {
+      const uploaded = await uploadCoverImage(editAnnouncementCoverFile);
+      if (uploaded) coverUrl = uploaded;
+    }
     const { error } = await (supabase as any).from("system_announcements").update({
       title: editAnnouncementTitle.trim(),
       body: editAnnouncementBody.trim(),
+      version: editAnnouncementVersion.trim() || null,
+      cover_image_url: coverUrl,
     }).eq("id", editingAnnouncement.id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Novidade atualizada!" });
     setEditingAnnouncement(null);
+    setEditAnnouncementCoverFile(null);
     refetchAnnouncements();
   };
 
@@ -255,13 +284,34 @@ export default function AdminSettings() {
               <Plus className="h-4 w-4 text-primary" />Publicar Novidade
             </h2>
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Título</Label>
-                <Input value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} placeholder="Título da novidade" className="text-xs" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Título</Label>
+                  <Input value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} placeholder="Título da novidade" className="text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Versão (opcional)</Label>
+                  <Input value={announcementVersion} onChange={e => setAnnouncementVersion(e.target.value)} placeholder="Ex: v2.1.0" className="text-xs" />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Corpo</Label>
                 <Textarea value={announcementBody} onChange={e => setAnnouncementBody(e.target.value)} placeholder="Descreva a novidade..." className="text-xs min-h-[100px]" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Imagem de capa (opcional)</Label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border/50 cursor-pointer hover:border-primary/50 transition-colors text-xs text-muted-foreground">
+                    <ImagePlus className="h-4 w-4" />
+                    {announcementCoverFile ? announcementCoverFile.name : "Selecionar imagem"}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => setAnnouncementCoverFile(e.target.files?.[0] || null)} />
+                  </label>
+                  {announcementCoverFile && (
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" onClick={() => setAnnouncementCoverFile(null)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <Button size="sm" className="gradient-bg border-0 text-primary-foreground text-xs" onClick={publishAnnouncement} disabled={publishingAnnouncement || !announcementTitle.trim() || !announcementBody.trim()}>
                 {publishingAnnouncement ? "Publicando..." : "Publicar"}
@@ -278,22 +328,44 @@ export default function AdminSettings() {
                 <div key={a.id} className="p-4 rounded-lg bg-secondary/50 border border-border/30">
                   {editingAnnouncement?.id === a.id ? (
                     <div className="space-y-3">
-                      <Input value={editAnnouncementTitle} onChange={e => setEditAnnouncementTitle(e.target.value)} className="text-xs" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input value={editAnnouncementTitle} onChange={e => setEditAnnouncementTitle(e.target.value)} className="text-xs" placeholder="Título" />
+                        <Input value={editAnnouncementVersion} onChange={e => setEditAnnouncementVersion(e.target.value)} className="text-xs" placeholder="Versão (opcional)" />
+                      </div>
                       <Textarea value={editAnnouncementBody} onChange={e => setEditAnnouncementBody(e.target.value)} className="text-xs min-h-[80px]" />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Imagem de capa</Label>
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border/50 cursor-pointer hover:border-primary/50 transition-colors text-xs text-muted-foreground">
+                            <ImagePlus className="h-4 w-4" />
+                            {editAnnouncementCoverFile ? editAnnouncementCoverFile.name : (editingAnnouncement.cover_image_url ? "Trocar imagem" : "Selecionar imagem")}
+                            <input type="file" accept="image/*" className="hidden" onChange={e => setEditAnnouncementCoverFile(e.target.files?.[0] || null)} />
+                          </label>
+                        </div>
+                        {editingAnnouncement.cover_image_url && !editAnnouncementCoverFile && (
+                          <img src={editingAnnouncement.cover_image_url} alt="" className="h-16 rounded-lg object-cover mt-1" />
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <Button size="sm" className="gradient-bg border-0 text-primary-foreground text-xs gap-1" onClick={updateAnnouncement}>
                           <Check className="h-3 w-3" /> Salvar
                         </Button>
-                        <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => setEditingAnnouncement(null)}>
+                        <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => { setEditingAnnouncement(null); setEditAnnouncementCoverFile(null); }}>
                           <X className="h-3 w-3" /> Cancelar
                         </Button>
                       </div>
                     </div>
                   ) : (
                     <>
+                      {a.cover_image_url && (
+                        <img src={a.cover_image_url} alt="" className="w-full h-32 object-cover rounded-lg mb-3" />
+                      )}
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-sm font-semibold">{a.title}</p>
+                          <p className="text-sm font-semibold flex items-center gap-2">
+                            {a.title}
+                            {a.version && <Badge variant="outline" className="text-[10px]">{a.version}</Badge>}
+                          </p>
                           <p className="text-[10px] text-muted-foreground">{new Date(a.published_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -301,6 +373,8 @@ export default function AdminSettings() {
                             setEditingAnnouncement(a);
                             setEditAnnouncementTitle(a.title);
                             setEditAnnouncementBody(a.body);
+                            setEditAnnouncementVersion(a.version || "");
+                            setEditAnnouncementCoverFile(null);
                           }}>
                             <Edit2 className="h-3.5 w-3.5" />
                           </Button>
