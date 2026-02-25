@@ -1,3 +1,4 @@
+import React from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X } from "lucide-react";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
 import { Switch } from "@/components/ui/switch";
@@ -260,6 +262,7 @@ export default function Settings() {
     { key: "organization", label: "Minha Organização", icon: Building2 },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
     { key: "team", label: "Equipe", icon: Users },
+    { key: "webhooks", label: "Webhook Logs", icon: Globe },
   ];
 
   return (
@@ -623,8 +626,149 @@ export default function Settings() {
         </div>
       )}
 
+      {/* ===== WEBHOOK LOGS ===== */}
+      {activeTab === "webhooks" && (
+        <WebhookLogsTab accountId={activeAccountId} />
+      )}
+
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
       <EditProjectModal open={!!editProject} onOpenChange={(o) => { if (!o) setEditProject(null); }} project={editProject} />
     </DashboardLayout>
+  );
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  approved: "bg-success/20 text-success",
+  ignored: "bg-muted text-muted-foreground",
+  duplicate: "bg-yellow-500/20 text-yellow-400",
+  error: "bg-destructive/20 text-destructive",
+  received: "bg-blue-500/20 text-blue-400",
+  refunded: "bg-orange-500/20 text-orange-400",
+  chargedback: "bg-destructive/20 text-destructive",
+  canceled: "bg-muted text-muted-foreground",
+};
+
+const WH_PAGE_SIZE = 50;
+
+function WebhookLogsTab({ accountId }: { accountId?: string }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["webhook-logs-tab", accountId, page],
+    queryFn: async () => {
+      const from = page * WH_PAGE_SIZE;
+      const to = from + WH_PAGE_SIZE - 1;
+      let q = (supabase as any)
+        .from("webhook_logs")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error, count } = await q;
+      if (error) throw error;
+      return { logs: data || [], total: count || 0 };
+    },
+    staleTime: 60000,
+    enabled: !!accountId,
+  });
+
+  const logs = data?.logs || [];
+  const total = data?.total || 0;
+  const totalPages = Math.ceil(total / WH_PAGE_SIZE);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center text-muted-foreground text-sm">
+        Nenhum webhook recebido.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-muted-foreground">{total} registro(s)</span>
+      </div>
+      <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/30">
+                <th className="w-8" />
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Data</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Plataforma</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Evento</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Atribuição</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log: any) => (
+                <React.Fragment key={log.id}>
+                  <tr
+                    className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer"
+                    onClick={() => setExpanded(expanded === log.id ? null : log.id)}
+                  >
+                    <td className="px-2 py-3 text-center">
+                      {expanded === log.id ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">
+                      {new Date(log.created_at).toLocaleString("pt-BR")}
+                    </td>
+                    <td className="px-4 py-3"><span className="text-xs capitalize font-medium">{log.platform}</span></td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.event_type || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_COLOR[log.status] || "bg-muted text-muted-foreground")}>
+                        {log.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {log.is_attributed ? (
+                        <span className="text-xs text-success">✓ Atribuído</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Não atribuído</span>
+                      )}
+                    </td>
+                  </tr>
+                  {expanded === log.id && (
+                    <tr className="border-b border-border/10">
+                      <td colSpan={6} className="px-4 py-3 bg-muted/30">
+                        <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
+                        <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">
+                          {JSON.stringify(log.raw_payload, null, 2)}
+                        </pre>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-xs gap-1">
+              <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="text-xs gap-1">
+              Próxima <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -38,7 +38,7 @@ const settingsSubItems = [
   { icon: Building2, label: "Minha Organização", path: "/settings?tab=organization" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
-  { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
+  { icon: Webhook, label: "Webhook Logs", path: "/settings?tab=webhooks" },
 ];
 
 interface DashboardLayoutProps {
