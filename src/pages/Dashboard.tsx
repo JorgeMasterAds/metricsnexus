@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, ComposedChart, Line, PieChart, Pie, Cell, Legend,
+  BarChart, Bar, ComposedChart, Line, PieChart, Pie, Cell, Legend, LabelList,
 } from "recharts";
 import {
   MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download,
@@ -396,9 +396,15 @@ export default function Dashboard() {
                   <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltipContent />} />
-                  <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(0, 90%, 60%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
-                  <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(0, 60%, 30%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
-                  <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="hsl(30, 80%, 55%)" radius={[3, 3, 0, 0]} opacity={0.7} />
+                  <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="hsl(30, 80%, 55%)" radius={[3, 3, 0, 0]} opacity={0.25}>
+                    <LabelList dataKey="revenue" position="top" style={{ fontSize: 9, fill: "hsl(30, 80%, 65%)" }} formatter={(v: number) => v > 0 ? `R$${(v/100 >= 10 ? (v/1000).toFixed(1)+'k' : v.toLocaleString("pt-BR", {maximumFractionDigits:0}))}` : ""} />
+                  </Bar>
+                  <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(200, 70%, 55%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2}>
+                    <LabelList dataKey="views" position="top" style={{ fontSize: 9, fill: "hsl(200, 70%, 65%)" }} formatter={(v: number) => v > 0 ? v : ""} />
+                  </Area>
+                  <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(150, 60%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2}>
+                    <LabelList dataKey="sales" position="top" style={{ fontSize: 9, fill: "hsl(150, 60%, 55%)" }} formatter={(v: number) => v > 0 ? v : ""} />
+                  </Area>
                 </ComposedChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhum dado no período" />}
@@ -722,7 +728,7 @@ function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { titl
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
-          <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} interval={0} angle={-15} textAnchor="end" height={55} />
+          <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={65} tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 16) + "…" : v} />
           <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
           <Tooltip content={<MiniCustomTooltip />} />
           <Bar dataKey="value" name="Receita" radius={[3, 3, 0, 0]}>
