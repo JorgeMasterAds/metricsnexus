@@ -13,6 +13,8 @@ import {
   Plug,
   ChevronDown,
   Users,
+  LayoutGrid,
+  List,
   Building2,
   CreditCard,
   FolderOpen,
@@ -64,6 +66,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
   const [integrationsOpen, setIntegrationsOpen] = useState(location.pathname === "/integrations");
+  const [crmOpen, setCrmOpen] = useState(location.pathname === "/crm");
   
   const { activeAccountId } = useAccount();
 
@@ -223,19 +226,64 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
         </Tooltip>
 
-        <Link
-          to="/crm"
-          onClick={() => setMobileOpen(false)}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-            location.pathname === "/crm"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+        {/* CRM with submenu */}
+        <div>
+          <div className="flex items-center">
+            <button
+              onClick={() => { navigate("/crm"); setMobileOpen(false); }}
+              className={cn(
+                "flex items-center gap-3 flex-1 px-3 py-2.5 rounded-l-lg text-sm transition-colors",
+                location.pathname === "/crm"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <Users className={cn("h-4 w-4", location.pathname === "/crm" && "text-primary")} />
+              CRM
+            </button>
+            <button
+              onClick={() => setCrmOpen(!crmOpen)}
+              className={cn(
+                "px-2 py-2.5 rounded-r-lg text-sm transition-colors",
+                location.pathname === "/crm"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", crmOpen && "rotate-180")} />
+            </button>
+          </div>
+          {crmOpen && (
+            <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
+              <Link
+                to="/crm"
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-colors",
+                  location.pathname === "/crm" && !new URLSearchParams(location.search).get("tab")
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Pipeline (Kanban)
+              </Link>
+              <Link
+                to="/crm?tab=leads"
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-colors",
+                  location.pathname === "/crm" && new URLSearchParams(location.search).get("tab") === "leads"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+                Lista de Leads
+              </Link>
+            </div>
           )}
-        >
-          <Users className={cn("h-4 w-4", location.pathname === "/crm" && "text-primary")} />
-          CRM
-        </Link>
+        </div>
 
         {/* Recursos */}
         <Link

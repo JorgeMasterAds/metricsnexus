@@ -24,6 +24,20 @@ export function useCRM() {
     staleTime: 30000,
   });
 
+  const pipelinesQuery = useQuery({
+    queryKey: ["crm-pipelines", activeAccountId, activeProjectId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("pipelines")
+        .select("*, pipeline_product_links(product_id, products:product_id(id, name))")
+        .eq("account_id", activeAccountId)
+        .eq("project_id", activeProjectId)
+        .order("created_at");
+      return data || [];
+    },
+    enabled: !!activeAccountId && !!activeProjectId,
+  });
+
   const stagesQuery = useQuery({
     queryKey: ["crm-stages", activeAccountId, activeProjectId],
     queryFn: async () => {
@@ -44,6 +58,19 @@ export function useCRM() {
       const { data } = await (supabase as any)
         .from("lead_tags")
         .select("*")
+        .eq("account_id", activeAccountId)
+        .order("name");
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const productsQuery = useQuery({
+    queryKey: ["crm-products", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("products")
+        .select("id, name")
         .eq("account_id", activeAccountId)
         .order("name");
       return data || [];
@@ -88,12 +115,46 @@ export function useCRM() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["crm-leads"] }); },
   });
 
+  const createPipeline = useMutation({
+    mutationFn: async ({ name, productIds }: { name: string; productIds?: string[] }) => {
+      const { data, error } = await (supabase as any).rpc("create_default_pipeline", {
+        p_account_id: activeAccountId,
+        p_project_id: activeProjectId,
+        p_name: name,
+      });
+      if (error) throw error;
+      if (productIds && productIds.length > 0 && data) {
+        const links = productIds.map((pid: string) => ({ pipeline_id: data, product_id: pid }));
+        await (supabase as any).from("pipeline_product_links").insert(links);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["crm-pipelines"] });
+      qc.invalidateQueries({ queryKey: ["crm-stages"] });
+      toast.success("Pipeline criado!");
+    },
+  });
+
+  const deletePipeline = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("pipelines").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["crm-pipelines"] });
+      qc.invalidateQueries({ queryKey: ["crm-stages"] });
+      toast.success("Pipeline removido!");
+    },
+  });
+
   const createStage = useMutation({
-    mutationFn: async ({ name, color }: { name: string; color: string }) => {
+    mutationFn: async ({ name, color, pipelineId }: { name: string; color: string; pipelineId?: string }) => {
       const maxPos = Math.max(0, ...(stagesQuery.data || []).map((s: any) => s.position));
       const { error } = await (supabase as any).from("pipeline_stages").insert({
         account_id: activeAccountId,
         project_id: activeProjectId,
+        pipeline_id: pipelineId || null,
         name,
         color,
         position: maxPos + 1,
@@ -193,10 +254,14 @@ export function useCRM() {
     leads: leadsQuery.data || [],
     stages: stagesQuery.data || [],
     tags: tagsQuery.data || [],
+    pipelines: pipelinesQuery.data || [],
+    products: productsQuery.data || [],
     isLoading: leadsQuery.isLoading,
     createLead,
     updateLead,
     moveLeadToStage,
+    createPipeline,
+    deletePipeline,
     createStage,
     updateStage,
     deleteStage,
@@ -210,8 +275,6 @@ export function useCRM() {
 }
 
 export function useLeadDetail(leadId: string | null) {
-  const { activeAccountId } = useAccount();
-
   const historyQuery = useQuery({
     queryKey: ["crm-lead-history", leadId],
     queryFn: async () => {

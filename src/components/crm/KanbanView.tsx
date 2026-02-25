@@ -1,31 +1,29 @@
 import { useState } from "react";
-import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { Plus, MoreHorizontal, Trash2, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useCRM } from "@/hooks/useCRM";
 import { cn } from "@/lib/utils";
 
 interface Props {
   onSelectLead: (lead: any) => void;
+  pipelineId: string | null;
+  stages: any[];
 }
 
 function DroppableColumn({ stage, leads, onSelectLead }: { stage: any; leads: any[]; onSelectLead: (l: any) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
-  const { deleteStage } = useCRM();
+  const { deleteStage, updateStage } = useCRM();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(stage.name);
-  const { updateStage } = useCRM();
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "flex-shrink-0 w-[280px] bg-muted/20 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-220px)]",
+        "flex-shrink-0 w-[280px] bg-muted/20 rounded-xl border border-border/50 flex flex-col max-h-[calc(100vh-260px)]",
         isOver && "ring-2 ring-primary/50"
       )}
     >
@@ -70,9 +68,7 @@ function DroppableColumn({ stage, leads, onSelectLead }: { stage: any; leads: an
             onClick={() => onSelectLead(lead)}
             className="p-3 rounded-lg bg-card border border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
             draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData("leadId", lead.id);
-            }}
+            onDragStart={(e) => { e.dataTransfer.setData("leadId", lead.id); }}
           >
             {lead.source && (
               <span className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted/50 text-muted-foreground mb-1.5 inline-block">
@@ -101,8 +97,8 @@ function DroppableColumn({ stage, leads, onSelectLead }: { stage: any; leads: an
   );
 }
 
-export default function KanbanView({ onSelectLead }: Props) {
-  const { leads, stages, moveLeadToStage, createStage } = useCRM();
+export default function KanbanView({ onSelectLead, pipelineId, stages }: Props) {
+  const { leads, moveLeadToStage, createStage } = useCRM();
   const [showNewStage, setShowNewStage] = useState(false);
   const [newStageName, setNewStageName] = useState("");
 
@@ -116,7 +112,7 @@ export default function KanbanView({ onSelectLead }: Props) {
 
   const handleAddStage = () => {
     if (!newStageName.trim()) return;
-    createStage.mutate({ name: newStageName.trim(), color: "#10b981" });
+    createStage.mutate({ name: newStageName.trim(), color: "#10b981", pipelineId: pipelineId || undefined });
     setNewStageName("");
     setShowNewStage(false);
   };
@@ -138,7 +134,7 @@ export default function KanbanView({ onSelectLead }: Props) {
 
       {/* Unassigned leads column */}
       {leads.some((l: any) => !l.stage_id) && (
-        <div className="flex-shrink-0 w-[280px] bg-muted/10 rounded-xl border border-dashed border-border/50 flex flex-col max-h-[calc(100vh-220px)]">
+        <div className="flex-shrink-0 w-[280px] bg-muted/10 rounded-xl border border-dashed border-border/50 flex flex-col max-h-[calc(100vh-260px)]">
           <div className="p-3 border-b border-border/30">
             <span className="text-sm font-medium text-muted-foreground">Sem etapa</span>
             <span className="text-xs text-muted-foreground bg-muted rounded-full px-1.5 ml-2">{leads.filter((l: any) => !l.stage_id).length}</span>
