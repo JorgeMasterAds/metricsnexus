@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Plus, Trash2, Link2, Pencil } from "lucide-react";
+import WebhookFormBuilder from "@/components/crm/WebhookFormBuilder";
 import {
   Dialog,
   DialogContent,
@@ -300,6 +301,7 @@ export default function WebhookManager() {
                   <p className="text-[10px] text-muted-foreground mt-2">
                     Criado em {new Date(wh.created_at).toLocaleDateString("pt-BR")}
                   </p>
+                  <WebhookFormBuilder webhookId={wh.id} webhookToken={wh.token} />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Switch checked={wh.is_active} onCheckedChange={() => toggleWebhook(wh.id, wh.is_active)} />

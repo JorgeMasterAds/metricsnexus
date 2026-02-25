@@ -1241,6 +1241,42 @@ export type Database = {
           },
         ]
       }
+      pipeline_product_links: {
+        Row: {
+          created_at: string
+          id: string
+          pipeline_id: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pipeline_id: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pipeline_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_product_links_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_product_links_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_stages: {
         Row: {
           account_id: string
@@ -1248,6 +1284,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          pipeline_id: string | null
           position: number
           project_id: string | null
         }
@@ -1257,6 +1294,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          pipeline_id?: string | null
           position?: number
           project_id?: string | null
         }
@@ -1266,6 +1304,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          pipeline_id?: string | null
           position?: number
           project_id?: string | null
         }
@@ -1278,7 +1317,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pipeline_stages_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pipeline_stages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipelines: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          name: string
+          project_id: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipelines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipelines_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -2081,6 +2166,64 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_forms: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          project_id: string | null
+          redirect_type: string
+          redirect_url: string | null
+          webhook_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          project_id?: string | null
+          redirect_type?: string
+          redirect_url?: string | null
+          webhook_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          project_id?: string | null
+          redirect_type?: string
+          redirect_url?: string | null
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_forms_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_forms_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_forms_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_logs: {
         Row: {
           account_id: string | null
@@ -2349,6 +2492,10 @@ export type Database = {
         Returns: undefined
       }
       cleanup_old_webhook_logs: { Args: never; Returns: undefined }
+      create_default_pipeline: {
+        Args: { p_account_id: string; p_name?: string; p_project_id: string }
+        Returns: string
+      }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_user_account_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_emails_by_ids: {
