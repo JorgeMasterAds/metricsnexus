@@ -61,7 +61,7 @@ export function useInvestment(periodKey: string) {
   const displayValue = rawCents ? `R$ ${formatBRL(rawCents)}` : "";
   const numericValue = rawCents ? parseInt(rawCents, 10) / 100 : 0;
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback((e: { target: { value: string } }) => {
     const digits = e.target.value.replace(/\D/g, "");
     setRawCents(digits);
   }, [setRawCents]);
