@@ -103,10 +103,10 @@ function DomainsSection({ accountId }: { accountId?: string }) {
             <div className="grid grid-cols-3 gap-2">
               <span>CNAME</span>
               <span>links (ou seu subdomínio)</span>
-              <span className="text-primary break-all">api.nexusmetrics.jmads.com.br</span>
+              <span className="text-primary break-all">fnpmuffrqrlofjvqytof.supabase.co</span>
             </div>
           </div>
-          <p className="mt-2"><strong>Exemplo:</strong> Se seu domínio é <code className="bg-muted px-1.5 py-0.5 rounded text-primary">meusite.com.br</code>, crie um registro CNAME chamado <code className="bg-muted px-1.5 py-0.5 rounded text-primary">links</code> apontando para <code className="bg-muted px-1.5 py-0.5 rounded text-primary">api.nexusmetrics.jmads.com.br</code>.</p>
+          <p className="mt-2"><strong>Exemplo:</strong> Se seu domínio é <code className="bg-muted px-1.5 py-0.5 rounded text-primary">meusite.com.br</code>, crie um registro CNAME chamado <code className="bg-muted px-1.5 py-0.5 rounded text-primary">links</code> apontando para <code className="bg-muted px-1.5 py-0.5 rounded text-primary">fnpmuffrqrlofjvqytof.supabase.co</code>.</p>
           <p>Após configurar o DNS, aguarde a propagação (até 72 horas) e clique em "Verificar DNS" para ativar.</p>
         </div>
       </div>

@@ -260,9 +260,9 @@ export default function Settings() {
   const tabs = [
     { key: "personal", label: "Dados Pessoais", icon: User },
     { key: "organization", label: "Minha Organização", icon: Building2 },
-    { key: "subscription", label: "Assinatura", icon: CreditCard },
     { key: "team", label: "Equipe", icon: Users },
     { key: "webhooks", label: "Webhook Logs", icon: Globe },
+    { key: "subscription", label: "Assinatura", icon: CreditCard },
   ];
 
   return (
