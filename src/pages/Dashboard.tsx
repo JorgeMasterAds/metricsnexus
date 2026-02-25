@@ -362,49 +362,65 @@ export default function Dashboard() {
     );
   };
 
+  const buildFullExportData = () => {
+    const rows: Record<string, any>[] = [];
+
+    // Section: Daily traffic data
+    computed.chartData.forEach((d: any) => {
+      rows.push({ seção: "Tráfego Diário", data: d.date, views: d.views, vendas: d.sales, receita: d.revenue.toFixed(2) });
+    });
+
+    // Section: Products
+    computed.productData.forEach((p: any) => {
+      rows.push({ seção: "Produtos", produto: p.name, vendas: p.vendas, receita: p.receita.toFixed(2), ticket_medio: p.ticket.toFixed(2), percentual: p.percentual.toFixed(1) + "%", tipo: p.isOrderBump ? "Order Bump" : "Principal" });
+    });
+
+    // Section: Order Bumps summary
+    rows.push({ seção: "Order Bumps", categoria: "Produto Principal", vendas: computed.mainProductsCount, receita: computed.mainRevenue.toFixed(2) });
+    rows.push({ seção: "Order Bumps", categoria: "Order Bump", vendas: computed.orderBumpsCount, receita: computed.obRevenue.toFixed(2) });
+
+    // Section: SmartLinks
+    computed.linkStats.forEach((l: any) => {
+      rows.push({ seção: "Smart Links", nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", status: l.is_active ? "Ativo" : "Pausado" });
+    });
+
+    // Section: UTM Sources
+    computed.sourceData.forEach((s: any) => { rows.push({ seção: "Receita por Origem", nome: s.name, receita: s.value.toFixed(2) }); });
+    computed.campaignData.forEach((s: any) => { rows.push({ seção: "Receita por Campanha", nome: s.name, receita: s.value.toFixed(2) }); });
+    computed.mediumData.forEach((s: any) => { rows.push({ seção: "Receita por Medium", nome: s.name, receita: s.value.toFixed(2) }); });
+    computed.contentData.forEach((s: any) => { rows.push({ seção: "Receita por Content", nome: s.name, receita: s.value.toFixed(2) }); });
+
+    // Section: Payment methods
+    computed.paymentData.forEach((p: any) => { rows.push({ seção: "Meios de Pagamento", nome: p.name, vendas: p.vendas, receita: p.receita.toFixed(2) }); });
+
+    return rows;
+  };
+
   const renderSection = (id: string) => {
     switch (id) {
       case "gamification":
         return (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <GamificationBar
               since={sinceISO}
               until={untilISO}
               goal={revenueGoal ?? 1000000}
               onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-1">
               <ExportMenu
-                data={[
-                  ...computed.productData.map((p: any) => ({
-                    produto: p.name,
-                    vendas: p.vendas,
-                    receita: p.receita.toFixed(2),
-                    ticket_medio: p.ticket.toFixed(2),
-                    percentual: p.percentual.toFixed(1) + "%",
-                    tipo: p.isOrderBump ? "Order Bump" : "Principal",
-                  })),
-                  ...computed.linkStats.map((l: any) => ({
-                    smartlink: l.name,
-                    slug: l.slug,
-                    views: l.views,
-                    vendas: l.sales,
-                    receita: l.revenue.toFixed(2),
-                    taxa: l.rate.toFixed(2) + "%",
-                  })),
-                  ...computed.sourceData.map((s: any) => ({ tipo: "Origem", nome: s.name, receita: s.value.toFixed(2) })),
-                  ...computed.campaignData.map((s: any) => ({ tipo: "Campanha", nome: s.name, receita: s.value.toFixed(2) })),
-                  ...computed.paymentData.map((p: any) => ({ tipo: "Pagamento", nome: p.name, vendas: p.vendas, receita: p.receita.toFixed(2) })),
-                ]}
+                data={buildFullExportData()}
                 filename="dashboard-nexus"
-                title="Dashboard — Nexus Metrics"
+                title="Dashboard Completo — Nexus Metrics"
                 kpis={[
                   { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
                   { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
                   { label: "Faturamento", value: fmt(computed.totalRevenue) },
                   { label: "Ticket Médio", value: fmt(computed.avgTicket) },
                   { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
+                  { label: "Smart Links", value: computed.linkStats.length.toString() },
                 ]}
+                size="default"
               />
             </div>
           </div>
