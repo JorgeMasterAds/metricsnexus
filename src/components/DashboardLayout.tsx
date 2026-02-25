@@ -16,6 +16,7 @@ import {
   Building2,
   CreditCard,
   FolderOpen,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,10 @@ const mainNavItems = [
   { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
   { icon: FileBarChart, label: "Relatório UTM", path: "/utm-report" },
   { icon: Plug, label: "Integrações", path: "/integrations" },
-  { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
+];
+
+const resourcesSubItems = [
+  { icon: GitBranch, label: "Domínios", path: "/settings?tab=domains" },
 ];
 
 const settingsSubItems = [
@@ -36,7 +40,7 @@ const settingsSubItems = [
   { icon: Building2, label: "Minha Organização", path: "/settings?tab=organization" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
-  { icon: GitBranch, label: "Domínios", path: "/settings?tab=domains" },
+  { icon: Webhook, label: "Webhook Logs", path: "/webhook-logs" },
 ];
 
 interface DashboardLayoutProps {
@@ -49,7 +53,8 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
+  const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings" || location.pathname === "/webhook-logs");
+  const [resourcesOpen, setResourcesOpen] = useState(false);
   const { activeAccountId } = useAccount();
 
   // Fetch active project for avatar in sidebar
@@ -85,22 +90,8 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       </Link>
 
       <div className="px-3 mb-4">
-        <ProjectSelector />
+        <ProjectSelector avatarUrl={activeProject?.avatar_url} />
       </div>
-
-      {/* Active project avatar */}
-      {activeProject && (
-        <div className="px-3 mb-4 flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground shrink-0">
-            {activeProject.avatar_url ? (
-              <img src={activeProject.avatar_url} alt={activeProject.name} className="h-full w-full object-cover" />
-            ) : (
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-          <span className="text-xs text-sidebar-foreground truncate">{activeProject.name}</span>
-        </div>
-      )}
 
       <nav className="flex-1 space-y-1">
         {mainNavItems.map((item) => {
@@ -123,19 +114,61 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           );
         })}
 
+        {/* Recursos with submenu */}
+        <div>
+          <button
+            onClick={() => setResourcesOpen(!resourcesOpen)}
+            className={cn(
+              "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors",
+              "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <span className="flex items-center gap-3">
+              <Layers className="h-4 w-4" />
+              Recursos
+            </span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", resourcesOpen && "rotate-180")} />
+          </button>
+          {resourcesOpen && (
+            <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
+              {resourcesSubItems.map((item) => {
+                const tabParam = new URL(item.path, "http://x").searchParams.get("tab");
+                const currentTab = new URLSearchParams(location.search).get("tab") || "personal";
+                const active = isSettingsActive && currentTab === tabParam;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-colors",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("h-3.5 w-3.5", active && "text-primary")} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Configurações with submenu */}
         <div>
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
             className={cn(
               "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors",
-              isSettingsActive
+              isSettingsActive || location.pathname === "/webhook-logs"
                 ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                 : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}
           >
             <span className="flex items-center gap-3">
-              <Settings className={cn("h-4 w-4", isSettingsActive && "text-primary")} />
+              <Settings className={cn("h-4 w-4", (isSettingsActive || location.pathname === "/webhook-logs") && "text-primary")} />
               Configurações
             </span>
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", settingsOpen && "rotate-180")} />
@@ -143,9 +176,12 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           {settingsOpen && (
             <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
               {settingsSubItems.map((item) => {
+                const isWebhookLog = item.path === "/webhook-logs";
                 const tabParam = new URL(item.path, "http://x").searchParams.get("tab");
                 const currentTab = new URLSearchParams(location.search).get("tab") || "personal";
-                const active = isSettingsActive && currentTab === tabParam;
+                const active = isWebhookLog
+                  ? location.pathname === "/webhook-logs"
+                  : isSettingsActive && currentTab === tabParam;
                 return (
                   <Link
                     key={item.path}
