@@ -201,7 +201,7 @@ export default function SmartLinks() {
     if (customDomain) {
       return `https://${customDomain}/${slug}`;
     }
-    return `https://${supabaseProjectId}.supabase.co/functions/v1/redirect?slug=${slug}`;
+    return `https://${supabaseProjectId}.supabase.co/functions/v1/redirect?slug=${slug}&account_id=${activeAccountId}`;
   };
 
   const copyLink = (slug: string) => {

@@ -271,7 +271,7 @@ export default function Settings() {
       subtitle="Gerencie sua conta e organização"
       actions={<ProductTour {...TOURS.settings} triggerLabel="Tutorial" />}
     >
-      <div className="flex items-center gap-1 mb-6 border-b border-border/50 flex-wrap">
+      <div className="max-w-4xl w-full mx-auto flex items-center gap-1 mb-6 border-b border-border/50 flex-wrap">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -288,7 +288,7 @@ export default function Settings() {
 
       {/* ===== PERSONAL ===== */}
       {activeTab === "personal" && (
-        <div className="max-w-4xl space-y-6">
+        <div className="max-w-4xl w-full mx-auto space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4">Dados Pessoais</h2>
             <div className="flex items-start gap-6">
@@ -327,7 +327,7 @@ export default function Settings() {
 
       {/* ===== ORGANIZATION ===== */}
       {activeTab === "organization" && (
-        <div className="max-w-4xl space-y-6">
+        <div className="max-w-4xl w-full mx-auto space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" />Dados da Organização</h2>
             <div className="space-y-4">
@@ -399,7 +399,7 @@ export default function Settings() {
 
       {/* ===== SUBSCRIPTION ===== */}
       {activeTab === "subscription" && (
-        <div className="max-w-4xl space-y-6">
+        <div className="max-w-4xl w-full mx-auto space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Plano Atual</h2>
             <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30 mb-4">
@@ -528,7 +528,7 @@ export default function Settings() {
 
       {/* ===== TEAM ===== */}
       {activeTab === "team" && (
-        <div className="max-w-4xl space-y-6">
+        <div className="max-w-4xl w-full mx-auto space-y-6">
           {/* Invite form */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" />Convidar Membro</h2>
@@ -658,7 +658,7 @@ export default function Settings() {
 
       {/* ===== WEBHOOK LOGS ===== */}
       {activeTab === "webhooks" && (
-        <div className="max-w-4xl">
+        <div className="max-w-4xl w-full mx-auto">
           <WebhookLogsTab accountId={activeAccountId} />
         </div>
       )}

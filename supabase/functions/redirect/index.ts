@@ -13,6 +13,7 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const slug = url.searchParams.get('slug');
   const accountId = url.searchParams.get('account_id');
+  const domain = url.searchParams.get('domain')?.trim().toLowerCase();
 
   if (!slug) {
     return new Response('Slug ausente', { status: 400, headers: corsHeaders });
@@ -23,18 +24,36 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  // Build query - if account_id provided, scope to that account
+  // Resolve account scope (explicit account_id wins; otherwise resolve by custom domain)
+  let resolvedAccountId = accountId;
+
+  if (!resolvedAccountId && domain) {
+    const { data: domainRecord } = await supabase
+      .from('custom_domains')
+      .select('account_id')
+      .eq('domain', domain)
+      .eq('is_active', true)
+      .eq('is_verified', true)
+      .maybeSingle();
+
+    resolvedAccountId = domainRecord?.account_id || null;
+  }
+
+  // Build query - scoped when account could be resolved
   let query = supabase
     .from('smartlinks')
     .select('id, account_id, is_active')
     .eq('slug', slug)
     .eq('is_active', true);
 
-  if (accountId) {
-    query = query.eq('account_id', accountId);
+  if (resolvedAccountId) {
+    query = query.eq('account_id', resolvedAccountId);
   }
 
-  const { data: smartLink, error: slError } = await query.maybeSingle();
+  const { data: smartLink, error: slError } = await query
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (slError || !smartLink) {
     return new Response('Smart Link não encontrado', { status: 404, headers: corsHeaders });
