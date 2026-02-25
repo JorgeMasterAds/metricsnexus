@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Copy, Globe, Settings, Users, Webhook, BarChart3, Sliders, UserPlus, Trash2 } from "lucide-react";
+import { Shield, Copy, Globe, Settings, Users, Webhook, Sliders, UserPlus, Trash2, CreditCard, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "react-router-dom";
+import { Separator } from "@/components/ui/separator";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -19,7 +20,6 @@ export default function AdminSettings() {
 
   useEffect(() => { setActiveTab(tabParam); }, [tabParam]);
 
-  // Promote super admin
   const [promoteEmail, setPromoteEmail] = useState("");
   const [promoting, setPromoting] = useState(false);
 
@@ -86,6 +86,10 @@ export default function AdminSettings() {
     }
   }, [globalLimits]);
 
+  // Plan editing state
+  const [editingPlan, setEditingPlan] = useState<any>(null);
+  const [planForm, setPlanForm] = useState({ max_projects: 0, max_smartlinks: 0, max_webhooks: 0, max_users: 0 });
+
   const saveLimits = async () => {
     const { error } = await (supabase as any)
       .from("platform_settings")
@@ -93,6 +97,20 @@ export default function AdminSettings() {
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Limites globais salvos!" });
     qc.invalidateQueries({ queryKey: ["admin-global-limits"] });
+  };
+
+  const savePlanLimits = async () => {
+    if (!editingPlan) return;
+    const { error } = await (supabase as any).from("plans").update({
+      max_projects: planForm.max_projects,
+      max_smartlinks: planForm.max_smartlinks,
+      max_webhooks: planForm.max_webhooks,
+      max_users: planForm.max_users,
+    }).eq("id", editingPlan.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: `Limites do plano ${editingPlan.name} atualizados!` });
+    setEditingPlan(null);
+    refetchPlans();
   };
 
   const promoteToSuperAdmin = async () => {
@@ -119,7 +137,6 @@ export default function AdminSettings() {
     refetchAdmins();
   };
 
-  // Login background URL
   const [loginBgUrl, setLoginBgUrl] = useState("");
 
   if (checkingAdmin) {
@@ -149,9 +166,12 @@ export default function AdminSettings() {
     { key: "stripe", label: "Configuração Stripe", icon: Settings },
     { key: "webhook-stripe", label: "Webhook Stripe", icon: Webhook },
     { key: "superadmins", label: "Super Admins", icon: Users },
+    { key: "plans", label: "Planos", icon: Package },
     { key: "limits", label: "Limites Globais", icon: Sliders },
     { key: "platform", label: "Plataforma", icon: Globe },
   ];
+
+  const fmtNum = (n: number) => n.toLocaleString("pt-BR");
 
   return (
     <DashboardLayout title="Administração" subtitle="Configurações do sistema (Super Admin)">
@@ -187,26 +207,6 @@ export default function AdminSettings() {
                 toast({ title: "Erro", description: err.message, variant: "destructive" });
               }
             }}>Configurar Stripe</Button>
-          </div>
-
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-4">Planos Cadastrados</h2>
-            <div className="space-y-2">
-              {plans.map((plan: any) => (
-                <div key={plan.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
-                  <div>
-                    <p className="text-sm font-medium capitalize">{plan.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {plan.max_projects} projetos · {plan.max_smartlinks} smartlinks · {plan.max_webhooks} webhooks · {plan.max_users} usuários
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">{plan.stripe_price_id ? "✓ Stripe" : "Sem Stripe"}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
@@ -254,12 +254,7 @@ export default function AdminSettings() {
               <UserPlus className="h-4 w-4 text-primary" />Promover Super Admin
             </h2>
             <div className="flex gap-2">
-              <Input
-                value={promoteEmail}
-                onChange={(e) => setPromoteEmail(e.target.value)}
-                placeholder="email@usuario.com"
-                className="text-xs"
-              />
+              <Input value={promoteEmail} onChange={(e) => setPromoteEmail(e.target.value)} placeholder="email@usuario.com" className="text-xs" />
               <Button size="sm" onClick={promoteToSuperAdmin} disabled={promoting || !promoteEmail.trim()} className="gradient-bg border-0 text-primary-foreground text-xs whitespace-nowrap">
                 {promoting ? "Promovendo..." : "Promover"}
               </Button>
@@ -286,6 +281,71 @@ export default function AdminSettings() {
                 </div>
               ))}
               {superAdmins.length === 0 && <p className="text-xs text-muted-foreground">Nenhum super admin encontrado.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "plans" && (
+        <div className="max-w-4xl w-full mx-auto space-y-6">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />Limites por Plano
+            </h2>
+            <p className="text-xs text-muted-foreground mb-4">Edite os limites de cada plano. Alterações aqui afetam novas assinaturas e upgrades.</p>
+            <div className="space-y-3">
+              {plans.map((plan: any) => (
+                <div key={plan.id} className="p-4 rounded-lg bg-secondary/50 border border-border/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-semibold capitalize">{plan.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês
+                        {plan.stripe_price_id ? " · ✓ Stripe" : ""}
+                      </p>
+                    </div>
+                    {editingPlan?.id === plan.id ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="text-xs" onClick={() => setEditingPlan(null)}>Cancelar</Button>
+                        <Button size="sm" className="gradient-bg border-0 text-primary-foreground text-xs" onClick={savePlanLimits}>Salvar</Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => {
+                        setEditingPlan(plan);
+                        setPlanForm({ max_projects: plan.max_projects, max_smartlinks: plan.max_smartlinks, max_webhooks: plan.max_webhooks, max_users: plan.max_users });
+                      }}>Editar limites</Button>
+                    )}
+                  </div>
+
+                  {editingPlan?.id === plan.id ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Projetos</Label>
+                        <Input type="number" value={planForm.max_projects} onChange={e => setPlanForm({ ...planForm, max_projects: Number(e.target.value) })} className="text-xs h-8" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Smart Links</Label>
+                        <Input type="number" value={planForm.max_smartlinks} onChange={e => setPlanForm({ ...planForm, max_smartlinks: Number(e.target.value) })} className="text-xs h-8" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Webhooks</Label>
+                        <Input type="number" value={planForm.max_webhooks} onChange={e => setPlanForm({ ...planForm, max_webhooks: Number(e.target.value) })} className="text-xs h-8" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Usuários</Label>
+                        <Input type="number" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: Number(e.target.value) })} className="text-xs h-8" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-3 text-center">
+                      <div><p className="text-[10px] text-muted-foreground">Projetos</p><p className="text-sm font-bold">{fmtNum(plan.max_projects)}</p></div>
+                      <div><p className="text-[10px] text-muted-foreground">Smart Links</p><p className="text-sm font-bold">{fmtNum(plan.max_smartlinks)}</p></div>
+                      <div><p className="text-[10px] text-muted-foreground">Webhooks</p><p className="text-sm font-bold">{fmtNum(plan.max_webhooks)}</p></div>
+                      <div><p className="text-[10px] text-muted-foreground">Usuários</p><p className="text-sm font-bold">{fmtNum(plan.max_users)}</p></div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -360,10 +420,8 @@ export default function AdminSettings() {
                   .from("platform_settings")
                   .upsert({ id: "global", login_bg_url: loginBgUrl, updated_at: new Date().toISOString() }, { onConflict: "id" });
                 if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-                toast({ title: "Configuração salva!" });
-              }}>
-                Salvar configurações
-              </Button>
+                toast({ title: "Imagem de fundo atualizada!" });
+              }}>Salvar imagem de fundo</Button>
             </div>
           </div>
         </div>

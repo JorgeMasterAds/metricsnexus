@@ -32,22 +32,29 @@ import { useToast } from "@/hooks/use-toast";
 
 const SECTION_IDS = ["gamification", "metrics", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
 
-const TOOLTIP_STYLE = { backgroundColor: "hsl(240, 5%, 12%)", border: "1px solid hsl(240, 4%, 20%)", borderRadius: 8, fontSize: 12, color: "hsl(0, 0%, 95%)", padding: "8px 12px", boxShadow: "0 4px 12px rgba(0,0,0,0.4)" };
+const TOOLTIP_STYLE = {
+  backgroundColor: "hsl(240, 6%, 10%)",
+  border: "1px solid hsl(240, 4%, 22%)",
+  borderRadius: 8,
+  fontSize: 12,
+  color: "#f5f5f5",
+  padding: "10px 14px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+};
 const TICK_STYLE = { fontSize: 11, fill: "hsl(240, 5%, 55%)" };
 
-// Pure red palette only — no orange, no yellow, no amber
+// Pure red palette only
 const RED_PALETTE = [
-  "hsl(0, 90%, 60%)",   // Bright red
-  "hsl(0, 80%, 48%)",   // Medium red
-  "hsl(0, 70%, 38%)",   // Dark red
-  "hsl(0, 60%, 28%)",   // Very dark red
-  "hsl(0, 95%, 70%)",   // Light red
-  "hsl(355, 85%, 55%)", // Rose red
-  "hsl(5, 75%, 45%)",   // Warm red
-  "hsl(350, 70%, 40%)", // Deep rose
+  "hsl(0, 90%, 60%)",
+  "hsl(0, 80%, 48%)",
+  "hsl(0, 70%, 38%)",
+  "hsl(0, 60%, 28%)",
+  "hsl(0, 95%, 70%)",
+  "hsl(355, 85%, 55%)",
+  "hsl(5, 75%, 45%)",
+  "hsl(350, 70%, 40%)",
 ];
 
-// Each mini-chart gets different red shade ordering for distinction
 const CHART_PALETTES = [
   ["hsl(0, 90%, 60%)", "hsl(0, 80%, 48%)", "hsl(0, 70%, 38%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)", "hsl(355, 85%, 55%)", "hsl(5, 75%, 45%)", "hsl(350, 70%, 40%)"],
   ["hsl(355, 85%, 55%)", "hsl(0, 90%, 60%)", "hsl(5, 75%, 45%)", "hsl(0, 70%, 38%)", "hsl(350, 70%, 40%)", "hsl(0, 80%, 48%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)"],
@@ -71,6 +78,15 @@ const CHART_TOOLTIPS: Record<string, string> = {
   "payment": "Receita agrupada por meio de pagamento utilizado.",
 };
 
+const METRIC_TOOLTIPS: Record<string, string> = {
+  "total_views": "Número total de cliques registrados nos Smart Links no período selecionado.",
+  "sales": "Quantidade total de vendas aprovadas no período selecionado.",
+  "conv_rate": "Taxa de Conversão = (Vendas / Views) × 100. Percentual de visitantes que compraram.",
+  "revenue": "Soma dos valores de todas as vendas aprovadas no período.",
+  "avg_ticket": "Ticket Médio = Receita Total / Número de Vendas. Valor médio por transação.",
+  "smart_links": "Quantidade de Smart Links criados neste projeto.",
+};
+
 function ChartHeader({ title, icon, tooltipKey }: { title: string; icon: React.ReactNode; tooltipKey: string }) {
   return (
     <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
@@ -85,6 +101,51 @@ function ChartHeader({ title, icon, tooltipKey }: { title: string; icon: React.R
         </TooltipContent>
       </UITooltip>
     </h3>
+  );
+}
+
+function MetricWithTooltip({ label, value, icon: Icon, tooltipKey }: { label: string; value: string; icon: any; tooltipKey: string }) {
+  return (
+    <div className="relative">
+      <MetricCard label={label} value={value} icon={Icon} />
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <button className="absolute top-2 right-2 text-muted-foreground hover:text-foreground">
+            <HelpCircle className="h-3 w-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[240px] text-xs">
+          {METRIC_TOOLTIPS[tooltipKey] || "Métrica do período selecionado."}
+        </TooltipContent>
+      </UITooltip>
+    </div>
+  );
+}
+
+// Custom tooltip component for recharts with white text
+function CustomTooltipContent({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={TOOLTIP_STYLE}>
+      <p style={{ color: "#e0e0e0", marginBottom: 4, fontWeight: 500 }}>{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <p key={i} style={{ color: "#ffffff", fontSize: 12 }}>
+          <span style={{ color: entry.color || "#f5f5f5", marginRight: 6 }}>●</span>
+          {entry.name}: {typeof entry.value === "number" ? entry.value.toLocaleString("pt-BR") : entry.value}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function CustomPieTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const entry = payload[0];
+  return (
+    <div style={TOOLTIP_STYLE}>
+      <p style={{ color: "#ffffff", fontWeight: 500 }}>{entry.name}</p>
+      <p style={{ color: "#e0e0e0", fontSize: 12 }}>{entry.value} vendas</p>
+    </div>
   );
 }
 
@@ -239,9 +300,10 @@ export default function Dashboard() {
     const orderBumps = conversions.filter((c: any) => c.is_order_bump);
     const mainRevenue = mainProducts.reduce((s: number, c: any) => s + Number(c.amount), 0);
     const obRevenue = orderBumps.reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const totalPieValue = mainProducts.length + orderBumps.length;
     const pieData = [
-      { name: "Produto Principal", value: mainProducts.length, receita: mainRevenue },
-      { name: "Order Bump", value: orderBumps.length, receita: obRevenue },
+      { name: "Produto Principal", value: mainProducts.length, receita: mainRevenue, percent: totalPieValue > 0 ? (mainProducts.length / totalPieValue * 100) : 0 },
+      { name: "Order Bump", value: orderBumps.length, receita: obRevenue, percent: totalPieValue > 0 ? (orderBumps.length / totalPieValue * 100) : 0 },
     ];
 
     const linkStats = smartLinks.map((link: any) => {
@@ -277,7 +339,20 @@ export default function Dashboard() {
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const PIE_COLORS = ["hsl(0, 90%, 60%)", "hsl(0, 60%, 30%)"];
+  const PIE_COLORS = ["hsl(0, 90%, 60%)", "hsl(0, 55%, 28%)"];
+
+  const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    if (percent < 0.05) return null;
+    return (
+      <text x={x} y={y} fill="#ffffff" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={600}>
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
 
   const renderSection = (id: string) => {
     switch (id) {
@@ -294,12 +369,12 @@ export default function Dashboard() {
       case "metrics":
         return (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-            <MetricCard label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} />
-            <MetricCard label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} />
-            <MetricCard label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} />
-            <MetricCard label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} />
-            <MetricCard label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} />
-            <MetricCard label="Smart Links" value={computed.linkStats.length.toLocaleString("pt-BR")} icon={Target} />
+            <MetricWithTooltip label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} tooltipKey="total_views" />
+            <MetricWithTooltip label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} tooltipKey="sales" />
+            <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" />
+            <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" />
+            <MetricWithTooltip label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} tooltipKey="avg_ticket" />
+            <MetricWithTooltip label="Smart Links" value={computed.linkStats.length.toLocaleString("pt-BR")} icon={Target} tooltipKey="smart_links" />
           </div>
         );
 
@@ -317,7 +392,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  <Tooltip content={<CustomTooltipContent />} />
                   <Area type="monotone" dataKey="views" name="Views" stroke="hsl(0, 90%, 60%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
                   <Area type="monotone" dataKey="sales" name="Vendas" stroke="hsl(0, 60%, 30%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
                 </AreaChart>
@@ -375,28 +450,25 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 {computed.pieData.some(d => d.value > 0) ? (
-                  <ResponsiveContainer width="100%" height={240}>
-                    <PieChart>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                       <Pie
                         data={computed.pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={55}
-                        outerRadius={90}
+                        innerRadius={50}
+                        outerRadius={95}
                         paddingAngle={4}
                         dataKey="value"
                         nameKey="name"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        label={renderPieLabel}
                         labelLine={false}
                       >
                         {computed.pieData.map((_, i) => (
                           <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(240, 5%, 12%)" strokeWidth={2} />
                         ))}
                       </Pie>
-                      <Tooltip
-                        contentStyle={TOOLTIP_STYLE}
-                        formatter={(value: number, name: string) => [`${value} vendas`, name]}
-                      />
+                      <Tooltip content={<CustomPieTooltip />} />
                       <Legend
                         wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
                         formatter={(value) => <span style={{ color: "hsl(0, 0%, 80%)" }}>{value}</span>}
@@ -494,7 +566,7 @@ export default function Dashboard() {
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  <Tooltip content={<CustomTooltipContent />} />
                   <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="hsl(0, 80%, 48%)" radius={[4, 4, 0, 0]} opacity={0.8} />
                   <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(0, 90%, 60%)" strokeWidth={2} dot={false} />
                 </ComposedChart>
@@ -573,7 +645,31 @@ function EmptyState({ text }: { text: string }) {
 
 function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { title: string; icon?: React.ReactNode; tooltipKey: string; data: { name: string; value: number }[]; paletteIdx: number; fmt: (v: number) => string }) {
   const palette = CHART_PALETTES[paletteIdx % CHART_PALETTES.length];
-  const TOOLTIP_STYLE_MINI = { backgroundColor: "hsl(240, 5%, 12%)", border: "1px solid hsl(240, 4%, 20%)", borderRadius: 8, fontSize: 12, color: "hsl(0, 0%, 95%)", padding: "8px 12px", boxShadow: "0 4px 12px rgba(0,0,0,0.4)" };
+  const miniTooltipStyle = {
+    backgroundColor: "hsl(240, 6%, 10%)",
+    border: "1px solid hsl(240, 4%, 22%)",
+    borderRadius: 8,
+    fontSize: 12,
+    color: "#f5f5f5",
+    padding: "10px 14px",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+  };
+
+  function MiniCustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={miniTooltipStyle}>
+        <p style={{ color: "#e0e0e0", marginBottom: 4, fontWeight: 500 }}>{label}</p>
+        {payload.map((entry: any, i: number) => (
+          <p key={i} style={{ color: "#ffffff", fontSize: 12 }}>
+            <span style={{ color: entry.color || "#f5f5f5", marginRight: 6 }}>●</span>
+            {entry.name}: {fmt(entry.value)}
+          </p>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
       <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">
@@ -588,7 +684,7 @@ function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { titl
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
           <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} interval={0} angle={-15} textAnchor="end" height={55} />
           <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={TOOLTIP_STYLE_MINI} formatter={(v: number) => fmt(v)} />
+          <Tooltip content={<MiniCustomTooltip />} />
           <Bar dataKey="value" name="Receita" radius={[3, 3, 0, 0]}>
             {data.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
           </Bar>
