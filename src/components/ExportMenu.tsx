@@ -65,7 +65,7 @@ async function exportSnapshotPdf(selector: string, filename: string, periodLabel
   const rawBreaks = collectBreakPoints(el, elRect.top);
   const totalH = el.scrollHeight;
 
-  const scale = 2;
+  const scale = 1.5;
   const canvas = await html2canvas(el, {
     scale,
     useCORS: true,
@@ -143,7 +143,7 @@ async function exportSnapshotPdf(selector: string, filename: string, periodLabel
     ctx.drawImage(canvas, 0, slice.srcY, imgW, slice.srcH, 0, 0, imgW, slice.srcH);
 
     const destH = slice.srcH / pxPerMm;
-    doc.addImage(sliceCanvas.toDataURL("image/png"), "PNG", margin, margin, usableW, destH);
+    doc.addImage(sliceCanvas.toDataURL("image/jpeg", 0.75), "JPEG", margin, margin, usableW, destH);
 
     doc.setFontSize(6.5);
     doc.setTextColor(80, 80, 85);
