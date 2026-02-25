@@ -32,7 +32,7 @@ import {
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
-const SECTION_IDS = ["metrics", "traffic-chart", "smartlinks", "products", "order-bumps", "mini-charts", "fees-chart"];
+const SECTION_IDS = ["metrics", "traffic-chart", "smartlinks", "products", "order-bumps", "mini-charts"];
 
 const TOOLTIP_STYLE = {
   backgroundColor: "hsl(240, 6%, 10%)",
@@ -430,23 +430,20 @@ export default function Dashboard() {
             <MetricWithTooltip label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} tooltipKey="total_views" />
             <MetricWithTooltip label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} tooltipKey="sales" />
             <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" />
-            {/* Investment card - matching MetricCard style */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+            {/* Investment card - matching MetricCard style exactly */}
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <DollarSign className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="relative">
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">R$</span>
-                <Input
-                  value={investmentInput}
-                  onChange={(e) => setInvestmentInput(e.target.value)}
-                  placeholder="0,00"
-                  className="pl-7 font-bold text-lg h-auto py-0 bg-transparent border-none shadow-none focus-visible:ring-0 font-mono p-0"
-                />
-              </div>
+              <input
+                value={investmentInput}
+                onChange={(e) => setInvestmentInput(e.target.value)}
+                placeholder="R$ 0,00"
+                className="text-lg font-bold bg-transparent border-none outline-none w-full p-0 m-0 placeholder:text-muted-foreground/40"
+              />
             </div>
             <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" />
             {/* ROAS card - matching MetricCard style */}
@@ -687,48 +684,7 @@ export default function Dashboard() {
           </div>
         );
 
-      case "fees-chart":
-        return computed.feesData.length > 0 ? (
-          <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden mb-6">
-            <div className="px-5 py-4 border-b border-border/50 flex items-center gap-2">
-              <Percent className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Taxas da Plataforma</h3>
-              <UITooltip>
-                <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[260px] text-xs">Taxas cobradas pelas plataformas de pagamento por venda aprovada.</TooltipContent>
-              </UITooltip>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-border/30">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Plataforma</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita Bruta</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Taxas</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">% do Faturamento</th>
-                </tr></thead>
-                <tbody>
-                  {computed.feesData.map((f: any, i: number) => (
-                    <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                      <td className="px-5 py-3 font-medium text-xs">{f.name}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs">{f.vendas}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs">{fmt(f.receita)}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs text-destructive">{fmt(f.fees)}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{f.percent.toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                  <tr className="border-t-2 border-primary/30 bg-primary/5 font-semibold">
-                    <td className="px-5 py-3 text-xs uppercase tracking-wider">Total</td>
-                    <td className="text-right px-5 py-3 font-mono text-xs">{computed.totalSales}</td>
-                    <td className="text-right px-5 py-3 font-mono text-xs">{fmt(computed.totalRevenue)}</td>
-                    <td className="text-right px-5 py-3 font-mono text-xs text-destructive">{fmt(computed.totalFees)}</td>
-                    <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{computed.totalRevenue > 0 ? (computed.totalFees / computed.totalRevenue * 100).toFixed(1) : "0.0"}%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : null;
+
 
       default: return null;
     }
@@ -761,7 +717,7 @@ export default function Dashboard() {
           goal={revenueGoal ?? 1000000}
           onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
         />
-        <div className="flex justify-end mt-2">
+        <div className="flex justify-end mt-1">
           <ExportMenu
             data={buildFullExportData()}
             filename="dashboard-nexus"

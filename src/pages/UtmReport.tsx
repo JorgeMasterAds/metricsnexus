@@ -224,15 +224,12 @@ export default function UtmReport() {
               <DollarSign className="h-3.5 w-3.5 text-primary" />
             </div>
           </div>
-          <div className="relative">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">R$</span>
-            <Input
-              value={investmentInput}
-              onChange={(e) => setInvestmentInput(e.target.value)}
-              placeholder="0,00"
-              className="pl-7 font-bold text-lg h-auto py-0 bg-transparent border-none shadow-none focus-visible:ring-0 font-mono p-0"
-            />
-          </div>
+          <input
+            value={investmentInput}
+            onChange={(e) => setInvestmentInput(e.target.value)}
+            placeholder="R$ 0,00"
+            className="text-lg font-bold bg-transparent border-none outline-none w-full p-0 m-0 placeholder:text-muted-foreground/40"
+          />
         </div>
         <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
           <div className="flex items-center justify-between mb-2">
