@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
@@ -19,6 +19,7 @@ export function useInvestment(periodKey?: string) {
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
   const qc = useQueryClient();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Parse date range from periodKey "fromISO__toISO"
   const [dateFrom, dateTo] = (periodKey || "").split("__").map((s) => s?.slice(0, 10) || "");
@@ -29,7 +30,7 @@ export function useInvestment(periodKey?: string) {
     queryKey,
     queryFn: async () => {
       if (!activeAccountId || !activeProjectId || !dateFrom || !dateTo) return 0;
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("investments")
         .select("amount")
         .eq("account_id", activeAccountId)
@@ -59,7 +60,7 @@ export function useInvestment(periodKey?: string) {
     async (cents: number) => {
       if (!activeAccountId || !activeProjectId || !dateFrom || !dateTo) return;
       const amount = cents / 100;
-      await (supabase as any)
+      await supabase
         .from("investments")
         .upsert(
           {
@@ -81,13 +82,19 @@ export function useInvestment(periodKey?: string) {
     (e: { target: { value: string } }) => {
       const digits = e.target.value.replace(/\D/g, "");
       setLocalCents(digits);
-      // Debounced save
       const cents = parseInt(digits, 10) || 0;
-      const timeout = setTimeout(() => saveToDb(cents), 1000);
-      return () => clearTimeout(timeout);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => saveToDb(cents), 1000);
     },
     [saveToDb]
   );
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   return {
     investmentInput: displayValue,
