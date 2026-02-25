@@ -60,7 +60,7 @@ export default function Support() {
   return (
     <DashboardLayout title="Suporte" subtitle="Central de ajuda e atendimento">
       <div className="space-y-6">
-        <div className="max-w-2xl mx-auto space-y-4">
+        <div className="w-full space-y-4">
           {/* Contact Form */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
              <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">

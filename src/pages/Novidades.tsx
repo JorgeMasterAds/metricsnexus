@@ -41,7 +41,7 @@ export default function Novidades() {
 
   return (
     <DashboardLayout title="Novidades" subtitle="Atualizações e melhorias da plataforma">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="w-full space-y-6">
         {announcements.length === 0 ? (
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center">
             <Sparkles className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
