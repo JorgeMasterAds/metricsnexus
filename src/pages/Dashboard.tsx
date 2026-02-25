@@ -159,6 +159,7 @@ function CustomPieTooltip({ active, payload }: any) {
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+  const [periodLabel, setPeriodLabel] = useState("7 dias");
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
   const { order, editMode, toggleEdit, handleReorder, resetLayout } = useDashboardLayout("dashboard", SECTION_IDS);
@@ -720,7 +721,7 @@ export default function Dashboard() {
           <Button variant={editMode ? "default" : "outline"} size="sm" className="text-xs gap-1.5" onClick={toggleEdit}>
             {editMode ? <><Check className="h-3.5 w-3.5" /> Salvar Layout</> : <><Pencil className="h-3.5 w-3.5" /> Editar Layout</>}
           </Button>
-          <DateFilter value={dateRange} onChange={setDateRange} />
+          <DateFilter value={dateRange} onChange={setDateRange} onPresetChange={setPeriodLabel} />
         </div>
       }
     >
@@ -737,6 +738,7 @@ export default function Dashboard() {
             filename="dashboard-nexus"
             title="Dashboard Completo — Nexus Metrics"
             snapshotSelector="#dashboard-export-root"
+            periodLabel={`Período: ${periodLabel}`}
             kpis={[
               { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
               { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },

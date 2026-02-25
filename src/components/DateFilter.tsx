@@ -26,6 +26,7 @@ const PRESETS = [
 interface Props {
   value: DateRange;
   onChange: (range: DateRange) => void;
+  onPresetChange?: (label: string) => void;
 }
 
 const TABLET_BREAKPOINT = 1024;
@@ -40,7 +41,7 @@ function useIsTablet() {
   return isTablet;
 }
 
-export default function DateFilter({ value, onChange }: Props) {
+export default function DateFilter({ value, onChange, onPresetChange }: Props) {
   const [activePreset, setActivePreset] = useState<string>("7 dias");
   const [showCustom, setShowCustom] = useState(false);
   const isMobile = useIsMobile();
@@ -48,6 +49,7 @@ export default function DateFilter({ value, onChange }: Props) {
 
   const handlePreset = (preset: typeof PRESETS[number]) => {
     setActivePreset(preset.label);
+    onPresetChange?.(preset.label);
     const now = new Date();
     if ("days" in preset) {
       setShowCustom(false);

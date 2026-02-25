@@ -33,6 +33,7 @@ const GROUP_OPTIONS: { value: GroupKey; label: string }[] = [
 
 export default function UtmReport() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+  const [periodLabel, setPeriodLabel] = useState("7 dias");
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const FIXED_ORDER: GroupKey[] = ["date", "utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"];
@@ -215,7 +216,7 @@ export default function UtmReport() {
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.utmReport} />
-          <DateFilter value={dateRange} onChange={setDateRange} />
+          <DateFilter value={dateRange} onChange={setDateRange} onPresetChange={setPeriodLabel} />
         </div>
       }
     >
@@ -236,62 +237,7 @@ export default function UtmReport() {
         </div>
       </div>
 
-      {/* Summary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
-            <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-              <FileBarChart className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </div>
-          <div className="text-lg font-bold">{totalSales}</div>
-        </div>
-        {/* Investment card */}
-        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
-            <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-              <DollarSign className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </div>
-          <input
-            value={investmentInput}
-            onChange={handleInvestmentChange}
-            placeholder="R$ 0,00"
-            className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
-          />
-        </div>
-        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
-            <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-              <DollarSign className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </div>
-          <div className="text-lg font-bold">{fmt(totalRevenue)}</div>
-        </div>
-        {/* ROAS card */}
-        {(() => {
-          const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
-          const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
-          return (
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
-                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-                  <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                </div>
-              </div>
-              <div className="text-lg font-bold font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
-                {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* Grouping — moved below KPIs */}
+      {/* Grouping */}
       <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
@@ -328,6 +274,8 @@ export default function UtmReport() {
             })}
           filename="utm-report"
           title="Relatório UTM — Nexus Metrics"
+          snapshotSelector="#utm-export-root"
+          periodLabel={`Período: ${periodLabel}`}
           kpis={[
             { label: "Vendas", value: String(totalSales) },
             { label: "Faturamento", value: fmt(totalRevenue) },
@@ -335,7 +283,60 @@ export default function UtmReport() {
         />
       </div>
 
-      {/* Table with pagination */}
+      {/* Snapshot export area — KPIs + table, no filters */}
+      <div id="utm-export-root">
+        {/* Summary KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
+              <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                <FileBarChart className="h-3.5 w-3.5 text-primary" />
+              </div>
+            </div>
+            <div className="text-lg font-bold">{totalSales}</div>
+          </div>
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
+              <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+              </div>
+            </div>
+            <input
+              value={investmentInput}
+              onChange={handleInvestmentChange}
+              placeholder="R$ 0,00"
+              className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
+            />
+          </div>
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
+              <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+              </div>
+            </div>
+            <div className="text-lg font-bold">{fmt(totalRevenue)}</div>
+          </div>
+          {(() => {
+            const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
+            const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
+            return (
+              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
+                  <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                </div>
+                <div className="text-lg font-bold font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
+                  {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       {(() => {
         const totalPages = Math.max(1, Math.ceil(displayRows.length / perPage));
         const currentPage = Math.min(page, totalPages);
@@ -361,13 +362,11 @@ export default function UtmReport() {
                     ) : (
                       <>
                         {paginatedRows.map((r: any, i: number) => {
-                          // Check if this row shares the same first group value as previous
                           const prevRow = i > 0 ? paginatedRows[i - 1] : null;
                           const firstGroupSame = prevRow && activeGroups.length > 0 && r[activeGroups[0]] === prevRow[activeGroups[0]];
                           return (
                             <tr key={i} className={`border-b border-border/20 hover:bg-accent/20 transition-colors ${firstGroupSame ? "border-border/10" : "border-t border-border/30"}`}>
                               {activeGroups.map((g, gi) => {
-                                // Group identical first-column values visually
                                 const showValue = gi === 0 && firstGroupSame ? "" : r[g];
                                 return (
                                   <td key={g} className={`px-4 py-3 text-xs truncate max-w-[160px] ${gi === 0 ? "font-medium" : "text-muted-foreground"} ${gi === 0 && firstGroupSame ? "opacity-0" : ""}`} title={r[g]}>{showValue}</td>
@@ -389,7 +388,6 @@ export default function UtmReport() {
                             </tr>
                           );
                         })}
-                        {/* Totals row */}
                         <tr className="border-t-2 border-primary/30 bg-primary/5 font-semibold">
                           {activeGroups.map((g, gi) => (
                             <td key={g} className="px-4 py-3 text-xs uppercase tracking-wider">{gi === 0 ? "Total" : ""}</td>
@@ -404,32 +402,39 @@ export default function UtmReport() {
                 </table>
               </div>
             </div>
-
-            {/* Pagination controls below table */}
-            <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
-              <div className="flex items-center gap-1.5">
-                <Label className="text-[10px] text-muted-foreground">Por página:</Label>
-                <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}>
-                  <SelectTrigger className="h-7 w-[70px] text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</span>
-                  <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
           </>
+        );
+      })()}
+      </div>{/* end utm-export-root */}
+
+      {/* Pagination controls below table — outside snapshot */}
+      {(() => {
+        const totalPages = Math.max(1, Math.ceil(displayRows.length / perPage));
+        const currentPage = Math.min(page, totalPages);
+        return (
+          <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <Label className="text-[10px] text-muted-foreground">Por página:</Label>
+              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}>
+                <SelectTrigger className="h-7 w-[70px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</span>
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         );
       })()}
     </DashboardLayout>
