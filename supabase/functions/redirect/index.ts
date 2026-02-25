@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   // Build query - scoped when account could be resolved
   let query = supabase
     .from('smartlinks')
-    .select('id, account_id, is_active')
+    .select('id, account_id, project_id, is_active')
     .eq('slug', slug)
     .eq('is_active', true);
 
@@ -112,6 +112,7 @@ Deno.serve(async (req) => {
   // Insert click - persisted with all relations
   supabase.from('clicks').insert({
     account_id: smartLink.account_id,
+    project_id: smartLink.project_id || null,
     smartlink_id: smartLink.id,
     variant_id: selectedVariant.id,
     click_id: clickId,

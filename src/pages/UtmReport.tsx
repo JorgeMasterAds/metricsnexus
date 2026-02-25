@@ -8,6 +8,7 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
 
 type GroupByKey = "utm_campaign" | "utm_medium" | "utm_content" | "utm_source" | "product_name";
 type SortKey = GroupByKey | "views" | "sales" | "revenue" | "rate" | "ticket";
@@ -27,13 +28,14 @@ export default function UtmReport() {
   const [sortKey, setSortKey] = useState<SortKey>("views");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const { activeAccountId } = useAccount();
+  const { activeProjectId } = useActiveProject();
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
   // Use clicks table instead of views
   const { data: clicks = [] } = useQuery({
-    queryKey: ["utm-clicks", since, until, activeAccountId],
+    queryKey: ["utm-clicks", since, until, activeAccountId, activeProjectId],
     queryFn: async () => {
       let q = (supabase as any)
         .from("clicks")
@@ -41,6 +43,7 @@ export default function UtmReport() {
         .gte("created_at", since)
         .lte("created_at", until);
       if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
       const { data } = await q;
       return data || [];
     },
@@ -49,7 +52,7 @@ export default function UtmReport() {
   });
 
   const { data: conversions = [] } = useQuery({
-    queryKey: ["utm-conversions", since, until, activeAccountId],
+    queryKey: ["utm-conversions", since, until, activeAccountId, activeProjectId],
     queryFn: async () => {
       let q = (supabase as any)
         .from("conversions")
@@ -58,6 +61,7 @@ export default function UtmReport() {
         .gte("created_at", since)
         .lte("created_at", until);
       if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
       const { data } = await q;
       return data || [];
     },
@@ -114,7 +118,7 @@ export default function UtmReport() {
   };
 
   const { data: productConversions = [] } = useQuery({
-    queryKey: ["utm-product-conversions", since, until, activeAccountId],
+    queryKey: ["utm-product-conversions", since, until, activeAccountId, activeProjectId],
     queryFn: async () => {
       let q = (supabase as any)
         .from("conversions")
@@ -123,6 +127,7 @@ export default function UtmReport() {
         .gte("created_at", since)
         .lte("created_at", until);
       if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
       const { data } = await q;
       return data || [];
     },

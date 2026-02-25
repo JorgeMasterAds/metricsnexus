@@ -325,18 +325,26 @@ async function processSale(
   }
 
   // Attribute via click
-  let smartlinkId = null, variantId = null;
+  let smartlinkId = null, variantId = null, projectId = null;
   if (clickId) {
-    const { data: click } = await supabase.from('clicks').select('smartlink_id, variant_id, account_id').eq('click_id', clickId).maybeSingle();
+    const { data: click } = await supabase.from('clicks').select('smartlink_id, variant_id, account_id, project_id').eq('click_id', clickId).maybeSingle();
     if (click) {
       smartlinkId = click.smartlink_id;
       variantId = click.variant_id;
+      projectId = click.project_id;
       if (!accountId) accountId = click.account_id;
     }
   }
 
+  // If no project_id from click, try to resolve from webhook's project
+  if (!projectId && webhookId) {
+    const { data: wh } = await supabase.from('webhooks').select('project_id').eq('id', webhookId).maybeSingle();
+    if (wh?.project_id) projectId = wh.project_id;
+  }
+
   const { data: convRow } = await supabase.from('conversions').insert({
     account_id: accountId,
+    project_id: projectId,
     click_id: clickId,
     smartlink_id: smartlinkId,
     variant_id: variantId,
