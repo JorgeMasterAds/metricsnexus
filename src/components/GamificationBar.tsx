@@ -1,17 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Trophy } from "lucide-react";
-import { getFixedGoal } from "@/hooks/useSubscription";
+import { Trophy, Pencil } from "lucide-react";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 
 interface Props {
   since: string;
   until: string;
+  goal: number;
+  onEditGoal?: () => void;
 }
 
-export default function GamificationBar({ since, until }: Props) {
+export default function GamificationBar({ since, until, goal, onEditGoal }: Props) {
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
 
@@ -33,9 +34,9 @@ export default function GamificationBar({ since, until }: Props) {
     enabled: !!activeAccountId,
   });
 
-  const goal = getFixedGoal(revenue);
-  const percent = Math.min((revenue / goal) * 100, 100);
+  const percent = goal > 0 ? Math.min((revenue / goal) * 100, 100) : 0;
   const remaining = Math.max(goal - revenue, 0);
+  const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="rounded-xl bg-card border border-border/50 card-shadow p-5 mb-6">
@@ -43,15 +44,20 @@ export default function GamificationBar({ since, until }: Props) {
         <div className="flex items-center gap-2">
           <Trophy className="h-4 w-4 text-warning" />
           <span className="text-sm font-semibold">Meta de Faturamento</span>
+          {onEditGoal && (
+            <button onClick={onEditGoal} className="p-1 rounded hover:bg-accent/50 transition-colors" title="Editar meta">
+              <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
         </div>
         <span className="text-xs text-muted-foreground">
-          R$ {revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / R$ {goal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          {fmt(revenue)} / {fmt(goal)}
         </span>
       </div>
       <Progress value={percent} className="h-3 mb-2" />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{percent.toFixed(1)}% atingido</span>
-        <span>Faltam R$ {remaining.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+        <span>Faltam {fmt(remaining)}</span>
       </div>
     </div>
   );

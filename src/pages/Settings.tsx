@@ -17,8 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import EditProjectModal from "@/components/EditProjectModal";
-import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
-import { exportToCsv } from "@/lib/csv";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -31,9 +33,11 @@ export default function Settings() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [editProject, setEditProject] = useState<any>(null);
 
+  // Deactivation confirmation
+  const [deactivateProject, setDeactivateProject] = useState<any>(null);
+
   useEffect(() => { setActiveTab(tabParam); }, [tabParam]);
 
-  // --- Auth user & profile ---
   const { data: user } = useQuery({
     queryKey: ["auth-user"],
     queryFn: async () => { const { data } = await supabase.auth.getUser(); return data.user; },
@@ -51,7 +55,6 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Organization fields
   const [orgName, setOrgName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [docNumber, setDocNumber] = useState("");
@@ -60,7 +63,6 @@ export default function Settings() {
   const [responsibleName, setResponsibleName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
 
-  // Team invite
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteProjectId, setInviteProjectId] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
@@ -83,7 +85,6 @@ export default function Settings() {
     }
   }, [activeAccount]);
 
-  // --- Projects ---
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", activeAccountId],
     queryFn: async () => {
@@ -93,7 +94,6 @@ export default function Settings() {
     enabled: !!activeAccountId,
   });
 
-  // --- Subscription & Plan ---
   const { data: subscription } = useQuery({
     queryKey: ["subscription", activeAccountId],
     queryFn: async () => {
@@ -103,19 +103,9 @@ export default function Settings() {
     enabled: !!activeAccountId,
   });
 
-  const { data: plans = [], refetch: refetchPlans } = useQuery({
+  const { data: plans = [] } = useQuery({
     queryKey: ["plans"],
     queryFn: async () => { const { data } = await (supabase as any).from("plans").select("*").order("price"); return data || []; },
-  });
-
-  const { data: isSuperAdmin } = useQuery({
-    queryKey: ["is-super-admin"],
-    queryFn: async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return false;
-      const { data } = await (supabase as any).from("super_admins").select("id").eq("user_id", userData.user.id).maybeSingle();
-      return !!data;
-    },
   });
 
   const { data: projectMembers = [] } = useQuery({
@@ -138,7 +128,6 @@ export default function Settings() {
     enabled: !!activeAccountId,
   });
 
-  // --- Actions ---
   const uploadAvatar = async (file: File) => {
     if (!user) return;
     const ext = file.name.split(".").pop();
@@ -199,9 +188,22 @@ export default function Settings() {
     } finally { setSaving(false); }
   };
 
-  const toggleProject = async (id: string, isActive: boolean) => {
-    await (supabase as any).from("projects").update({ is_active: !isActive }).eq("id", id);
+  const toggleProject = async (project: any) => {
+    if (project.is_active) {
+      // Show confirmation dialog before deactivating
+      setDeactivateProject(project);
+    } else {
+      await (supabase as any).from("projects").update({ is_active: true }).eq("id", project.id);
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    }
+  };
+
+  const confirmDeactivate = async () => {
+    if (!deactivateProject) return;
+    await (supabase as any).from("projects").update({ is_active: false }).eq("id", deactivateProject.id);
     qc.invalidateQueries({ queryKey: ["projects"] });
+    setDeactivateProject(null);
+    toast({ title: "Projeto desativado" });
   };
 
   const inviteMember = async () => {
@@ -354,7 +356,7 @@ export default function Settings() {
                         <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
                       </div>
                     </div>
-                    <Switch checked={p.is_active} onCheckedChange={() => toggleProject(p.id, p.is_active)} />
+                    <Switch checked={p.is_active} onCheckedChange={() => toggleProject(p)} />
                   </div>
                 ))}
               </div>
@@ -363,7 +365,7 @@ export default function Settings() {
         </div>
       )}
 
-      {/* ===== SUBSCRIPTION ===== */}
+      {/* ===== SUBSCRIPTION — removed Super Admin section ===== */}
       {activeTab === "subscription" && (
         <div className="max-w-4xl w-full mx-auto space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
@@ -410,45 +412,6 @@ export default function Settings() {
               })}
             </div>
           </div>
-
-          {isSuperAdmin && (
-            <>
-              <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-                <h2 className="text-sm font-semibold mb-2 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" />Configuração Stripe (Super Admin)</h2>
-                <p className="text-xs text-muted-foreground mb-3">Criar products e prices no Stripe e vincular aos planos.</p>
-                <Button size="sm" variant="outline" className="text-xs" onClick={async () => {
-                  try { const { data, error } = await supabase.functions.invoke("setup-stripe"); if (error) throw error; toast({ title: "Stripe configurado!", description: JSON.stringify(data?.results?.map((r: any) => `${r.plan}: ${r.status}`)) }); refetchPlans(); } catch (err: any) { toast({ title: "Erro", description: err.message, variant: "destructive" }); }
-                }}>Configurar Stripe</Button>
-              </div>
-              <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-                <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Globe className="h-4 w-4 text-primary" />Configuração do Webhook Stripe</h2>
-                <div className="space-y-3 text-xs text-muted-foreground">
-                  <p>Configure o webhook no painel do Stripe para receber atualizações de assinatura automaticamente.</p>
-                  <div className="space-y-2">
-                    <p className="font-semibold text-foreground">1. URL do Endpoint:</p>
-                    <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-3 font-mono text-xs">
-                      <span className="text-primary break-all select-all">https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/stripe-webhook</span>
-                      <button onClick={() => { navigator.clipboard.writeText("https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/stripe-webhook"); toast({ title: "URL copiada!" }); }} className="shrink-0 p-1 rounded hover:bg-accent"><Copy className="h-3.5 w-3.5" /></button>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-semibold text-foreground">2. Eventos para selecionar:</p>
-                    <ul className="list-disc list-inside space-y-0.5 ml-2">
-                      <li><code className="bg-muted px-1 rounded">checkout.session.completed</code></li>
-                      <li><code className="bg-muted px-1 rounded">invoice.paid</code></li>
-                      <li><code className="bg-muted px-1 rounded">invoice.payment_failed</code></li>
-                      <li><code className="bg-muted px-1 rounded">customer.subscription.deleted</code></li>
-                      <li><code className="bg-muted px-1 rounded">customer.subscription.updated</code></li>
-                    </ul>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-semibold text-foreground">3. Webhook Secret:</p>
-                    <p>Após criar o webhook, copie o <code className="bg-muted px-1 rounded">Signing secret</code> (whsec_...) e adicione como <code className="bg-muted px-1 rounded">STRIPE_WEBHOOK_SECRET</code>.</p>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
         </div>
       )}
 
@@ -552,214 +515,30 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Webhook Logs moved to Integrations */}
-
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
       <EditProjectModal open={!!editProject} onOpenChange={(o) => { if (!o) setEditProject(null); }} project={editProject} />
+
+      {/* Deactivation confirmation dialog */}
+      <AlertDialog open={!!deactivateProject} onOpenChange={(o) => { if (!o) setDeactivateProject(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar projeto "{deactivateProject?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Tem certeza que deseja desativar este projeto? Os seguintes impactos ocorrerão:</p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li>Webhooks deixarão de processar eventos</li>
+                <li>Dashboard não computará novos dados</li>
+                <li>Smart Links deixarão de funcionar</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">Você pode reativar o projeto a qualquer momento.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeactivate} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Desativar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
-  );
-}
-
-/* ─── Webhook Logs Tab with full filters ─── */
-
-const STATUS_COLOR: Record<string, string> = {
-  approved: "bg-success/20 text-success",
-  ignored: "bg-muted text-muted-foreground",
-  duplicate: "bg-yellow-500/20 text-yellow-400",
-  error: "bg-destructive/20 text-destructive",
-  received: "bg-blue-500/20 text-blue-400",
-  refunded: "bg-orange-500/20 text-orange-400",
-  chargedback: "bg-destructive/20 text-destructive",
-  canceled: "bg-muted text-muted-foreground",
-};
-
-const WH_PAGE_SIZE = 50;
-
-function WebhookLogsTab({ accountId }: { accountId?: string }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [webhookFilter, setWebhookFilter] = useState<string>("all");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
-
-  const since = dateRange.from.toISOString();
-  const until = dateRange.to.toISOString();
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ["wh-tab-projects", accountId],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from("projects").select("id, name").eq("account_id", accountId).order("name");
-      return data || [];
-    },
-    enabled: !!accountId,
-  });
-
-  const { data: webhooks = [] } = useQuery({
-    queryKey: ["wh-tab-webhooks", accountId, projectFilter],
-    queryFn: async () => {
-      let q = (supabase as any).from("webhooks").select("id, name").eq("account_id", accountId).order("name");
-      if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
-      const { data } = await q;
-      return data || [];
-    },
-    enabled: !!accountId,
-  });
-
-  const projectMap = new Map<string, string>(projects.map((p: any) => [p.id, p.name]));
-  const webhookMap = new Map<string, string>(webhooks.map((w: any) => [w.id, w.name]));
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["wh-tab-logs", accountId, projectFilter, since, until, page, statusFilter, webhookFilter],
-    queryFn: async () => {
-      const from = page * WH_PAGE_SIZE;
-      const to = from + WH_PAGE_SIZE - 1;
-      let q = (supabase as any)
-        .from("webhook_logs")
-        .select("*", { count: "exact" })
-        .eq("account_id", accountId)
-        .gte("created_at", since)
-        .lte("created_at", until)
-        .order("created_at", { ascending: false })
-        .range(from, to);
-      if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
-      if (statusFilter !== "all") q = q.eq("status", statusFilter);
-      if (webhookFilter !== "all") q = q.eq("webhook_id", webhookFilter);
-      const { data, error, count } = await q;
-      if (error) throw error;
-      return { logs: data || [], total: count || 0 };
-    },
-    staleTime: 60000,
-    enabled: !!accountId,
-  });
-
-  const logs = data?.logs || [];
-  const total = data?.total || 0;
-  const totalPages = Math.ceil(total / WH_PAGE_SIZE);
-
-  return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtros</span>
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Período</Label>
-            <div className="mt-1"><DateFilter value={dateRange} onChange={(v) => { setDateRange(v); setPage(0); }} /></div>
-          </div>
-          <div className="min-w-[150px]">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Projeto</Label>
-            <Select value={projectFilter} onValueChange={(v) => { setProjectFilter(v); setWebhookFilter("all"); setPage(0); }}>
-              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os projetos</SelectItem>
-                {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[150px]">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Webhook</Label>
-            <Select value={webhookFilter} onValueChange={(v) => { setWebhookFilter(v); setPage(0); }}>
-              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {webhooks.map((w: any) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[130px]">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</Label>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
-              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
-                <SelectItem value="error">Error</SelectItem>
-                <SelectItem value="ignored">Ignored</SelectItem>
-                <SelectItem value="duplicate">Duplicate</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{total} registro(s)</span>
-            <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8" onClick={() => exportToCsv(logs.map((l: any) => ({
-              data: new Date(l.created_at).toLocaleString("pt-BR"),
-              projeto: projectMap.get(l.project_id) || "—",
-              webhook: webhookMap.get(l.webhook_id) || "—",
-              plataforma: l.platform,
-              evento: l.event_type,
-              transaction_id: l.transaction_id,
-              status: l.status,
-            })), "webhook-logs")}>
-              <Download className="h-3.5 w-3.5" /> CSV
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20"><div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>
-      ) : logs.length === 0 ? (
-        <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center text-muted-foreground text-sm">Nenhum webhook recebido no período.</div>
-      ) : (
-        <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-border/30">
-                <th className="w-8" />
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Data</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Projeto</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Webhook</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Plataforma</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Evento</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Atribuição</th>
-              </tr></thead>
-              <tbody>
-                {logs.map((log: any) => (
-                  <React.Fragment key={log.id}>
-                    <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer" onClick={() => setExpanded(expanded === log.id ? null : log.id)}>
-                      <td className="px-2 py-3 text-center">{expanded === log.id ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">{new Date(log.created_at).toLocaleString("pt-BR")}</td>
-                      <td className="px-4 py-3 text-xs font-medium truncate max-w-[120px]">{projectMap.get(log.project_id) || "—"}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[140px]">{webhookMap.get(log.webhook_id) || "—"}</td>
-                      <td className="px-4 py-3"><span className="text-xs capitalize font-medium">{log.platform}</span></td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{log.event_type || "—"}</td>
-                      <td className="px-4 py-3"><span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_COLOR[log.status] || "bg-muted text-muted-foreground")}>{log.status}</span></td>
-                      <td className="px-4 py-3">{log.is_attributed ? <span className="text-xs text-success">✓ Atribuído</span> : <span className="text-xs text-muted-foreground">—</span>}</td>
-                    </tr>
-                    {expanded === log.id && (
-                      <tr className="border-b border-border/10">
-                        <td colSpan={8} className="px-4 py-3 bg-muted/30">
-                          {log.ignore_reason && <div className="text-xs mb-2"><span className="text-muted-foreground">Motivo: </span><span className="text-foreground">{log.ignore_reason}</span></div>}
-                          <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
-                          <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">{JSON.stringify(log.raw_payload, null, 2)}</pre>
-                          {log.attributed_click_id && <div className="mt-2 text-xs"><span className="text-muted-foreground">Click ID: </span><span className="font-mono text-primary">{log.attributed_click_id}</span></div>}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-xs gap-1"><ChevronLeft className="h-3.5 w-3.5" /> Anterior</Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="text-xs gap-1">Próxima <ChevronRight className="h-3.5 w-3.5" /></Button>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
