@@ -86,6 +86,7 @@ export default function EditProjectModal({ open, onOpenChange, project }: Props)
     if (!project) return;
     await (supabase as any).from("projects").update({ is_active: false }).eq("id", project.id);
     qc.invalidateQueries({ queryKey: ["projects"] });
+    qc.invalidateQueries({ queryKey: ["sidebar-active-project"] });
     setShowDeactivate(false);
     toast({ title: "Projeto desativado" });
   };

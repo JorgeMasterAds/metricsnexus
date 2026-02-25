@@ -4,9 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
-import { Download, FileBarChart } from "lucide-react";
+import { FileBarChart, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { exportToCsv } from "@/lib/csv";
+import ExportMenu from "@/components/ExportMenu";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,8 @@ export default function UtmReport() {
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [activeGroups, setActiveGroups] = useState<GroupKey[]>(["utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"]);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
 
@@ -236,65 +238,109 @@ export default function UtmReport() {
         </div>
       </div>
 
-      {/* Export */}
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-xs text-muted-foreground">{displayRows.length} agrupamento(s)</span>
-        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => exportToCsv(displayRows.map((r: any) => {
-          const row: any = {};
-          activeGroups.forEach(g => { row[g] = r[g]; });
-          row.views = r.views; row.vendas = r.sales; row.receita = r.revenue.toFixed(2); row.ticket_medio = r.ticket.toFixed(2);
-          return row;
-        }), "utm-report")}>
-          <Download className="h-3.5 w-3.5" /> CSV
-        </Button>
+      {/* Pagination Controls & Export */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{displayRows.length} agrupamento(s)</span>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-[10px] text-muted-foreground">Por página:</Label>
+            <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}>
+              <SelectTrigger className="h-7 w-[70px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <ExportMenu
+          data={displayRows.map((r: any) => {
+            const row: any = {};
+            activeGroups.forEach(g => { row[g] = r[g]; });
+            row.views = r.views; row.vendas = r.sales; row.receita = r.revenue.toFixed(2); row.ticket_medio = r.ticket.toFixed(2);
+            return row;
+          })}
+          filename="utm-report"
+          title="Relatório UTM — Nexus Metrics"
+          kpis={[
+            { label: "Vendas", value: String(totalSales) },
+            { label: "Faturamento", value: fmt(totalRevenue) },
+            { label: "Ticket Médio", value: fmt(totalTicket) },
+            { label: "Views", value: totalViews.toLocaleString("pt-BR") },
+          ]}
+        />
       </div>
 
-      {/* Table — removed "Taxa" column, added totals row */}
-      <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-border/30">
-              {activeGroups.map(g => {
-                const label = GROUP_OPTIONS.find(o => o.value === g)?.label || g;
-                return <SortHeader key={g} label={label} sortKey={g} current={sortKey} dir={sortDir} onClick={toggleSort} />;
-              })}
-              <SortHeader label="Views" sortKey="views" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
-              <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
-              <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
-              <SortHeader label="Ticket" sortKey="ticket" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
-            </tr></thead>
-            <tbody>
-              {displayRows.length === 0 ? (
-                <tr><td colSpan={activeGroups.length + 4} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
-              ) : (
-                <>
-                  {displayRows.map((r: any, i: number) => (
-                    <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                      {activeGroups.map((g, gi) => (
-                        <td key={g} className={`px-4 py-3 text-xs truncate max-w-[120px] ${gi === 0 ? "font-medium" : "text-muted-foreground"}`} title={r[g]}>{r[g]}</td>
-                      ))}
-                      <td className="text-right px-4 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
-                      <td className="text-right px-4 py-3 font-mono text-xs">{r.sales.toLocaleString("pt-BR")}</td>
-                      <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.revenue)}</td>
-                      <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.ticket)}</td>
-                    </tr>
-                  ))}
-                  {/* Totals row */}
-                  <tr className="border-t-2 border-primary/30 bg-primary/5 font-semibold">
-                    {activeGroups.map((g, gi) => (
-                      <td key={g} className="px-4 py-3 text-xs">{gi === 0 ? "TOTAL" : ""}</td>
-                    ))}
-                    <td className="text-right px-4 py-3 font-mono text-xs">{totalViews.toLocaleString("pt-BR")}</td>
-                    <td className="text-right px-4 py-3 font-mono text-xs">{totalSales.toLocaleString("pt-BR")}</td>
-                    <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalRevenue)}</td>
-                    <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalTicket)}</td>
-                  </tr>
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Table with pagination */}
+      {(() => {
+        const totalPages = Math.max(1, Math.ceil(displayRows.length / perPage));
+        const currentPage = Math.min(page, totalPages);
+        const startIdx = (currentPage - 1) * perPage;
+        const paginatedRows = displayRows.slice(startIdx, startIdx + perPage);
+        return (
+          <>
+            <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-border/30">
+                    {activeGroups.map(g => {
+                      const label = GROUP_OPTIONS.find(o => o.value === g)?.label || g;
+                      return <SortHeader key={g} label={label} sortKey={g} current={sortKey} dir={sortDir} onClick={toggleSort} />;
+                    })}
+                    <SortHeader label="Views" sortKey="views" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
+                    <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
+                    <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
+                    <SortHeader label="Ticket" sortKey="ticket" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
+                  </tr></thead>
+                  <tbody>
+                    {paginatedRows.length === 0 ? (
+                      <tr><td colSpan={activeGroups.length + 4} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
+                    ) : (
+                      <>
+                        {paginatedRows.map((r: any, i: number) => (
+                          <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
+                            {activeGroups.map((g, gi) => (
+                              <td key={g} className={`px-4 py-3 text-xs truncate max-w-[120px] ${gi === 0 ? "font-medium" : "text-muted-foreground"}`} title={r[g]}>{r[g]}</td>
+                            ))}
+                            <td className="text-right px-4 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
+                            <td className="text-right px-4 py-3 font-mono text-xs">{r.sales.toLocaleString("pt-BR")}</td>
+                            <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.revenue)}</td>
+                            <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.ticket)}</td>
+                          </tr>
+                        ))}
+                        {/* Totals row — always visible regardless of page */}
+                        <tr className="border-t-2 border-primary/30 bg-primary/5 font-semibold">
+                          {activeGroups.map((g, gi) => (
+                            <td key={g} className="px-4 py-3 text-xs">{gi === 0 ? "TOTAL" : ""}</td>
+                          ))}
+                          <td className="text-right px-4 py-3 font-mono text-xs">{totalViews.toLocaleString("pt-BR")}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs">{totalSales.toLocaleString("pt-BR")}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalRevenue)}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalTicket)}</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</span>
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        );
+      })()}
     </DashboardLayout>
   );
 }

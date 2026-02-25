@@ -202,6 +202,7 @@ export default function Settings() {
     if (!deactivateProject) return;
     await (supabase as any).from("projects").update({ is_active: false }).eq("id", deactivateProject.id);
     qc.invalidateQueries({ queryKey: ["projects"] });
+    qc.invalidateQueries({ queryKey: ["sidebar-active-project"] });
     setDeactivateProject(null);
     toast({ title: "Projeto desativado" });
   };

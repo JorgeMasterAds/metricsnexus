@@ -24,7 +24,9 @@ export default function ProjectSelector() {
     enabled: !!activeAccountId,
   });
 
-  const activeProject = projects.find((p: any) => p.is_active) || projects[0];
+  // Only show active projects in selector
+  const activeProjects = projects.filter((p: any) => p.is_active);
+  const activeProject = activeProjects[0] || projects[0];
 
   const switchProject = async (projectId: string) => {
     // Deactivate all, activate selected
@@ -53,7 +55,7 @@ export default function ProjectSelector() {
       <PopoverContent className="w-64 p-2 bg-popover border border-border z-50" align="start">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-3 py-1.5">Projetos</p>
         <div className="space-y-1">
-          {projects.map((p: any) => (
+          {activeProjects.map((p: any) => (
             <button
               key={p.id}
               onClick={() => switchProject(p.id)}

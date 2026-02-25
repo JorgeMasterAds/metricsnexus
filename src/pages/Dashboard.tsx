@@ -18,6 +18,7 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { exportToCsv } from "@/lib/csv";
+import ExportMenu from "@/components/ExportMenu";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 import { useDashboardLayout } from "@/hooks/useDashboardLayout";
@@ -349,7 +350,7 @@ export default function Dashboard() {
     if (percent < 0.05) return null;
     return (
       <text x={x} y={y} fill="#ffffff" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={600}>
-        {`${(percent * 100).toFixed(0)}%`}
+        {`${(percent * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
       </text>
     );
   };
@@ -511,9 +512,16 @@ export default function Dashboard() {
                   <TooltipContent side="top" className="max-w-[260px] text-xs">{CHART_TOOLTIPS["smartlinks"]}</TooltipContent>
                 </UITooltip>
               </div>
-              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => exportToCsv(computed.linkStats.map((l: any) => ({ nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", ticket: l.ticket.toFixed(2), status: l.is_active ? "Ativo" : "Pausado" })), "smart-links")}>
-                <Download className="h-3.5 w-3.5" /> CSV
-              </Button>
+              <ExportMenu
+                data={computed.linkStats.map((l: any) => ({ nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", ticket: l.ticket.toFixed(2), status: l.is_active ? "Ativo" : "Pausado" }))}
+                filename="smart-links"
+                title="Smart Links — Nexus Metrics"
+                kpis={[
+                  { label: "Total Views", value: computed.totalViews.toLocaleString("pt-BR") },
+                  { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
+                  { label: "Faturamento", value: fmt(computed.totalRevenue) },
+                ]}
+              />
             </div>
             {smartLinks.length === 0 ? (
               <EmptyState text="Nenhum Smart Link criado." />

@@ -354,12 +354,13 @@ export default function AdminSettings() {
       {activeTab === "limits" && (
         <div className="max-w-4xl w-full mx-auto space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-sm font-semibold mb-2 flex items-center gap-2">
               <Sliders className="h-4 w-4 text-primary" />Limites Globais da Plataforma
             </h2>
+            <p className="text-xs text-muted-foreground mb-4">Configurações gerais que se aplicam a toda a plataforma, independente do plano. Limites por plano devem ser ajustados na aba "Planos".</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Máx. contas criadas</Label>
+                <Label className="text-xs">Máx. contas criadas na plataforma</Label>
                 <Input type="number" value={limits.max_accounts} onChange={e => setLimits({ ...limits, max_accounts: Number(e.target.value) })} className="text-xs" />
               </div>
               <div className="space-y-1.5">
@@ -369,22 +370,6 @@ export default function AdminSettings() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Máx. projetos por conta</Label>
                 <Input type="number" value={limits.max_projects_per_account} onChange={e => setLimits({ ...limits, max_projects_per_account: Number(e.target.value) })} className="text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Máx. usuários Free</Label>
-                <Input type="number" value={limits.max_free_users} onChange={e => setLimits({ ...limits, max_free_users: Number(e.target.value) })} className="text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Máx. eventos mensais (Free)</Label>
-                <Input type="number" value={limits.max_free_events_monthly} onChange={e => setLimits({ ...limits, max_free_events_monthly: Number(e.target.value) })} className="text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Máx. SmartLinks (Free)</Label>
-                <Input type="number" value={limits.max_smartlinks_free} onChange={e => setLimits({ ...limits, max_smartlinks_free: Number(e.target.value) })} className="text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Máx. Webhooks (Free)</Label>
-                <Input type="number" value={limits.max_webhooks_free} onChange={e => setLimits({ ...limits, max_webhooks_free: Number(e.target.value) })} className="text-xs" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Retenção de logs (dias)</Label>
