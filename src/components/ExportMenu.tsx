@@ -13,6 +13,7 @@ interface Props {
   kpis?: { label: string; value: string }[];
   size?: "sm" | "default";
   snapshotSelector?: string;
+  periodLabel?: string;
 }
 
 /** Recursively collect top-edge positions of all meaningful section boundaries */
@@ -36,7 +37,7 @@ function collectBreakPoints(el: HTMLElement, rootTop: number): number[] {
   return [...new Set(bps)].sort((a, b) => a - b);
 }
 
-async function exportSnapshotPdf(selector: string, filename: string) {
+async function exportSnapshotPdf(selector: string, filename: string, periodLabel?: string) {
   const el = document.querySelector(selector) as HTMLElement | null;
   if (!el) { toast.error("Elemento não encontrado para exportação"); return; }
 
@@ -146,7 +147,10 @@ async function exportSnapshotPdf(selector: string, filename: string) {
 
     doc.setFontSize(6.5);
     doc.setTextColor(80, 80, 85);
-    doc.text(`Nexus Metrics — Página ${i + 1}/${slices.length}`, pw / 2, ph - 3, { align: "center" });
+    const footerText = periodLabel
+      ? `Nexus Metrics — ${periodLabel} — Página ${i + 1}/${slices.length}`
+      : `Nexus Metrics — Página ${i + 1}/${slices.length}`;
+    doc.text(footerText, pw / 2, ph - 3, { align: "center" });
   });
 
   const { formatDateForFilename } = await import("@/lib/csv");
@@ -154,7 +158,7 @@ async function exportSnapshotPdf(selector: string, filename: string) {
   toast.success("PDF exportado!");
 }
 
-export default function ExportMenu({ data, filename, title, kpis, size = "sm", snapshotSelector }: Props) {
+export default function ExportMenu({ data, filename, title, kpis, size = "sm", snapshotSelector, periodLabel }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -172,7 +176,7 @@ export default function ExportMenu({ data, filename, title, kpis, size = "sm", s
         <DropdownMenuItem
           onClick={() =>
             snapshotSelector
-              ? exportSnapshotPdf(snapshotSelector, filename)
+              ? exportSnapshotPdf(snapshotSelector, filename, periodLabel)
               : exportToPdf(data, filename, title, kpis)
           }
           className="text-xs gap-2 cursor-pointer"
