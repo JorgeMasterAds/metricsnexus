@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
-import { FileBarChart, ChevronLeft, ChevronRight, DollarSign, HelpCircle, Pencil, Check } from "lucide-react";
+import { FileBarChart, ChevronLeft, ChevronRight, DollarSign, HelpCircle, Pencil, Check, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ExportMenu from "@/components/ExportMenu";
@@ -207,53 +207,60 @@ export default function UtmReport() {
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Vendas</div>
-          <div className="text-xl font-bold mt-1">{totalSales}</div>
+        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
+            <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+              <FileBarChart className="h-3.5 w-3.5 text-primary" />
+            </div>
+          </div>
+          <div className="text-lg font-bold">{totalSales}</div>
         </div>
         {/* Investment card */}
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="flex items-center gap-1.5 mb-1">
-            <DollarSign className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs text-muted-foreground">Investimento</span>
-            <UITooltip>
-              <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[200px] text-xs">Insira o investimento em ads. Sincronizado com o Dashboard.</TooltipContent>
-            </UITooltip>
+        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
+            <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+              <DollarSign className="h-3.5 w-3.5 text-primary" />
+            </div>
           </div>
-          <div className="relative mt-1">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">R$</span>
+          <div className="relative">
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">R$</span>
             <Input
               value={investmentInput}
               onChange={(e) => setInvestmentInput(e.target.value)}
               placeholder="0,00"
-              className="pl-7 font-mono text-sm h-8 bg-secondary/50 border-border/50"
+              className="pl-7 font-bold text-lg h-auto py-0 bg-transparent border-none shadow-none focus-visible:ring-0 font-mono p-0"
             />
           </div>
         </div>
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Faturamento</div>
-          <div className="text-xl font-bold mt-1">{fmt(totalRevenue)}</div>
+        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
+            <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+              <DollarSign className="h-3.5 w-3.5 text-primary" />
+            </div>
+          </div>
+          <div className="text-lg font-bold">{fmt(totalRevenue)}</div>
         </div>
         {/* ROAS card */}
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow flex flex-col items-center justify-center">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-xs text-muted-foreground">ROAS</span>
-            <UITooltip>
-              <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[200px] text-xs">Faturamento ÷ Investimento</TooltipContent>
-            </UITooltip>
-          </div>
-          {(() => {
-            const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
-            const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
-            return (
-              <div className="text-2xl font-black font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
+        {(() => {
+          const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
+          const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
+          return (
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                </div>
+              </div>
+              <div className="text-lg font-bold font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
                 {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
               </div>
-            );
-          })()}
-        </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Grouping — moved below KPIs */}

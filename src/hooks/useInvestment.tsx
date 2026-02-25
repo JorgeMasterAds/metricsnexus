@@ -1,11 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
 
-// Shared investment state keyed by period string
+const STORAGE_KEY = "nexus_investments";
+
+// Load from localStorage on init
 const listeners = new Set<() => void>();
-let globalInvestments: Record<string, string> = {};
+let globalInvestments: Record<string, string> = (() => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+})();
 
 function notify() {
   listeners.forEach((fn) => fn());
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(globalInvestments));
+  } catch {}
 }
 
 export function useInvestment(periodKey: string) {
