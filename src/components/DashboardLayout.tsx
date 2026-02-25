@@ -29,6 +29,7 @@ import ProjectSelector from "@/components/ProjectSelector";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "@/hooks/useAccount";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import NotificationBell from "@/components/NotificationBell";
 
 const mainNavItems = [
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
@@ -388,6 +389,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
             </div>
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
+          <NotificationBell />
         </header>
 
         <div className="flex-1 p-4 lg:p-8 overflow-auto">
