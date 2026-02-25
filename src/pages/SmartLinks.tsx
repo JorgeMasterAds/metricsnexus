@@ -26,6 +26,22 @@ export default function SmartLinks() {
   const { activeAccountId } = useAccount();
   const { maxSmartlinks } = useUsageLimits();
 
+  // Fetch active custom domain for this account
+  const { data: customDomain } = useQuery({
+    queryKey: ["active-custom-domain", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("custom_domains")
+        .select("domain")
+        .eq("account_id", activeAccountId)
+        .eq("is_verified", true)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+      return data?.domain || null;
+    },
+    enabled: !!activeAccountId,
+  });
   const sinceDate = dateRange.from.toISOString().split("T")[0];
   const untilDate = dateRange.to.toISOString().split("T")[0];
 
@@ -179,6 +195,9 @@ export default function SmartLinks() {
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const getRedirectUrl = (slug: string) => {
+    if (customDomain) {
+      return `https://${customDomain}/${slug}`;
+    }
     return `https://${supabaseProjectId}.supabase.co/functions/v1/redirect?slug=${slug}`;
   };
 

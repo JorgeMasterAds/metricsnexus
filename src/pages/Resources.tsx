@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAccount } from "@/hooks/useAccount";
 import { useState } from "react";
-import { Globe, Copy, Check } from "lucide-react";
+import { Globe, Copy, Check, RefreshCw } from "lucide-react";
 
 const CNAME_TARGET = "fnpmuffrqrlofjvqytof.supabase.co";
 
@@ -51,6 +51,7 @@ function DomainsSection({ accountId }: { accountId?: string }) {
   const qc = useQueryClient();
   const [domain, setDomain] = useState("");
   const [adding, setAdding] = useState(false);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   const { data: domains = [] } = useQuery({
     queryKey: ["custom-domains", accountId],
@@ -82,6 +83,39 @@ function DomainsSection({ accountId }: { accountId?: string }) {
     toast({ title: "Domínio removido" });
   };
 
+  const verifyDns = async (domainId: string) => {
+    setVerifyingId(domainId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/verify-dns`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ domain_id: domainId }),
+        }
+      );
+      const result = await res.json();
+
+      if (result.verified) {
+        toast({ title: "✅ DNS Verificado!", description: result.message });
+        qc.invalidateQueries({ queryKey: ["custom-domains"] });
+      } else {
+        toast({ title: "DNS não verificado", description: result.message || result.error, variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
@@ -110,7 +144,21 @@ function DomainsSection({ accountId }: { accountId?: string }) {
                     {d.is_active && <Badge variant="outline" className="text-[10px] text-primary border-primary/30">Ativo</Badge>}
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="text-xs" onClick={() => removeDomain(d.id)}>Remover</Button>
+                <div className="flex items-center gap-2">
+                  {!d.is_verified && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      disabled={verifyingId === d.id}
+                      onClick={() => verifyDns(d.id)}
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 mr-1 ${verifyingId === d.id ? "animate-spin" : ""}`} />
+                      {verifyingId === d.id ? "Verificando..." : "Verificar DNS"}
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="text-xs" onClick={() => removeDomain(d.id)}>Remover</Button>
+                </div>
               </div>
             ))}
           </div>
