@@ -864,6 +864,7 @@ function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { titl
           <Tooltip content={<MiniCustomTooltip />} />
           <Bar dataKey="value" name="Receita" radius={[3, 3, 0, 0]}>
             {data.map((_, i) => <Cell key={i} fill={`url(#miniGrad-${paletteIdx}-${i})`} />)}
+            <LabelList dataKey="value" position="inside" style={{ fontSize: 9, fill: "#ffffff", fontWeight: 600 }} formatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : fmt(v)} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
