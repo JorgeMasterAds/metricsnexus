@@ -658,7 +658,9 @@ export default function Settings() {
 
       {/* ===== WEBHOOK LOGS ===== */}
       {activeTab === "webhooks" && (
-        <WebhookLogsTab accountId={activeAccountId} />
+        <div className="max-w-4xl">
+          <WebhookLogsTab accountId={activeAccountId} />
+        </div>
       )}
 
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
