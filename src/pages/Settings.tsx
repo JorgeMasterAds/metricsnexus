@@ -119,6 +119,20 @@ export default function Settings() {
     enabled: projects.length > 0,
   });
 
+  // Fetch emails for all project members
+  const allMemberUserIds = [...new Set(projectMembers.map((m: any) => m.user_id).filter(Boolean))] as string[];
+  const { data: memberEmails = [] } = useQuery({
+    queryKey: ["member-emails", allMemberUserIds],
+    queryFn: async () => {
+      if (!allMemberUserIds.length) return [];
+      const { data } = await supabase.rpc("get_user_emails_by_ids", { _user_ids: allMemberUserIds });
+      return data || [];
+    },
+    enabled: allMemberUserIds.length > 0,
+  });
+  const emailMap: Record<string, string> = {};
+  for (const e of memberEmails) emailMap[(e as any).user_id] = (e as any).email;
+
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members", activeAccountId],
     queryFn: async () => {
@@ -233,6 +247,17 @@ export default function Settings() {
     await (supabase as any).from("project_users").delete().eq("id", memberId);
     qc.invalidateQueries({ queryKey: ["project-members"] });
     toast({ title: "Membro removido" });
+  };
+
+  const updateMemberRole = async (memberId: string, newRole: string) => {
+    try {
+      const { error } = await (supabase as any).from("project_users").update({ role: newRole }).eq("id", memberId);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["project-members"] });
+      toast({ title: "Papel atualizado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar papel", description: err.message, variant: "destructive" });
+    }
   };
 
   const tabs = [
@@ -459,6 +484,8 @@ export default function Settings() {
           {projects.map((project: any) => {
             const members = projectMembers.filter((m: any) => m.project_id === project.id);
             const currentUserIsMember = members.some((m: any) => m.user_id === user?.id);
+            const currentUserMember = members.find((m: any) => m.user_id === user?.id);
+            const isCurrentUserAdmin = !currentUserIsMember || currentUserMember?.role === "owner" || currentUserMember?.role === "admin";
             const allMembers = currentUserIsMember ? members : [
               { id: "current-user-owner", user_id: user?.id, role: "owner", accepted_at: new Date().toISOString(), profiles: { full_name: profile?.full_name || user?.email || "Você", avatar_url: profile?.avatar_url } },
               ...members,
@@ -475,23 +502,44 @@ export default function Settings() {
                   <p className="text-xs text-muted-foreground">Nenhum membro neste projeto.</p>
                 ) : (
                   <div className="space-y-2">
-                    {allMembers.map((m: any) => (
-                      <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                            {m.profiles?.avatar_url ? <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" /> : m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"}
+                    {allMembers.map((m: any) => {
+                      const memberEmail = m.user_id === user?.id ? user?.email : emailMap[m.user_id];
+                      const canChangeRole = isCurrentUserAdmin && m.id !== "current-user-owner" && m.user_id !== user?.id;
+                      return (
+                        <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                              {m.profiles?.avatar_url ? <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" /> : m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
+                              {memberEmail && <p className="text-[10px] text-muted-foreground">{memberEmail}</p>}
+                              <p className="text-[10px] text-muted-foreground">{m.accepted_at ? `Adicionado em ${new Date(m.accepted_at).toLocaleDateString("pt-BR")}` : "Convite pendente"}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
-                            <p className="text-[10px] text-muted-foreground">{m.accepted_at ? `Adicionado em ${new Date(m.accepted_at).toLocaleDateString("pt-BR")}` : "Convite pendente"}</p>
+                          <div className="flex items-center gap-2">
+                            {canChangeRole ? (
+                              <Select value={m.role} onValueChange={(val) => updateMemberRole(m.id, val)}>
+                                <SelectTrigger className="h-7 w-auto text-[10px] capitalize border-border/50 px-2 gap-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="viewer">Visualizador</SelectItem>
+                                  <SelectItem value="member">Membro</SelectItem>
+                                  <SelectItem value="admin">Administrador</SelectItem>
+                                  <SelectItem value="owner">Owner</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
+                            )}
+                            {m.id !== "current-user-owner" && (
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeMember(m.id)}><X className="h-3.5 w-3.5" /></Button>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeMember(m.id)}><X className="h-3.5 w-3.5" /></Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
