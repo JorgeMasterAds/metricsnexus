@@ -236,16 +236,16 @@ export default function UtmReport() {
           <DropdownFilter label="Pagamento" value={fPayment} onChange={setFPayment} options={distinctValues.payments} />
         </div>
 
-        <div className="border-t border-border/30 mt-4 pt-4">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="border-t border-border/30 mt-4 pt-3">
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {GROUP_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => toggleGroup(opt.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors border text-center ${
                   activeGroups.includes(opt.value)
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
