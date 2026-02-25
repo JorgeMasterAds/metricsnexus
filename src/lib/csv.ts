@@ -14,7 +14,15 @@ export function exportToCsv(data: Record<string, any>[], filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${filename}.csv`;
+  a.download = `${filename}_${formatDateForFilename()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function formatDateForFilename(): string {
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, "0");
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const y = now.getFullYear();
+  return `${y}-${m}-${d}`;
 }
