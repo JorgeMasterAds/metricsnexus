@@ -401,14 +401,14 @@ export default function Dashboard() {
     switch (id) {
       case "gamification":
         return (
-          <div className="space-y-4">
+          <div className="mb-6">
             <GamificationBar
               since={sinceISO}
               until={untilISO}
               goal={revenueGoal ?? 1000000}
               onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
             />
-            <div className="flex justify-end pt-1">
+            <div className="flex justify-end mt-2">
               <ExportMenu
                 data={buildFullExportData()}
                 filename="dashboard-nexus"

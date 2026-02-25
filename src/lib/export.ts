@@ -88,44 +88,81 @@ export async function exportToPdf(
     startY += 22;
   }
 
-  // Table
-  const headers = Object.keys(data[0]);
-  const body = data.map((row) => headers.map((h) => String(row[h] ?? "")));
 
-  autoTable(doc, {
-    startY,
-    head: [headers],
-    body,
-    theme: "plain",
-    styles: {
-      fontSize: 8,
-      cellPadding: 3,
-      textColor: [220, 220, 220],
-      fillColor: [10, 10, 10],
-      lineColor: [40, 40, 40],
-      lineWidth: 0.2,
-    },
-    headStyles: {
-      fillColor: [200, 40, 40],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      fontSize: 7,
-    },
-    alternateRowStyles: {
-      fillColor: [18, 18, 18],
-    },
-    margin: { left: 14, right: 14 },
-    didDrawPage: (data: any) => {
-      // Black background on every page
-      const pageH = doc.internal.pageSize.getHeight();
-      doc.setFillColor(10, 10, 10);
-      doc.rect(0, 0, pageWidth, pageH, "F");
-      // Footer
-      doc.setFontSize(7);
-      doc.setTextColor(80, 80, 80);
-      doc.text("Nexus Metrics — Relatório exportado automaticamente", pageWidth / 2, pageH - 8, { align: "center" });
-    },
+
+  // Group data by "seção" column for separate tables
+  const sections = new Map<string, Record<string, any>[]>();
+  data.forEach((row) => {
+    const sectionName = row["seção"] || "Dados";
+    if (!sections.has(sectionName)) sections.set(sectionName, []);
+    sections.get(sectionName)!.push(row);
   });
+
+  // If no "seção" column, treat as single table
+  if (sections.size <= 1 && !data[0]?.["seção"]) {
+    sections.clear();
+    sections.set("Dados", data);
+  }
+
+  for (const [sectionName, sectionData] of sections) {
+    if (sectionData.length === 0) continue;
+
+    // Section title
+    doc.setFontSize(11);
+    doc.setTextColor(220, 50, 50);
+    doc.text(sectionName, 14, startY + 4);
+    startY += 8;
+
+    // Get headers excluding "seção" column
+    const headers = Object.keys(sectionData[0]).filter((h) => h !== "seção");
+    const body = sectionData.map((row) => headers.map((h) => String(row[h] ?? "")));
+
+    autoTable(doc, {
+      startY,
+      head: [headers],
+      body,
+      theme: "plain",
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+        textColor: [220, 220, 220],
+        fillColor: [10, 10, 10],
+        lineColor: [40, 40, 40],
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: [200, 40, 40],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 7,
+      },
+      alternateRowStyles: {
+        fillColor: [18, 18, 18],
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: (pageData: any) => {
+        // Black background on every page
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setFillColor(10, 10, 10);
+        doc.rect(0, 0, pageWidth, pageH, "F");
+        // Footer
+        doc.setFontSize(7);
+        doc.setTextColor(80, 80, 80);
+        doc.text("Nexus Metrics — Relatório exportado automaticamente", pageWidth / 2, pageH - 8, { align: "center" });
+      },
+    });
+
+    // Get the final Y position after the table for the next section
+    startY = (doc as any).lastAutoTable?.finalY + 10 || startY + 30;
+
+    // If near bottom of page, add new page
+    if (startY > doc.internal.pageSize.getHeight() - 30) {
+      doc.addPage();
+      doc.setFillColor(10, 10, 10);
+      doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), "F");
+      startY = 20;
+    }
+  }
 
   doc.save(`${filename}.pdf`);
 }
