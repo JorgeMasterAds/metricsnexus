@@ -8,7 +8,7 @@ import {
 import {
   MousePointerClick, TrendingUp, DollarSign, BarChart3, Ticket, Download,
   ShoppingCart, CreditCard, Pencil, Check, Target, Globe, Megaphone,
-  Monitor, FileText, Package, Eye, Percent, Layers,
+  Monitor, FileText, Package, Eye, Percent, Layers, HelpCircle,
 } from "lucide-react";
 import MetricCard from "@/components/MetricCard";
 import GamificationBar from "@/components/GamificationBar";
@@ -27,22 +27,66 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-ki
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
+import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
 const SECTION_IDS = ["gamification", "metrics", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
 
-const TOOLTIP_STYLE = { backgroundColor: "hsl(240, 5%, 12%)", border: "1px solid hsl(240, 4%, 20%)", borderRadius: 8, fontSize: 12, color: "hsl(0, 0%, 90%)" };
+const TOOLTIP_STYLE = { backgroundColor: "hsl(240, 5%, 12%)", border: "1px solid hsl(240, 4%, 20%)", borderRadius: 8, fontSize: 12, color: "hsl(0, 0%, 95%)", padding: "8px 12px", boxShadow: "0 4px 12px rgba(0,0,0,0.4)" };
 const TICK_STYLE = { fontSize: 11, fill: "hsl(240, 5%, 55%)" };
 
-// Expanded gradient palette: red → orange → amber
-const CHART_PALETTES = [
-  ["hsl(0, 85%, 55%)", "hsl(0, 75%, 42%)", "hsl(0, 65%, 32%)", "hsl(0, 55%, 25%)", "hsl(0, 45%, 20%)", "hsl(0, 90%, 65%)", "hsl(0, 60%, 50%)", "hsl(0, 50%, 38%)"],   // Pure reds
-  ["hsl(10, 85%, 55%)", "hsl(15, 80%, 45%)", "hsl(20, 75%, 38%)", "hsl(8, 90%, 60%)", "hsl(12, 70%, 35%)", "hsl(18, 65%, 50%)", "hsl(5, 80%, 48%)", "hsl(22, 75%, 42%)"],  // Red-orange
-  ["hsl(25, 90%, 50%)", "hsl(30, 85%, 42%)", "hsl(35, 80%, 35%)", "hsl(20, 95%, 55%)", "hsl(28, 75%, 45%)", "hsl(32, 70%, 38%)", "hsl(22, 85%, 48%)", "hsl(38, 80%, 40%)"],  // Orange
-  ["hsl(345, 80%, 50%)", "hsl(350, 75%, 42%)", "hsl(355, 70%, 35%)", "hsl(340, 85%, 55%)", "hsl(348, 65%, 45%)", "hsl(352, 60%, 38%)", "hsl(342, 75%, 48%)", "hsl(358, 70%, 40%)"],  // Rose-red
-  ["hsl(5, 80%, 52%)", "hsl(8, 70%, 42%)", "hsl(12, 65%, 35%)", "hsl(3, 85%, 58%)", "hsl(7, 60%, 45%)", "hsl(10, 55%, 38%)", "hsl(2, 75%, 48%)", "hsl(15, 70%, 40%)"],  // Warm red
-  ["hsl(40, 90%, 50%)", "hsl(35, 85%, 42%)", "hsl(30, 80%, 35%)", "hsl(45, 95%, 55%)", "hsl(38, 75%, 45%)", "hsl(33, 70%, 38%)", "hsl(42, 85%, 48%)", "hsl(28, 80%, 40%)"],  // Amber
+// Pure red palette only — no orange, no yellow, no amber
+const RED_PALETTE = [
+  "hsl(0, 90%, 60%)",   // Bright red
+  "hsl(0, 80%, 48%)",   // Medium red
+  "hsl(0, 70%, 38%)",   // Dark red
+  "hsl(0, 60%, 28%)",   // Very dark red
+  "hsl(0, 95%, 70%)",   // Light red
+  "hsl(355, 85%, 55%)", // Rose red
+  "hsl(5, 75%, 45%)",   // Warm red
+  "hsl(350, 70%, 40%)", // Deep rose
 ];
+
+// Each mini-chart gets different red shade ordering for distinction
+const CHART_PALETTES = [
+  ["hsl(0, 90%, 60%)", "hsl(0, 80%, 48%)", "hsl(0, 70%, 38%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)", "hsl(355, 85%, 55%)", "hsl(5, 75%, 45%)", "hsl(350, 70%, 40%)"],
+  ["hsl(355, 85%, 55%)", "hsl(0, 90%, 60%)", "hsl(5, 75%, 45%)", "hsl(0, 70%, 38%)", "hsl(350, 70%, 40%)", "hsl(0, 80%, 48%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)"],
+  ["hsl(0, 70%, 38%)", "hsl(0, 95%, 70%)", "hsl(0, 80%, 48%)", "hsl(355, 85%, 55%)", "hsl(0, 60%, 28%)", "hsl(0, 90%, 60%)", "hsl(350, 70%, 40%)", "hsl(5, 75%, 45%)"],
+  ["hsl(5, 75%, 45%)", "hsl(350, 70%, 40%)", "hsl(0, 90%, 60%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)", "hsl(0, 70%, 38%)", "hsl(355, 85%, 55%)", "hsl(0, 80%, 48%)"],
+  ["hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)", "hsl(355, 85%, 55%)", "hsl(0, 80%, 48%)", "hsl(5, 75%, 45%)", "hsl(0, 90%, 60%)", "hsl(0, 70%, 38%)", "hsl(350, 70%, 40%)"],
+  ["hsl(350, 70%, 40%)", "hsl(0, 80%, 48%)", "hsl(0, 95%, 70%)", "hsl(5, 75%, 45%)", "hsl(0, 70%, 38%)", "hsl(0, 60%, 28%)", "hsl(0, 90%, 60%)", "hsl(355, 85%, 55%)"],
+];
+
+const CHART_TOOLTIPS: Record<string, string> = {
+  "traffic-chart": "Exibe a evolução diária de visualizações (views) e vendas no período selecionado.",
+  "products": "Resumo de vendas, receita, ticket médio e participação percentual por produto.",
+  "order-bumps": "Comparação proporcional entre vendas de produto principal e order bumps.",
+  "smartlinks": "Desempenho de cada Smart Link: views, vendas, receita e taxa de conversão.",
+  "sales-chart": "Volume de vendas e receita diários no período selecionado.",
+  "source": "Receita agrupada por origem de tráfego (utm_source).",
+  "campaign": "Receita agrupada por campanha de marketing (utm_campaign).",
+  "medium": "Receita agrupada por meio de tráfego (utm_medium).",
+  "content": "Receita agrupada por conteúdo de anúncio (utm_content).",
+  "product": "Receita agrupada por produto vendido.",
+  "payment": "Receita agrupada por meio de pagamento utilizado.",
+};
+
+function ChartHeader({ title, icon, tooltipKey }: { title: string; icon: React.ReactNode; tooltipKey: string }) {
+  return (
+    <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+      {icon}
+      {title}
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[260px] text-xs">
+          {CHART_TOOLTIPS[tooltipKey] || "Dados do período selecionado."}
+        </TooltipContent>
+      </UITooltip>
+    </h3>
+  );
+}
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
@@ -55,7 +99,6 @@ export default function Dashboard() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // Editable goal modal
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [goalInput, setGoalInput] = useState("");
 
@@ -196,9 +239,9 @@ export default function Dashboard() {
     const orderBumps = conversions.filter((c: any) => c.is_order_bump);
     const mainRevenue = mainProducts.reduce((s: number, c: any) => s + Number(c.amount), 0);
     const obRevenue = orderBumps.reduce((s: number, c: any) => s + Number(c.amount), 0);
-    const obData = [
-      { name: "Vendas Principais", vendas: mainProducts.length, receita: mainRevenue },
-      { name: "Order Bumps", vendas: orderBumps.length, receita: obRevenue },
+    const pieData = [
+      { name: "Produto Principal", value: mainProducts.length, receita: mainRevenue },
+      { name: "Order Bump", value: orderBumps.length, receita: obRevenue },
     ];
 
     const linkStats = smartLinks.map((link: any) => {
@@ -217,7 +260,7 @@ export default function Dashboard() {
       mediumData: groupBy("utm_medium"),
       contentData: groupBy("utm_content"),
       productChartData: productData.map(p => ({ name: p.name, value: p.receita })).slice(0, 8),
-      linkStats, obData,
+      linkStats, pieData,
       mainProductsCount: mainProducts.length, orderBumpsCount: orderBumps.length,
       mainRevenue, obRevenue,
     };
@@ -233,6 +276,8 @@ export default function Dashboard() {
   };
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const PIE_COLORS = ["hsl(0, 90%, 60%)", "hsl(0, 60%, 30%)"];
 
   const renderSection = (id: string) => {
     switch (id) {
@@ -261,23 +306,20 @@ export default function Dashboard() {
       case "traffic-chart":
         return (
           <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              Tráfego & Conversões
-            </h3>
+            <ChartHeader title="Tráfego & Conversões" icon={<TrendingUp className="h-4 w-4 text-primary" />} tooltipKey="traffic-chart" />
             {computed.chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={computed.chartData}>
                   <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient>
-                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 85%, 55%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(0, 85%, 55%)" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 60%, 30%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(0, 60%, 30%)" stopOpacity={0} /></linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Area type="monotone" dataKey="views" name="Views" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="sales" name="Vendas" stroke="hsl(0, 85%, 55%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="views" name="Views" stroke="hsl(0, 90%, 60%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="sales" name="Vendas" stroke="hsl(0, 60%, 30%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhum dado no período" />}
@@ -290,6 +332,10 @@ export default function Dashboard() {
             <div className="px-5 py-4 border-b border-border/50 flex items-center gap-2">
               <Package className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold">Resumo por Produto</h3>
+              <UITooltip>
+                <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] text-xs">{CHART_TOOLTIPS["products"]}</TooltipContent>
+              </UITooltip>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -310,7 +356,7 @@ export default function Dashboard() {
                       <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.ticket)}</td>
                       <td className="text-right px-5 py-3 font-mono text-xs" style={{ color: "hsl(0, 85%, 55%)" }}>{p.percentual.toFixed(1)}%</td>
                       <td className="px-5 py-3">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-[hsl(25,90%,50%)]/20 text-[hsl(25,90%,50%)]" : "bg-primary/20 text-primary"}`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-[hsl(0,60%,30%)]/20 text-[hsl(0,70%,50%)]" : "bg-primary/20 text-primary"}`}>
                           {p.isOrderBump ? "Order Bump" : "Principal"}
                         </span>
                       </td>
@@ -325,23 +371,37 @@ export default function Dashboard() {
       case "order-bumps":
         return (
           <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" />
-              Produtos vs Order Bumps
-            </h3>
+            <ChartHeader title="Produtos vs Order Bumps" icon={<Layers className="h-4 w-4 text-primary" />} tooltipKey="order-bumps" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                {computed.obData.some(d => d.vendas > 0) ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={computed.obData} barGap={8}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
-                      <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                      <Bar dataKey="vendas" name="Vendas" fill="hsl(0, 85%, 55%)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="receita" name="Receita (R$)" fill="hsl(25, 90%, 50%)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+                {computed.pieData.some(d => d.value > 0) ? (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <PieChart>
+                      <Pie
+                        data={computed.pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={90}
+                        paddingAngle={4}
+                        dataKey="value"
+                        nameKey="name"
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {computed.pieData.map((_, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(240, 5%, 12%)" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        formatter={(value: number, name: string) => [`${value} vendas`, name]}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
+                        formatter={(value) => <span style={{ color: "hsl(0, 0%, 80%)" }}>{value}</span>}
+                      />
+                    </PieChart>
                   </ResponsiveContainer>
                 ) : <EmptyState text="Sem dados de Order Bump" />}
               </div>
@@ -371,10 +431,14 @@ export default function Dashboard() {
         return (
           <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden mb-6">
             <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-primary" />
-                Smart Links
-              </h3>
+                <h3 className="text-sm font-semibold">Smart Links</h3>
+                <UITooltip>
+                  <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[260px] text-xs">{CHART_TOOLTIPS["smartlinks"]}</TooltipContent>
+                </UITooltip>
+              </div>
               <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => exportToCsv(computed.linkStats.map((l: any) => ({ nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", ticket: l.ticket.toFixed(2), status: l.is_active ? "Ativo" : "Pausado" })), "smart-links")}>
                 <Download className="h-3.5 w-3.5" /> CSV
               </Button>
@@ -422,10 +486,7 @@ export default function Dashboard() {
       case "sales-chart":
         return (
           <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              Volume de Vendas Diário
-            </h3>
+            <ChartHeader title="Volume de Vendas Diário" icon={<BarChart3 className="h-4 w-4 text-primary" />} tooltipKey="sales-chart" />
             {computed.salesChartData.some(d => d.vendas > 0) ? (
               <ResponsiveContainer width="100%" height={200}>
                 <ComposedChart data={computed.salesChartData}>
@@ -434,8 +495,8 @@ export default function Dashboard() {
                   <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.8} />
-                  <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(0, 85%, 55%)" strokeWidth={2} dot={false} />
+                  <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="hsl(0, 80%, 48%)" radius={[4, 4, 0, 0]} opacity={0.8} />
+                  <Line yAxisId="right" type="monotone" dataKey="receita" name="Receita (R$)" stroke="hsl(0, 90%, 60%)" strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhuma venda no período" />}
@@ -445,12 +506,12 @@ export default function Dashboard() {
       case "mini-charts":
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {computed.sourceData.length > 0 && <MiniBarChart title="Receita por Origem" icon={<Globe className="h-4 w-4 text-primary" />} data={computed.sourceData} paletteIdx={0} fmt={fmt} />}
-            {computed.campaignData.length > 0 && <MiniBarChart title="Receita por Campanha" icon={<Megaphone className="h-4 w-4 text-primary" />} data={computed.campaignData} paletteIdx={1} fmt={fmt} />}
-            {computed.mediumData.length > 0 && <MiniBarChart title="Receita por Medium" icon={<Monitor className="h-4 w-4 text-primary" />} data={computed.mediumData} paletteIdx={2} fmt={fmt} />}
-            {computed.contentData.length > 0 && <MiniBarChart title="Receita por Content" icon={<FileText className="h-4 w-4 text-primary" />} data={computed.contentData} paletteIdx={3} fmt={fmt} />}
-            {computed.productChartData.length > 0 && <MiniBarChart title="Receita por Produto" icon={<Package className="h-4 w-4 text-primary" />} data={computed.productChartData} paletteIdx={4} fmt={fmt} />}
-            {computed.paymentData.length > 0 && <MiniBarChart title="Meios de Pagamento" icon={<CreditCard className="h-4 w-4 text-primary" />} data={computed.paymentData.map(p => ({ name: p.name, value: p.receita }))} paletteIdx={5} fmt={fmt} />}
+            {computed.sourceData.length > 0 && <MiniBarChart title="Receita por Origem" icon={<Globe className="h-4 w-4 text-primary" />} tooltipKey="source" data={computed.sourceData} paletteIdx={0} fmt={fmt} />}
+            {computed.campaignData.length > 0 && <MiniBarChart title="Receita por Campanha" icon={<Megaphone className="h-4 w-4 text-primary" />} tooltipKey="campaign" data={computed.campaignData} paletteIdx={1} fmt={fmt} />}
+            {computed.mediumData.length > 0 && <MiniBarChart title="Receita por Medium" icon={<Monitor className="h-4 w-4 text-primary" />} tooltipKey="medium" data={computed.mediumData} paletteIdx={2} fmt={fmt} />}
+            {computed.contentData.length > 0 && <MiniBarChart title="Receita por Content" icon={<FileText className="h-4 w-4 text-primary" />} tooltipKey="content" data={computed.contentData} paletteIdx={3} fmt={fmt} />}
+            {computed.productChartData.length > 0 && <MiniBarChart title="Receita por Produto" icon={<Package className="h-4 w-4 text-primary" />} tooltipKey="product" data={computed.productChartData} paletteIdx={4} fmt={fmt} />}
+            {computed.paymentData.length > 0 && <MiniBarChart title="Meios de Pagamento" icon={<CreditCard className="h-4 w-4 text-primary" />} tooltipKey="payment" data={computed.paymentData.map(p => ({ name: p.name, value: p.receita }))} paletteIdx={5} fmt={fmt} />}
           </div>
         );
 
@@ -482,7 +543,6 @@ export default function Dashboard() {
         </SortableContext>
       </DndContext>
 
-      {/* Goal edit modal */}
       <Dialog open={goalModalOpen} onOpenChange={setGoalModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -511,17 +571,24 @@ function EmptyState({ text }: { text: string }) {
   return <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">{text}</div>;
 }
 
-function MiniBarChart({ title, icon, data, paletteIdx, fmt }: { title: string; icon?: React.ReactNode; data: { name: string; value: number }[]; paletteIdx: number; fmt: (v: number) => string }) {
+function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { title: string; icon?: React.ReactNode; tooltipKey: string; data: { name: string; value: number }[]; paletteIdx: number; fmt: (v: number) => string }) {
   const palette = CHART_PALETTES[paletteIdx % CHART_PALETTES.length];
+  const TOOLTIP_STYLE_MINI = { backgroundColor: "hsl(240, 5%, 12%)", border: "1px solid hsl(240, 4%, 20%)", borderRadius: 8, fontSize: 12, color: "hsl(0, 0%, 95%)", padding: "8px 12px", boxShadow: "0 4px 12px rgba(0,0,0,0.4)" };
   return (
     <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-      <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">{icon}{title}</h3>
+      <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">
+        {icon}{title}
+        <UITooltip>
+          <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[240px] text-xs">{CHART_TOOLTIPS[tooltipKey] || "Dados do período."}</TooltipContent>
+        </UITooltip>
+      </h3>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
           <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} interval={0} angle={-15} textAnchor="end" height={55} />
           <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => fmt(v)} />
+          <Tooltip contentStyle={TOOLTIP_STYLE_MINI} formatter={(v: number) => fmt(v)} />
           <Bar dataKey="value" name="Receita" radius={[3, 3, 0, 0]}>
             {data.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
           </Bar>

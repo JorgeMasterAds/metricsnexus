@@ -946,6 +946,51 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings: {
+        Row: {
+          created_at: string
+          id: string
+          log_retention_days: number | null
+          login_bg_url: string | null
+          max_accounts: number | null
+          max_free_events_monthly: number | null
+          max_free_users: number | null
+          max_projects_per_account: number | null
+          max_smartlinks_free: number | null
+          max_users_per_account: number | null
+          max_webhooks_free: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          log_retention_days?: number | null
+          login_bg_url?: string | null
+          max_accounts?: number | null
+          max_free_events_monthly?: number | null
+          max_free_users?: number | null
+          max_projects_per_account?: number | null
+          max_smartlinks_free?: number | null
+          max_users_per_account?: number | null
+          max_webhooks_free?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          log_retention_days?: number | null
+          login_bg_url?: string | null
+          max_accounts?: number | null
+          max_free_events_monthly?: number | null
+          max_free_users?: number | null
+          max_projects_per_account?: number | null
+          max_smartlinks_free?: number | null
+          max_users_per_account?: number | null
+          max_webhooks_free?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_costs: {
         Row: {
           account_id: string

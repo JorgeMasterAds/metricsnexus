@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Copy, Globe, Settings, Users, Webhook } from "lucide-react";
+import { Shield, Copy, Globe, Settings, Users, Webhook, BarChart3, Sliders, UserPlus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -19,6 +18,10 @@ export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState(tabParam);
 
   useEffect(() => { setActiveTab(tabParam); }, [tabParam]);
+
+  // Promote super admin
+  const [promoteEmail, setPromoteEmail] = useState("");
+  const [promoting, setPromoting] = useState(false);
 
   const { data: isSuperAdmin, isLoading: checkingAdmin } = useQuery({
     queryKey: ["is-super-admin-check"],
@@ -39,7 +42,7 @@ export default function AdminSettings() {
     enabled: !!isSuperAdmin,
   });
 
-  const { data: superAdmins = [] } = useQuery({
+  const { data: superAdmins = [], refetch: refetchAdmins } = useQuery({
     queryKey: ["super-admins-list"],
     queryFn: async () => {
       const { data } = await (supabase as any).from("super_admins").select("id, user_id, created_at");
@@ -47,6 +50,77 @@ export default function AdminSettings() {
     },
     enabled: !!isSuperAdmin,
   });
+
+  const { data: globalLimits } = useQuery({
+    queryKey: ["admin-global-limits"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("platform_settings").select("*").maybeSingle();
+      return data;
+    },
+    enabled: !!isSuperAdmin,
+  });
+
+  const [limits, setLimits] = useState({
+    max_accounts: 1000,
+    max_users_per_account: 10,
+    max_projects_per_account: 10,
+    max_free_users: 100,
+    max_free_events_monthly: 10000,
+    max_smartlinks_free: 5,
+    max_webhooks_free: 2,
+    log_retention_days: 90,
+  });
+
+  useEffect(() => {
+    if (globalLimits) {
+      setLimits({
+        max_accounts: globalLimits.max_accounts ?? 1000,
+        max_users_per_account: globalLimits.max_users_per_account ?? 10,
+        max_projects_per_account: globalLimits.max_projects_per_account ?? 10,
+        max_free_users: globalLimits.max_free_users ?? 100,
+        max_free_events_monthly: globalLimits.max_free_events_monthly ?? 10000,
+        max_smartlinks_free: globalLimits.max_smartlinks_free ?? 5,
+        max_webhooks_free: globalLimits.max_webhooks_free ?? 2,
+        log_retention_days: globalLimits.log_retention_days ?? 90,
+      });
+    }
+  }, [globalLimits]);
+
+  const saveLimits = async () => {
+    const { error } = await (supabase as any)
+      .from("platform_settings")
+      .upsert({ id: "global", ...limits, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Limites globais salvos!" });
+    qc.invalidateQueries({ queryKey: ["admin-global-limits"] });
+  };
+
+  const promoteToSuperAdmin = async () => {
+    if (!promoteEmail.trim()) return;
+    setPromoting(true);
+    try {
+      const { data: userId, error: findErr } = await (supabase as any).rpc("find_user_id_by_email", { _email: promoteEmail.trim() });
+      if (findErr || !userId) throw new Error("Usuário não encontrado com este email.");
+      const { error } = await (supabase as any).from("super_admins").insert({ user_id: userId });
+      if (error) throw error;
+      toast({ title: "Super Admin promovido!" });
+      setPromoteEmail("");
+      refetchAdmins();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setPromoting(false); }
+  };
+
+  const removeSuperAdmin = async (id: string) => {
+    if (!confirm("Remover este Super Admin?")) return;
+    const { error } = await (supabase as any).from("super_admins").delete().eq("id", id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Super Admin removido" });
+    refetchAdmins();
+  };
+
+  // Login background URL
+  const [loginBgUrl, setLoginBgUrl] = useState("");
 
   if (checkingAdmin) {
     return (
@@ -75,6 +149,7 @@ export default function AdminSettings() {
     { key: "stripe", label: "Configuração Stripe", icon: Settings },
     { key: "webhook-stripe", label: "Webhook Stripe", icon: Webhook },
     { key: "superadmins", label: "Super Admins", icon: Users },
+    { key: "limits", label: "Limites Globais", icon: Sliders },
     { key: "platform", label: "Plataforma", icon: Globe },
   ];
 
@@ -176,6 +251,23 @@ export default function AdminSettings() {
         <div className="max-w-4xl w-full mx-auto space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-primary" />Promover Super Admin
+            </h2>
+            <div className="flex gap-2">
+              <Input
+                value={promoteEmail}
+                onChange={(e) => setPromoteEmail(e.target.value)}
+                placeholder="email@usuario.com"
+                className="text-xs"
+              />
+              <Button size="sm" onClick={promoteToSuperAdmin} disabled={promoting || !promoteEmail.trim()} className="gradient-bg border-0 text-primary-foreground text-xs whitespace-nowrap">
+                {promoting ? "Promovendo..." : "Promover"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />Super Administradores
             </h2>
             <div className="space-y-2">
@@ -185,11 +277,63 @@ export default function AdminSettings() {
                     <p className="text-xs font-mono">{sa.user_id}</p>
                     <p className="text-[10px] text-muted-foreground">Desde {new Date(sa.created_at).toLocaleDateString("pt-BR")}</p>
                   </div>
-                  <Badge variant="outline" className="text-[10px]">Super Admin</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">Super Admin</Badge>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeSuperAdmin(sa.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
               {superAdmins.length === 0 && <p className="text-xs text-muted-foreground">Nenhum super admin encontrado.</p>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "limits" && (
+        <div className="max-w-4xl w-full mx-auto space-y-6">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <Sliders className="h-4 w-4 text-primary" />Limites Globais da Plataforma
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Máx. contas criadas</Label>
+                <Input type="number" value={limits.max_accounts} onChange={e => setLimits({ ...limits, max_accounts: Number(e.target.value) })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Máx. usuários por conta</Label>
+                <Input type="number" value={limits.max_users_per_account} onChange={e => setLimits({ ...limits, max_users_per_account: Number(e.target.value) })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Máx. projetos por conta</Label>
+                <Input type="number" value={limits.max_projects_per_account} onChange={e => setLimits({ ...limits, max_projects_per_account: Number(e.target.value) })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Máx. usuários Free</Label>
+                <Input type="number" value={limits.max_free_users} onChange={e => setLimits({ ...limits, max_free_users: Number(e.target.value) })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Máx. eventos mensais (Free)</Label>
+                <Input type="number" value={limits.max_free_events_monthly} onChange={e => setLimits({ ...limits, max_free_events_monthly: Number(e.target.value) })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Máx. SmartLinks (Free)</Label>
+                <Input type="number" value={limits.max_smartlinks_free} onChange={e => setLimits({ ...limits, max_smartlinks_free: Number(e.target.value) })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Máx. Webhooks (Free)</Label>
+                <Input type="number" value={limits.max_webhooks_free} onChange={e => setLimits({ ...limits, max_webhooks_free: Number(e.target.value) })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Retenção de logs (dias)</Label>
+                <Input type="number" value={limits.log_retention_days} onChange={e => setLimits({ ...limits, log_retention_days: Number(e.target.value) })} className="text-xs" />
+              </div>
+            </div>
+            <Button onClick={saveLimits} size="sm" className="gradient-bg border-0 text-primary-foreground hover:opacity-90 text-xs mt-4">
+              Salvar limites globais
+            </Button>
           </div>
         </div>
       )}
@@ -204,9 +348,20 @@ export default function AdminSettings() {
               <div className="space-y-1.5">
                 <Label>Imagem de fundo da tela de login</Label>
                 <p className="text-[10px] text-muted-foreground">Insira a URL da imagem que aparecerá no lado direito da tela de login.</p>
-                <Input placeholder="https://exemplo.com/imagem.jpg" className="text-xs" />
+                <Input
+                  value={loginBgUrl}
+                  onChange={(e) => setLoginBgUrl(e.target.value)}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  className="text-xs"
+                />
               </div>
-              <Button size="sm" className="gradient-bg border-0 text-primary-foreground hover:opacity-90 text-xs">
+              <Button size="sm" className="gradient-bg border-0 text-primary-foreground hover:opacity-90 text-xs" onClick={async () => {
+                const { error } = await (supabase as any)
+                  .from("platform_settings")
+                  .upsert({ id: "global", login_bg_url: loginBgUrl, updated_at: new Date().toISOString() }, { onConflict: "id" });
+                if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+                toast({ title: "Configuração salva!" });
+              }}>
                 Salvar configurações
               </Button>
             </div>
