@@ -23,6 +23,16 @@ export function exportToExcel(data: Record<string, any>[], filename: string) {
   });
 }
 
+// ─── Colors ───
+const BG = [15, 15, 18] as const;
+const CARD_BG = [22, 22, 28] as const;
+const BORDER = [45, 45, 50] as const;
+const RED = [200, 40, 40] as const;
+const WHITE = [255, 255, 255] as const;
+const GRAY = [140, 140, 150] as const;
+const LIGHT = [230, 230, 235] as const;
+const MUTED = [100, 100, 110] as const;
+
 export async function exportToPdf(
   data: Record<string, any>[],
   filename: string,
@@ -35,70 +45,86 @@ export async function exportToPdf(
   const { default: autoTable } = await import("jspdf-autotable");
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
 
-  const drawPageBackground = () => {
-    doc.setFillColor(15, 15, 18);
-    doc.rect(0, 0, pageWidth, pageHeight, "F");
+  const drawBg = () => { doc.setFillColor(...BG); doc.rect(0, 0, pw, ph, "F"); };
+  const drawFooter = () => {
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED);
+    doc.text("Nexus Metrics — Relatório exportado automaticamente", pw / 2, ph - 6, { align: "center" });
+  };
+  const ensureSpace = (needed: number, y: number): number => {
+    if (y + needed > ph - 14) {
+      doc.addPage();
+      drawBg();
+      drawFooter();
+      return 14;
+    }
+    return y;
   };
 
-  // First page background
-  drawPageBackground();
+  // ─── Page 1 header ───
+  drawBg();
 
-  // Logo text "Nexus Metrics"
   doc.setFontSize(18);
-  doc.setTextColor(220, 50, 50);
-  doc.text("Nexus", 14, 16);
-  const nexusWidth = doc.getTextWidth("Nexus");
-  doc.setTextColor(255, 255, 255);
-  doc.text(" Metrics", 14 + nexusWidth, 16);
+  doc.setTextColor(...RED);
+  doc.text("Nexus", 14, 14);
+  const nw = doc.getTextWidth("Nexus");
+  doc.setTextColor(...WHITE);
+  doc.text(" Metrics", 14 + nw, 14);
 
-  // Title
-  doc.setFontSize(14);
-  doc.setTextColor(240, 240, 240);
-  doc.text(title, 14, 26);
+  doc.setFontSize(12);
+  doc.setTextColor(...LIGHT);
+  doc.text(title, 14, 22);
 
-  // Date
   doc.setFontSize(8);
-  doc.setTextColor(130, 130, 130);
+  doc.setTextColor(...GRAY);
   doc.text(
     `Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`,
-    pageWidth - 14,
-    16,
-    { align: "right" }
+    pw - 14, 14, { align: "right" }
   );
 
-  // Red separator line
-  doc.setDrawColor(200, 40, 40);
+  doc.setDrawColor(...RED);
   doc.setLineWidth(0.5);
-  doc.line(14, 30, pageWidth - 14, 30);
+  doc.line(14, 26, pw - 26, 26);
 
-  let startY = 35;
+  let y = 30;
 
-  // KPIs
+  // ─── KPI cards (dashboard-style) ───
   if (kpis && kpis.length > 0) {
-    const kpiWidth = (pageWidth - 28 - (kpis.length - 1) * 4) / kpis.length;
+    const gap = 3;
+    const kpiH = 18;
+    const totalGap = (kpis.length - 1) * gap;
+    const kpiW = (pw - 28 - totalGap) / kpis.length;
+
     kpis.forEach((k, i) => {
-      const x = 14 + i * (kpiWidth + 4);
-      doc.setFillColor(28, 28, 32);
-      doc.roundedRect(x, startY, kpiWidth, 16, 2, 2, "F");
-      doc.setFontSize(7);
-      doc.setTextColor(140, 140, 150);
-      doc.text(k.label.toUpperCase(), x + 4, startY + 6);
-      doc.setFontSize(12);
-      doc.setTextColor(255, 255, 255);
-      doc.text(k.value, x + 4, startY + 13);
+      const x = 14 + i * (kpiW + gap);
+      // Card background
+      doc.setFillColor(...CARD_BG);
+      doc.roundedRect(x, y, kpiW, kpiH, 2, 2, "F");
+      // Border
+      doc.setDrawColor(...BORDER);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(x, y, kpiW, kpiH, 2, 2, "S");
+      // Label
+      doc.setFontSize(6);
+      doc.setTextColor(...GRAY);
+      doc.text(k.label.toUpperCase(), x + 3, y + 6);
+      // Value
+      doc.setFontSize(11);
+      doc.setTextColor(...WHITE);
+      doc.text(k.value, x + 3, y + 14);
     });
-    startY += 22;
+    y += kpiH + 6;
   }
 
-  // Group data by "seção" column for separate tables
+  // ─── Sections (tables grouped by "seção") ───
   const sections = new Map<string, Record<string, any>[]>();
   data.forEach((row) => {
-    const sectionName = row["seção"] || "Dados";
-    if (!sections.has(sectionName)) sections.set(sectionName, []);
-    sections.get(sectionName)!.push(row);
+    const sn = row["seção"] || "Dados";
+    if (!sections.has(sn)) sections.set(sn, []);
+    sections.get(sn)!.push(row);
   });
 
   if (sections.size <= 1 && !data[0]?.["seção"]) {
@@ -109,59 +135,51 @@ export async function exportToPdf(
   for (const [sectionName, sectionData] of sections) {
     if (sectionData.length === 0) continue;
 
-    // Check if near bottom, add page if needed
-    if (startY > pageHeight - 40) {
-      doc.addPage();
-      drawPageBackground();
-      startY = 20;
-    }
+    y = ensureSpace(20, y);
 
-    // Section title
-    doc.setFontSize(11);
-    doc.setTextColor(220, 50, 50);
-    doc.text(sectionName, 14, startY + 4);
-    startY += 8;
+    // Section title with red accent
+    doc.setFillColor(RED[0], RED[1], RED[2]);
+    doc.rect(14, y, 2, 6, "F");
+    doc.setFontSize(10);
+    doc.setTextColor(...WHITE);
+    doc.text(sectionName, 19, y + 5);
+    y += 9;
 
     const headers = Object.keys(sectionData[0]).filter((h) => h !== "seção");
     const body = sectionData.map((row) => headers.map((h) => String(row[h] ?? "")));
 
     autoTable(doc, {
-      startY,
+      startY: y,
       head: [headers],
       body,
       theme: "plain",
       styles: {
-        fontSize: 8,
-        cellPadding: 3,
-        textColor: [230, 230, 235],
-        fillColor: [15, 15, 18],
-        lineColor: [45, 45, 50],
-        lineWidth: 0.2,
+        fontSize: 7.5,
+        cellPadding: 2.5,
+        textColor: [...LIGHT],
+        fillColor: [...BG],
+        lineColor: [...BORDER],
+        lineWidth: 0.15,
+        overflow: "linebreak",
       },
       headStyles: {
-        fillColor: [200, 40, 40],
-        textColor: [255, 255, 255],
+        fillColor: [35, 35, 40],
+        textColor: [...WHITE],
         fontStyle: "bold",
         fontSize: 7,
       },
       alternateRowStyles: {
-        fillColor: [22, 22, 26],
+        fillColor: [...CARD_BG],
       },
       margin: { left: 14, right: 14 },
-      willDrawPage: () => {
-        // Draw background BEFORE content on new pages
-        drawPageBackground();
-      },
-      didDrawPage: () => {
-        // Footer on every page
-        doc.setFontSize(7);
-        doc.setTextColor(80, 80, 85);
-        doc.text("Nexus Metrics — Relatório exportado automaticamente", pageWidth / 2, pageHeight - 8, { align: "center" });
-      },
+      tableWidth: "auto",
+      willDrawPage: () => { drawBg(); },
+      didDrawPage: () => { drawFooter(); },
     });
 
-    startY = (doc as any).lastAutoTable?.finalY + 10 || startY + 30;
+    y = (doc as any).lastAutoTable?.finalY + 8 || y + 20;
   }
 
+  drawFooter();
   doc.save(`${filename}_${formatDateForFilename()}.pdf`);
 }

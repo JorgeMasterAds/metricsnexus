@@ -311,12 +311,15 @@ export default function UtmReport() {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <span className="text-xs text-muted-foreground">{displayRows.length} agrupamento(s)</span>
         <ExportMenu
-          data={displayRows.map((r: any) => {
-            const row: any = {};
-            activeGroups.forEach(g => { row[g] = r[g]; });
-            row.vendas = r.sales; row.receita = r.revenue.toFixed(2);
-            return row;
-          })}
+          data={displayRows
+            .filter((r: any) => !r._isTest)
+            .map((r: any) => {
+              const row: any = {};
+              activeGroups.forEach(g => { row[g] = r[g]; });
+              row.vendas = r.sales;
+              row.receita = fmt(r.revenue);
+              return row;
+            })}
           filename="utm-report"
           title="Relatório UTM — Nexus Metrics"
           kpis={[
