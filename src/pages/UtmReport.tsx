@@ -388,11 +388,11 @@ export default function UtmReport() {
                               {activeGroups.map((g, gi) => {
                                 const showValue = gi === 0 && firstGroupSame ? "" : r[g];
                                 return (
-                                  <td key={g} className={`px-4 py-3 text-xs truncate max-w-[160px] ${gi === 0 ? "font-medium" : "text-muted-foreground"} ${gi === 0 && firstGroupSame ? "opacity-0" : ""}`} title={r[g]}>{showValue}</td>
+                                  <td key={g} className={`px-2 sm:px-4 py-2 sm:py-3 text-xs truncate max-w-[160px] ${gi === 0 ? "font-medium" : "text-muted-foreground"} ${gi === 0 && firstGroupSame ? "opacity-0" : ""}`} title={r[g]}>{showValue}</td>
                                 );
                               })}
-                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{r.sales.toLocaleString("pt-BR")}</td>
-                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums font-medium">{fmt(r.revenue)}</td>
+                              <td className="text-right px-2 sm:px-4 py-2 sm:py-3 font-mono text-xs tabular-nums">{r.sales.toLocaleString("pt-BR")}</td>
+                              <td className="text-right px-2 sm:px-4 py-2 sm:py-3 font-mono text-xs tabular-nums font-medium">{fmt(r.revenue)}</td>
                               <td className="px-2 py-3 text-center">
                                 {r._isTest && (
                                   <button

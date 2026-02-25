@@ -39,10 +39,10 @@ export default function GamificationBar({ since, until, goal, onEditGoal }: Prop
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <div className="rounded-xl bg-card border border-border/50 card-shadow p-5 mb-6">
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-xl bg-card border border-border/50 card-shadow p-4 sm:p-5 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
         <div className="flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-warning" />
+          <Trophy className="h-4 w-4 text-warning shrink-0" />
           <span className="text-sm font-semibold">Meta de Faturamento</span>
           {onEditGoal && (
             <button onClick={onEditGoal} className="p-1 rounded hover:bg-accent/50 transition-colors" title="Editar meta">
@@ -50,14 +50,14 @@ export default function GamificationBar({ since, until, goal, onEditGoal }: Prop
             </button>
           )}
         </div>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground truncate">
           {fmt(revenue)} / {fmt(goal)}
         </span>
       </div>
       <Progress value={percent} className="h-3 mb-2" />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{percent.toFixed(1)}% atingido</span>
-        <span>Faltam {fmt(remaining)}</span>
+        <span className="truncate ml-2 text-right">Faltam {fmt(remaining)}</span>
       </div>
     </div>
   );

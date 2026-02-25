@@ -260,17 +260,18 @@ export default function AdminSettings() {
 
   return (
     <DashboardLayout title="Administração" subtitle="Configurações do sistema (Super Admin)">
-      <div className="w-full flex items-center gap-1 mb-6 border-b border-border/50 overflow-x-auto scrollbar-thin">
+      <div className="w-full flex items-center gap-0.5 sm:gap-1 mb-6 border-b border-border/50">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2 sm:px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
+            title={tab.label}
           >
-            <tab.icon className="h-3.5 w-3.5" />
-            {tab.label}
+            <tab.icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
