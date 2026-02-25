@@ -4,13 +4,17 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
-import { FileBarChart, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileBarChart, ChevronLeft, ChevronRight, DollarSign, HelpCircle, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import ExportMenu from "@/components/ExportMenu";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
+import { useInvestment } from "@/hooks/useInvestment";
+import { useDashboardLayout } from "@/hooks/useDashboardLayout";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type GroupKey = "utm_source" | "utm_campaign" | "utm_medium" | "utm_content" | "utm_term" | "product_name" | "payment_method" | "date";
 type SortKey = GroupKey | "sales" | "revenue";
@@ -46,6 +50,8 @@ export default function UtmReport() {
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
+  const periodKey = `${since}__${until}`;
+  const { investmentInput, setInvestmentInput, investmentValue } = useInvestment(periodKey);
 
   const { data: clicks = [] } = useQuery({
     queryKey: ["utm-clicks", since, until, activeAccountId, activeProjectId],
@@ -200,7 +206,7 @@ export default function UtmReport() {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
           <div className="text-xs text-muted-foreground">Vendas</div>
           <div className="text-xl font-bold mt-1">{totalSales}</div>
@@ -208,6 +214,43 @@ export default function UtmReport() {
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
           <div className="text-xs text-muted-foreground">Faturamento</div>
           <div className="text-xl font-bold mt-1">{fmt(totalRevenue)}</div>
+        </div>
+        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+          <div className="flex items-center gap-1.5 mb-1">
+            <DollarSign className="h-3 w-3 text-primary" />
+            <span className="text-xs text-muted-foreground">Investimento</span>
+            <UITooltip>
+              <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[200px] text-xs">Insira o investimento em ads. Sincronizado com o Dashboard.</TooltipContent>
+            </UITooltip>
+          </div>
+          <div className="relative mt-1">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
+            <Input
+              value={investmentInput}
+              onChange={(e) => setInvestmentInput(e.target.value)}
+              placeholder="0,00"
+              className="pl-8 font-mono text-sm h-9 bg-secondary/50 border-border/50"
+            />
+          </div>
+        </div>
+        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow flex flex-col items-center justify-center">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-xs text-muted-foreground">ROAS</span>
+            <UITooltip>
+              <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[200px] text-xs">Faturamento ÷ Investimento</TooltipContent>
+            </UITooltip>
+          </div>
+          {(() => {
+            const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
+            const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
+            return (
+              <div className="text-2xl font-black font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
+                {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

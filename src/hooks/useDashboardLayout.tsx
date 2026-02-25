@@ -68,5 +68,10 @@ export function useDashboardLayout(page: string, defaultOrder: string[]) {
     setEditMode(prev => !prev);
   }, [editMode, order]);
 
-  return { order, editMode, toggleEdit, handleReorder };
+  const resetLayout = useCallback(() => {
+    setOrder(defaultOrder);
+    saveMutation.mutate(defaultOrder);
+  }, [defaultOrder]);
+
+  return { order, editMode, toggleEdit, handleReorder, resetLayout };
 }
