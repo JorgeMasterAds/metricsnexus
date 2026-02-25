@@ -190,11 +190,12 @@ export default function Settings() {
 
   const toggleProject = async (project: any) => {
     if (project.is_active) {
-      // Show confirmation dialog before deactivating
       setDeactivateProject(project);
     } else {
       await (supabase as any).from("projects").update({ is_active: true }).eq("id", project.id);
       qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["active-projects"] });
+      toast({ title: "Projeto ativado!" });
     }
   };
 
@@ -202,7 +203,7 @@ export default function Settings() {
     if (!deactivateProject) return;
     await (supabase as any).from("projects").update({ is_active: false }).eq("id", deactivateProject.id);
     qc.invalidateQueries({ queryKey: ["projects"] });
-    qc.invalidateQueries({ queryKey: ["sidebar-active-project"] });
+    qc.invalidateQueries({ queryKey: ["active-projects"] });
     setDeactivateProject(null);
     toast({ title: "Projeto desativado" });
   };
