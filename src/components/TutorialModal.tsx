@@ -28,7 +28,7 @@ export default function TutorialModal({ title, sections, triggerLabel, triggerSi
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
           <div className="w-full max-w-lg bg-card border border-border/50 rounded-xl card-shadow overflow-hidden max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
               <div className="flex items-center gap-2">

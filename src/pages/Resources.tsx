@@ -134,9 +134,9 @@ function DomainsSection({ accountId }: { accountId?: string }) {
         {domains.length > 0 && (
           <div className="space-y-3">
             {domains.map((d: any) => (
-              <div key={d.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30">
-                <div>
-                  <p className="text-sm font-medium font-mono">{d.domain}</p>
+              <div key={d.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-secondary/50 border border-border/30">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium font-mono break-all">{d.domain}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant="outline" className={`text-[10px] ${d.is_verified ? "text-success border-success/30" : "text-warning border-warning/30"}`}>
                       {d.is_verified ? "Verificado" : "Pendente"}
@@ -144,7 +144,7 @@ function DomainsSection({ accountId }: { accountId?: string }) {
                     {d.is_active && <Badge variant="outline" className="text-[10px] text-primary border-primary/30">Ativo</Badge>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {!d.is_verified && (
                     <Button
                       variant="outline"
