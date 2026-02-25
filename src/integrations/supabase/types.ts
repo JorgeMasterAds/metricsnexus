@@ -504,6 +504,47 @@ export type Database = {
           },
         ]
       }
+      custom_domains: {
+        Row: {
+          account_id: string
+          created_at: string
+          domain: string
+          id: string
+          is_active: boolean
+          is_verified: boolean
+          updated_at: string
+          verification_token: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          domain: string
+          id?: string
+          is_active?: boolean
+          is_verified?: boolean
+          updated_at?: string
+          verification_token?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          domain?: string
+          id?: string
+          is_active?: boolean
+          is_verified?: boolean
+          updated_at?: string
+          verification_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_domains_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_metrics: {
         Row: {
           account_id: string

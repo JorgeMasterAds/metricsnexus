@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Trash2, Edit2, Mail, UserPlus } from "lucide-react";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X } from "lucide-react";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CreateProjectModal from "@/components/CreateProjectModal";
+import EditProjectModal from "@/components/EditProjectModal";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -25,6 +26,7 @@ export default function Settings() {
   const tabParam = searchParams.get("tab") || "personal";
   const [activeTab, setActiveTab] = useState(tabParam);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [editProject, setEditProject] = useState<any>(null);
 
   useEffect(() => { setActiveTab(tabParam); }, [tabParam]);
 
@@ -258,6 +260,7 @@ export default function Settings() {
     { key: "organization", label: "Minha Organização", icon: Building2 },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
     { key: "team", label: "Equipe", icon: Users },
+    { key: "domains", label: "Domínios", icon: Globe },
   ];
 
   return (
@@ -283,7 +286,7 @@ export default function Settings() {
 
       {/* ===== PERSONAL ===== */}
       {activeTab === "personal" && (
-        <div className="max-w-2xl space-y-6">
+        <div className="max-w-4xl space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4">Dados Pessoais</h2>
             <div className="flex items-start gap-6">
@@ -322,7 +325,7 @@ export default function Settings() {
 
       {/* ===== ORGANIZATION ===== */}
       {activeTab === "organization" && (
-        <div className="max-w-2xl space-y-6">
+        <div className="max-w-4xl space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" />Dados da Organização</h2>
             <div className="space-y-4">
@@ -360,54 +363,21 @@ export default function Settings() {
                 {projects.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                     <div className="flex items-center gap-3">
-                      <div className="relative group">
-                        <div className="h-9 w-9 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                          {p.avatar_url ? (
-                            <img src={p.avatar_url} alt={p.name} className="h-full w-full object-cover" />
-                          ) : (
-                            p.name?.charAt(0)?.toUpperCase()
-                          )}
-                        </div>
-                        <button
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => {
-                              const f = (e.target as HTMLInputElement).files?.[0];
-                              if (f) uploadProjectAvatar(f, p.id);
-                            };
-                            input.click();
-                          }}
-                          className="absolute inset-0 rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
-                          <Camera className="h-3 w-3 text-white" />
-                        </button>
+                      <div className="h-9 w-9 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                        {p.avatar_url ? (
+                          <img src={p.avatar_url} alt={p.name} className="h-full w-full object-cover" />
+                        ) : (
+                          p.name?.charAt(0)?.toUpperCase()
+                        )}
                       </div>
                       <div>
-                        {editingProjectId === p.id ? (
-                          <div className="flex items-center gap-1.5">
-                            <Input
-                              value={editingProjectName}
-                              onChange={(e) => setEditingProjectName(e.target.value)}
-                              className="h-7 text-xs w-40"
-                              onKeyDown={(e) => e.key === "Enter" && saveProjectName(p.id)}
-                              autoFocus
-                            />
-                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => saveProjectName(p.id)}>Salvar</Button>
-                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingProjectId(null)}>Cancelar</Button>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="text-sm font-medium flex items-center gap-1.5">
-                              {p.name}
-                              <button onClick={() => { setEditingProjectId(p.id); setEditingProjectName(p.name); }} className="text-muted-foreground hover:text-foreground">
-                                <Edit2 className="h-3 w-3" />
-                              </button>
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
-                          </>
-                        )}
+                        <p className="text-sm font-medium flex items-center gap-1.5">
+                          {p.name}
+                          <button onClick={() => setEditProject(p)} className="text-muted-foreground hover:text-foreground">
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -427,7 +397,7 @@ export default function Settings() {
 
       {/* ===== SUBSCRIPTION ===== */}
       {activeTab === "subscription" && (
-        <div className="max-w-2xl space-y-6">
+        <div className="max-w-4xl space-y-6">
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Plano Atual</h2>
             <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30 mb-4">
@@ -526,7 +496,7 @@ export default function Settings() {
 
       {/* ===== TEAM ===== */}
       {activeTab === "team" && (
-        <div className="max-w-2xl space-y-6">
+        <div className="max-w-4xl space-y-6">
           {/* Invite form */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" />Convidar Membro</h2>
@@ -610,7 +580,7 @@ export default function Settings() {
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeMember(m.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <X className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -654,7 +624,113 @@ export default function Settings() {
         </div>
       )}
 
+      {/* ===== DOMAINS ===== */}
+      {activeTab === "domains" && <DomainsTab accountId={activeAccountId} />}
+
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
+      <EditProjectModal open={!!editProject} onOpenChange={(o) => { if (!o) setEditProject(null); }} project={editProject} />
     </DashboardLayout>
+  );
+}
+
+function DomainsTab({ accountId }: { accountId?: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [domain, setDomain] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const { data: domains = [] } = useQuery({
+    queryKey: ["custom-domains", accountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("custom_domains").select("*").eq("account_id", accountId).order("created_at");
+      return data || [];
+    },
+    enabled: !!accountId,
+  });
+
+  const addDomain = async () => {
+    if (!domain.trim() || !accountId) return;
+    setAdding(true);
+    try {
+      const { error } = await (supabase as any).from("custom_domains").insert({ account_id: accountId, domain: domain.trim().toLowerCase() });
+      if (error) throw error;
+      toast({ title: "Domínio adicionado!" });
+      setDomain("");
+      qc.invalidateQueries({ queryKey: ["custom-domains"] });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setAdding(false); }
+  };
+
+  const removeDomain = async (id: string) => {
+    if (!confirm("Remover este domínio?")) return;
+    await (supabase as any).from("custom_domains").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["custom-domains"] });
+    toast({ title: "Domínio removido" });
+  };
+
+  return (
+    <div className="max-w-4xl space-y-6">
+      <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+        <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Globe className="h-4 w-4 text-primary" />Domínio Personalizado</h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Configure seu próprio domínio para os Smart Links. Seus links ficarão no formato: <code className="bg-muted px-1.5 py-0.5 rounded text-primary">https://seudominio.com/slug</code>
+        </p>
+
+        <div className="flex gap-3 mb-6">
+          <Input
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            placeholder="Ex: links.meusite.com.br"
+            className="flex-1"
+          />
+          <Button onClick={addDomain} disabled={adding || !domain.trim()} className="gradient-bg border-0 text-primary-foreground hover:opacity-90">
+            {adding ? "Adicionando..." : "Adicionar domínio"}
+          </Button>
+        </div>
+
+        {domains.length > 0 && (
+          <div className="space-y-3">
+            {domains.map((d: any) => (
+              <div key={d.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30">
+                <div>
+                  <p className="text-sm font-medium font-mono">{d.domain}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="outline" className={`text-[10px] ${d.is_verified ? "text-success border-success/30" : "text-warning border-warning/30"}`}>
+                      {d.is_verified ? "Verificado" : "Pendente"}
+                    </Badge>
+                    {d.is_active && <Badge variant="outline" className="text-[10px] text-primary border-primary/30">Ativo</Badge>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="text-xs" onClick={() => removeDomain(d.id)}>Remover</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+        <h2 className="text-sm font-semibold mb-4">Instruções de configuração DNS</h2>
+        <div className="space-y-3 text-xs text-muted-foreground">
+          <p>Para usar um domínio personalizado, configure os seguintes registros DNS no seu provedor:</p>
+          <div className="bg-muted/30 rounded-lg p-4 space-y-2 font-mono text-xs">
+            <div className="grid grid-cols-3 gap-2">
+              <span className="text-foreground font-semibold">Tipo</span>
+              <span className="text-foreground font-semibold">Nome</span>
+              <span className="text-foreground font-semibold">Valor</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <span>CNAME</span>
+              <span>links (ou seu subdomínio)</span>
+              <span className="text-primary">fnpmuffrqrlofjvqytof.supabase.co</span>
+            </div>
+          </div>
+          <p>Após configurar o DNS, aguarde a propagação (até 72 horas) e clique em "Verificar DNS" para ativar.</p>
+          <p className="text-warning">⚠️ Nota: Domínios customizados requerem que o servidor de redirecionamento esteja configurado para aceitar requisições do seu domínio.</p>
+        </div>
+      </div>
+    </div>
   );
 }

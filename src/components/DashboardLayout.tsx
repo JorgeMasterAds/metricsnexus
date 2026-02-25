@@ -15,10 +15,13 @@ import {
   Users,
   Building2,
   CreditCard,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import ProjectSelector from "@/components/ProjectSelector";
+import { useQuery } from "@tanstack/react-query";
+import { useAccount } from "@/hooks/useAccount";
 
 const mainNavItems = [
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
@@ -33,6 +36,7 @@ const settingsSubItems = [
   { icon: Building2, label: "Minha Organização", path: "/settings?tab=organization" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
+  { icon: GitBranch, label: "Domínios", path: "/settings?tab=domains" },
 ];
 
 interface DashboardLayoutProps {
@@ -46,6 +50,24 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
+  const { activeAccountId } = useAccount();
+
+  // Fetch active project for avatar in sidebar
+  const { data: activeProject } = useQuery({
+    queryKey: ["sidebar-active-project", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("projects")
+        .select("id, name, avatar_url")
+        .eq("account_id", activeAccountId)
+        .eq("is_active", true)
+        .order("created_at")
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!activeAccountId,
+  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -55,16 +77,30 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
 
   const SidebarContent = () => (
     <>
-      <Link to="/dashboard" className="flex items-center gap-2 px-3 mb-4">
+      <Link to="/dashboard" className="flex items-center gap-2.5 px-3 mb-4">
         <Activity className="h-5 w-5 text-primary" />
         <span className="font-bold tracking-tight">
           Nexus <span className="gradient-text">Metrics</span>
         </span>
       </Link>
 
-      <div className="px-3 mb-6">
+      <div className="px-3 mb-4">
         <ProjectSelector />
       </div>
+
+      {/* Active project avatar */}
+      {activeProject && (
+        <div className="px-3 mb-4 flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground shrink-0">
+            {activeProject.avatar_url ? (
+              <img src={activeProject.avatar_url} alt={activeProject.name} className="h-full w-full object-cover" />
+            ) : (
+              <FolderOpen className="h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+          <span className="text-xs text-sidebar-foreground truncate">{activeProject.name}</span>
+        </div>
+      )}
 
       <nav className="flex-1 space-y-1">
         {mainNavItems.map((item) => {
@@ -160,14 +196,14 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
 
   return (
     <div className="min-h-screen bg-background flex">
-      <aside className="hidden lg:flex flex-col w-60 border-r border-border/50 bg-sidebar p-4 sticky top-0 h-screen overflow-y-auto">
+      <aside className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-sidebar p-4 sticky top-0 h-screen overflow-y-auto">
         <SidebarContent />
       </aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <aside className="relative flex flex-col w-60 h-full border-r border-border/50 bg-sidebar p-4 overflow-y-auto">
+          <aside className="relative flex flex-col w-64 h-full border-r border-border/50 bg-sidebar p-4 overflow-y-auto">
             <SidebarContent />
           </aside>
         </div>
@@ -190,8 +226,10 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
 
-        <div className="flex-1 p-4 lg:p-6 overflow-auto">
-          {children}
+        <div className="flex-1 p-4 lg:p-8 overflow-auto">
+          <div className="max-w-[1400px] mx-auto w-full">
+            {children}
+          </div>
         </div>
       </main>
     </div>
