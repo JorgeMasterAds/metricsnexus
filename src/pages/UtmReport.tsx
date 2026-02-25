@@ -35,7 +35,9 @@ export default function UtmReport() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [activeGroups, setActiveGroups] = useState<GroupKey[]>(["date", "utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"]);
+  const FIXED_ORDER: GroupKey[] = ["date", "utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"];
+  const [activeGroupsSet, setActiveGroupsSet] = useState<Set<GroupKey>>(new Set(FIXED_ORDER));
+  const activeGroups = FIXED_ORDER.filter(g => activeGroupsSet.has(g));
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const { activeAccountId } = useAccount();
@@ -197,7 +199,11 @@ export default function UtmReport() {
   };
 
   const toggleGroup = (g: GroupKey) => {
-    setActiveGroups(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
+    setActiveGroupsSet(prev => {
+      const next = new Set(prev);
+      if (next.has(g)) next.delete(g); else next.add(g);
+      return next;
+    });
   };
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
