@@ -29,7 +29,7 @@ export default function Settings() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") || "personal";
-  const [activeTab, setActiveTab] = useState(tabParam);
+  const [activeTab, setActiveTab] = useState(tabParam === "organization" ? "personal" : tabParam);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [editProject, setEditProject] = useState<any>(null);
 
@@ -262,7 +262,6 @@ export default function Settings() {
 
   const tabs = [
     { key: "personal", label: "Dados Pessoais", icon: User },
-    { key: "organization", label: "Minha Organização", icon: Building2 },
     { key: "projects", label: "Projetos", icon: FolderOpen },
     { key: "team", label: "Equipe", icon: Users },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
@@ -328,32 +327,8 @@ export default function Settings() {
         </div>
       )}
 
-      {/* ===== ORGANIZATION ===== */}
-      {activeTab === "organization" && (
-        <div className="max-w-4xl w-full mx-auto space-y-6">
-          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" />Dados da Organização</h2>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5"><Label>Nome da conta</Label><Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Minha Empresa" /></div>
-                <div className="space-y-1.5"><Label>Razão Social</Label><Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Empresa LTDA" /></div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5"><Label>Documento (CPF ou CNPJ)</Label><Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} placeholder="000.000.000-00 ou 00.000.000/0001-00" /></div>
-                <div className="space-y-1.5"><Label>Telefone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" /></div>
-              </div>
-              <div className="space-y-1.5"><Label>Endereço</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, cidade - UF" /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5"><Label>Responsável</Label><Input value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} /></div>
-                <div className="space-y-1.5"><Label>E-mail administrativo</Label><Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} /></div>
-              </div>
-            </div>
-          </div>
-          <Button onClick={saveOrganization} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
-            {saving ? "Salvando..." : "Salvar organização"}
-          </Button>
-        </div>
-      )}
+
+
 
       {/* ===== PROJECTS ===== */}
       {activeTab === "projects" && (

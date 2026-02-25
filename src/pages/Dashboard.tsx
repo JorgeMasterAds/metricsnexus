@@ -22,6 +22,7 @@ import ExportMenu from "@/components/ExportMenu";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 import { useDashboardLayout } from "@/hooks/useDashboardLayout";
+import { useInvestment } from "@/hooks/useInvestment";
 import { SortableSection } from "@/components/SortableSection";
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -31,7 +32,7 @@ import {
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
-const SECTION_IDS = ["gamification", "metrics", "investment-roas", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
+const SECTION_IDS = ["investment-roas", "gamification", "metrics", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
 
 const TOOLTIP_STYLE = {
   backgroundColor: "hsl(240, 6%, 10%)",
@@ -160,16 +161,18 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
-  const { order, editMode, toggleEdit, handleReorder } = useDashboardLayout("dashboard", SECTION_IDS);
+  const { order, editMode, toggleEdit, handleReorder, resetLayout } = useDashboardLayout("dashboard", SECTION_IDS);
   const sinceISO = dateRange.from.toISOString();
   const untilISO = dateRange.to.toISOString();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const periodKey = `${sinceISO}__${untilISO}`;
+  const { investmentInput, setInvestmentInput, investmentValue } = useInvestment(periodKey);
+
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [goalInput, setGoalInput] = useState("");
-  const [investmentInput, setInvestmentInput] = useState("");
 
   const { data: revenueGoal } = useQuery({
     queryKey: ["revenue-goal", activeAccountId, activeProjectId],
@@ -440,7 +443,6 @@ export default function Dashboard() {
         );
 
       case "investment-roas": {
-        const investmentValue = parseFloat(investmentInput.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
         const roas = investmentValue > 0 ? computed.totalRevenue / investmentValue : 0;
         const roasColor = roas >= 3 ? "hsl(var(--success))" : roas >= 1 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
         return (
@@ -745,6 +747,11 @@ export default function Dashboard() {
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.dashboard} />
+          {editMode && (
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={resetLayout}>
+              Redefinir
+            </Button>
+          )}
           <Button variant={editMode ? "default" : "outline"} size="sm" className="text-xs gap-1.5" onClick={toggleEdit}>
             {editMode ? <><Check className="h-3.5 w-3.5" /> Salvar Layout</> : <><Pencil className="h-3.5 w-3.5" /> Editar Layout</>}
           </Button>
