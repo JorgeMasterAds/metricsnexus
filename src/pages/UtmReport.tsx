@@ -196,7 +196,27 @@ export default function UtmReport() {
         </div>
       </div>
 
-      {/* Grouping */}
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+          <div className="text-xs text-muted-foreground">Vendas</div>
+          <div className="text-xl font-bold mt-1">{totalSales}</div>
+        </div>
+        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+          <div className="text-xs text-muted-foreground">Faturamento</div>
+          <div className="text-xl font-bold mt-1">{fmt(totalRevenue)}</div>
+        </div>
+        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+          <div className="text-xs text-muted-foreground">Ticket Médio</div>
+          <div className="text-xl font-bold mt-1">{fmt(totalTicket)}</div>
+        </div>
+        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+          <div className="text-xs text-muted-foreground">Views (clicks)</div>
+          <div className="text-xl font-bold mt-1">{totalViews.toLocaleString("pt-BR")}</div>
+        </div>
+      </div>
+
+      {/* Grouping — moved below KPIs */}
       <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
@@ -215,26 +235,6 @@ export default function UtmReport() {
               {opt.label}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Summary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Vendas</div>
-          <div className="text-xl font-bold mt-1">{totalSales}</div>
-        </div>
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Faturamento</div>
-          <div className="text-xl font-bold mt-1">{fmt(totalRevenue)}</div>
-        </div>
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Ticket Médio</div>
-          <div className="text-xl font-bold mt-1">{fmt(totalTicket)}</div>
-        </div>
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Views (clicks)</div>
-          <div className="text-xl font-bold mt-1">{totalViews.toLocaleString("pt-BR")}</div>
         </div>
       </div>
 
@@ -267,10 +267,10 @@ export default function UtmReport() {
         const paginatedRows = displayRows.slice(startIdx, startIdx + perPage);
         return (
           <>
-            <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
+             <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border/30">
+                <table className="w-full text-sm table-fixed">
+                  <thead><tr className="border-b border-border/30 bg-muted/20">
                     {activeGroups.map(g => {
                       const label = GROUP_OPTIONS.find(o => o.value === g)?.label || g;
                       return <SortHeader key={g} label={label} sortKey={g} current={sortKey} dir={sortDir} onClick={toggleSort} />;
@@ -285,26 +285,35 @@ export default function UtmReport() {
                       <tr><td colSpan={activeGroups.length + 4} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
                     ) : (
                       <>
-                        {paginatedRows.map((r: any, i: number) => (
-                          <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
-                            {activeGroups.map((g, gi) => (
-                              <td key={g} className={`px-4 py-3 text-xs truncate max-w-[120px] ${gi === 0 ? "font-medium" : "text-muted-foreground"}`} title={r[g]}>{r[g]}</td>
-                            ))}
-                            <td className="text-right px-4 py-3 font-mono text-xs">{r.views.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-4 py-3 font-mono text-xs">{r.sales.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.revenue)}</td>
-                            <td className="text-right px-4 py-3 font-mono text-xs">{fmt(r.ticket)}</td>
-                          </tr>
-                        ))}
-                        {/* Totals row — always visible regardless of page */}
+                        {paginatedRows.map((r: any, i: number) => {
+                          // Check if this row shares the same first group value as previous
+                          const prevRow = i > 0 ? paginatedRows[i - 1] : null;
+                          const firstGroupSame = prevRow && activeGroups.length > 0 && r[activeGroups[0]] === prevRow[activeGroups[0]];
+                          return (
+                            <tr key={i} className={`border-b border-border/20 hover:bg-accent/20 transition-colors ${firstGroupSame ? "border-border/10" : "border-t border-border/30"}`}>
+                              {activeGroups.map((g, gi) => {
+                                // Group identical first-column values visually
+                                const showValue = gi === 0 && firstGroupSame ? "" : r[g];
+                                return (
+                                  <td key={g} className={`px-4 py-3 text-xs truncate max-w-[160px] ${gi === 0 ? "font-medium" : "text-muted-foreground"} ${gi === 0 && firstGroupSame ? "opacity-0" : ""}`} title={r[g]}>{showValue}</td>
+                                );
+                              })}
+                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{r.views.toLocaleString("pt-BR")}</td>
+                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{r.sales.toLocaleString("pt-BR")}</td>
+                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums font-medium">{fmt(r.revenue)}</td>
+                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(r.ticket)}</td>
+                            </tr>
+                          );
+                        })}
+                        {/* Totals row */}
                         <tr className="border-t-2 border-primary/30 bg-primary/5 font-semibold">
                           {activeGroups.map((g, gi) => (
-                            <td key={g} className="px-4 py-3 text-xs">{gi === 0 ? "TOTAL" : ""}</td>
+                            <td key={g} className="px-4 py-3 text-xs uppercase tracking-wider">{gi === 0 ? "Total" : ""}</td>
                           ))}
-                          <td className="text-right px-4 py-3 font-mono text-xs">{totalViews.toLocaleString("pt-BR")}</td>
-                          <td className="text-right px-4 py-3 font-mono text-xs">{totalSales.toLocaleString("pt-BR")}</td>
-                          <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalRevenue)}</td>
-                          <td className="text-right px-4 py-3 font-mono text-xs">{fmt(totalTicket)}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{totalViews.toLocaleString("pt-BR")}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{totalSales.toLocaleString("pt-BR")}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(totalRevenue)}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(totalTicket)}</td>
                         </tr>
                       </>
                     )}

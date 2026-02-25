@@ -93,8 +93,9 @@ export default function Support() {
               </div>
               <Button onClick={submitTicket} disabled={sending || !subject.trim() || !body.trim()} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 text-xs gap-1.5">
                 <Send className="h-3.5 w-3.5" />
-                {sending ? "Enviando..." : "Enviar mensagem"}
+                {sending ? "Enviando..." : "Envie sua mensagem"}
               </Button>
+              <p className="text-[10px] text-muted-foreground mt-2">Envie sua dúvida, sugestão ou relato. Nossa equipe responderá o mais breve possível.</p>
             </div>
           </div>
 
