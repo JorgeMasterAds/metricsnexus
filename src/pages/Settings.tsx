@@ -357,7 +357,9 @@ export default function Settings() {
                         <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
                       </div>
                     </div>
-                    <Badge variant={p.is_active ? "default" : "secondary"} className="text-[10px]">{p.is_active ? "Ativo" : "Inativo"}</Badge>
+                    <button onClick={() => toggleProject(p)}>
+                      <Badge variant={p.is_active ? "default" : "secondary"} className="text-[10px] cursor-pointer hover:opacity-80 transition-opacity">{p.is_active ? "Ativo" : "Inativo"}</Badge>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -455,19 +457,24 @@ export default function Settings() {
 
           {projects.map((project: any) => {
             const members = projectMembers.filter((m: any) => m.project_id === project.id);
+            const currentUserIsMember = members.some((m: any) => m.user_id === user?.id);
+            const allMembers = currentUserIsMember ? members : [
+              { id: "current-user-owner", user_id: user?.id, role: "owner", accepted_at: new Date().toISOString(), profiles: { full_name: profile?.full_name || user?.email || "Você", avatar_url: profile?.avatar_url } },
+              ...members,
+            ];
             return (
               <div key={project.id} className="rounded-xl bg-card border border-border/50 card-shadow p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-sm font-semibold flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />{project.name}
-                    <Badge variant="outline" className="text-[10px] ml-1">{members.length} {members.length === 1 ? "membro" : "membros"}</Badge>
+                    <Badge variant="outline" className="text-[10px] ml-1">{allMembers.length} {allMembers.length === 1 ? "membro" : "membros"}</Badge>
                   </h2>
                 </div>
-                {members.length === 0 ? (
+                {allMembers.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Nenhum membro neste projeto.</p>
                 ) : (
                   <div className="space-y-2">
-                    {members.map((m: any) => (
+                    {allMembers.map((m: any) => (
                       <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">

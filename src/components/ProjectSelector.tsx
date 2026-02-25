@@ -1,41 +1,12 @@
 import { useState } from "react";
-import { useAccount } from "@/hooks/useAccount";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useActiveProject } from "@/hooks/useActiveProject";
 import { ChevronDown, FolderOpen } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 export default function ProjectSelector() {
-  const { activeAccountId } = useAccount();
-  const qc = useQueryClient();
+  const { activeProject, activeProjects, selectProject } = useActiveProject();
   const [open, setOpen] = useState(false);
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ["projects", activeAccountId],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("projects")
-        .select("id, name, avatar_url, is_active")
-        .eq("account_id", activeAccountId)
-        .order("created_at");
-      return data || [];
-    },
-    enabled: !!activeAccountId,
-  });
-
-  // Only show active projects in selector
-  const activeProjects = projects.filter((p: any) => p.is_active);
-  const activeProject = activeProjects[0] || projects[0];
-
-  const switchProject = async (projectId: string) => {
-    // Deactivate all, activate selected
-    await (supabase as any).from("projects").update({ is_active: false }).eq("account_id", activeAccountId);
-    await (supabase as any).from("projects").update({ is_active: true }).eq("id", projectId);
-    qc.invalidateQueries({ queryKey: ["projects"] });
-    qc.invalidateQueries({ queryKey: ["sidebar-active-project"] });
-    setOpen(false);
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,7 +29,7 @@ export default function ProjectSelector() {
           {activeProjects.map((p: any) => (
             <button
               key={p.id}
-              onClick={() => switchProject(p.id)}
+              onClick={() => { selectProject(p.id); setOpen(false); }}
               className={cn(
                 "w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2",
                 p.id === activeProject?.id
@@ -76,6 +47,9 @@ export default function ProjectSelector() {
               {p.name}
             </button>
           ))}
+          {activeProjects.length === 0 && (
+            <p className="text-xs text-muted-foreground px-3 py-2">Nenhum projeto ativo</p>
+          )}
         </div>
       </PopoverContent>
     </Popover>
