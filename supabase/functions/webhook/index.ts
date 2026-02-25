@@ -43,12 +43,44 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
+  // Enforce payload size limit (100KB)
+  const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
+  if (contentLength > 102400) {
+    return new Response(JSON.stringify({ error: 'Payload too large' }), {
+      status: 413,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+    if (rawBody.length > 102400) {
+      return new Response(JSON.stringify({ error: 'Payload too large' }), {
+        status: 413,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  } catch {
+    return new Response('Failed to read body', { status: 400 });
+  }
+
   let rawPayload: Record<string, unknown>;
   try {
-    rawPayload = await req.json();
+    rawPayload = JSON.parse(rawBody);
+    if (typeof rawPayload !== 'object' || rawPayload === null || Array.isArray(rawPayload)) {
+      return new Response('Payload must be a JSON object', { status: 400 });
+    }
   } catch {
     return new Response('Invalid JSON', { status: 400 });
   }
+
+  // Basic field sanitization for critical string fields
+  const sanitizeString = (val: unknown, maxLen = 500): string | null => {
+    if (val === null || val === undefined) return null;
+    if (typeof val !== 'string') return String(val).slice(0, maxLen);
+    return val.slice(0, maxLen);
+  };
 
   // ── TOKEN-BASED ROUTING ──
   // Extract token from URL path: /webhook/{token}
@@ -270,19 +302,20 @@ async function processSale(
   let externalProductId: string | null = null;
 
   if (purchase) {
-    transactionId = purchase.transaction;
-    amount = purchase.price?.value || 0;
-    currency = purchase.price?.currency_value || 'BRL';
-    productName = product?.name || 'Unknown';
-    externalProductId = product?.id ? String(product.id) : null;
+    transactionId = sanitizeString(purchase.transaction, 200) || '';
+    amount = typeof purchase.price?.value === 'number' ? purchase.price.value : 0;
+    currency = sanitizeString(purchase.price?.currency_value, 10) || 'BRL';
+    productName = sanitizeString(product?.name, 300) || 'Unknown';
+    externalProductId = product?.id ? sanitizeString(String(product.id), 100) : null;
     paidAt = purchase.order_date ? new Date(purchase.order_date).toISOString() : new Date().toISOString();
     isOrderBump = purchase.order_bump?.is_order_bump === true;
   } else {
-    transactionId = String(orderData.id || '');
-    amount = (orderData.amount || 0) / 100;
-    currency = orderData.offer?.currency || 'BRL';
-    productName = orderData.product?.name || 'Unknown';
-    externalProductId = orderData.product?.id ? String(orderData.product.id) : null;
+    transactionId = sanitizeString(String(orderData.id || ''), 200) || '';
+    const rawAmount = orderData.amount;
+    amount = typeof rawAmount === 'number' ? rawAmount / 100 : 0;
+    currency = sanitizeString(orderData.offer?.currency, 10) || 'BRL';
+    productName = sanitizeString(orderData.product?.name, 300) || 'Unknown';
+    externalProductId = orderData.product?.id ? sanitizeString(String(orderData.product.id), 100) : null;
     paidAt = orderData.paidAt ? new Date(orderData.paidAt).toISOString() : new Date().toISOString();
     isOrderBump = orderData.offer_type && orderData.offer_type !== 'main';
   }
