@@ -366,12 +366,48 @@ export default function Dashboard() {
     switch (id) {
       case "gamification":
         return (
-          <GamificationBar
-            since={sinceISO}
-            until={untilISO}
-            goal={revenueGoal ?? 1000000}
-            onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
-          />
+          <div className="space-y-3">
+            <GamificationBar
+              since={sinceISO}
+              until={untilISO}
+              goal={revenueGoal ?? 1000000}
+              onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
+            />
+            <div className="flex justify-end">
+              <ExportMenu
+                data={[
+                  ...computed.productData.map((p: any) => ({
+                    produto: p.name,
+                    vendas: p.vendas,
+                    receita: p.receita.toFixed(2),
+                    ticket_medio: p.ticket.toFixed(2),
+                    percentual: p.percentual.toFixed(1) + "%",
+                    tipo: p.isOrderBump ? "Order Bump" : "Principal",
+                  })),
+                  ...computed.linkStats.map((l: any) => ({
+                    smartlink: l.name,
+                    slug: l.slug,
+                    views: l.views,
+                    vendas: l.sales,
+                    receita: l.revenue.toFixed(2),
+                    taxa: l.rate.toFixed(2) + "%",
+                  })),
+                  ...computed.sourceData.map((s: any) => ({ tipo: "Origem", nome: s.name, receita: s.value.toFixed(2) })),
+                  ...computed.campaignData.map((s: any) => ({ tipo: "Campanha", nome: s.name, receita: s.value.toFixed(2) })),
+                  ...computed.paymentData.map((p: any) => ({ tipo: "Pagamento", nome: p.name, vendas: p.vendas, receita: p.receita.toFixed(2) })),
+                ]}
+                filename="dashboard-nexus"
+                title="Dashboard — Nexus Metrics"
+                kpis={[
+                  { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
+                  { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
+                  { label: "Faturamento", value: fmt(computed.totalRevenue) },
+                  { label: "Ticket Médio", value: fmt(computed.avgTicket) },
+                  { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
+                ]}
+              />
+            </div>
+          </div>
         );
 
       case "metrics":
@@ -633,27 +669,6 @@ export default function Dashboard() {
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.dashboard} />
-          <ExportMenu
-            data={[
-              ...computed.productData.map((p: any) => ({
-                produto: p.name,
-                vendas: p.vendas,
-                receita: p.receita.toFixed(2),
-                ticket_medio: p.ticket.toFixed(2),
-                percentual: p.percentual.toFixed(1) + "%",
-                tipo: p.isOrderBump ? "Order Bump" : "Principal",
-              })),
-            ]}
-            filename="dashboard-nexus"
-            title="Dashboard — Nexus Metrics"
-            kpis={[
-              { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
-              { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
-              { label: "Faturamento", value: fmt(computed.totalRevenue) },
-              { label: "Ticket Médio", value: fmt(computed.avgTicket) },
-              { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
-            ]}
-          />
           <Button variant={editMode ? "default" : "outline"} size="sm" className="text-xs gap-1.5" onClick={toggleEdit}>
             {editMode ? <><Check className="h-3.5 w-3.5" /> Salvar Layout</> : <><Pencil className="h-3.5 w-3.5" /> Editar Layout</>}
           </Button>
