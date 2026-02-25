@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download, FolderOpen } from "lucide-react";
+import { Copy, User, Camera, Shield, Building2, CreditCard, Users, Plus, Edit2, Mail, UserPlus, Globe, X, ChevronDown, ChevronRight, ChevronLeft, Download, FolderOpen, Filter, Webhook } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { useAccount } from "@/hooks/useAccount";
@@ -17,13 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import EditProjectModal from "@/components/EditProjectModal";
+import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
+import { exportToCsv } from "@/lib/csv";
 
 export default function Settings() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { activeAccount, activeAccountId } = useAccount();
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const projectAvatarInputRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") || "personal";
   const [activeTab, setActiveTab] = useState(tabParam);
@@ -64,8 +65,6 @@ export default function Settings() {
   const [inviteProjectId, setInviteProjectId] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [inviting, setInviting] = useState(false);
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [editingProjectName, setEditingProjectName] = useState("");
 
   useEffect(() => {
     if (profile) { setFullName(profile.full_name || ""); setAvatarUrl(profile.avatar_url || ""); }
@@ -119,22 +118,17 @@ export default function Settings() {
     },
   });
 
-  // --- Team members by project ---
   const { data: projectMembers = [] } = useQuery({
     queryKey: ["project-members", activeAccountId],
     queryFn: async () => {
       if (!projects.length) return [];
       const projectIds = projects.map((p: any) => p.id);
-      const { data } = await (supabase as any)
-        .from("project_users")
-        .select("*, profiles:user_id(full_name, avatar_url)")
-        .in("project_id", projectIds);
+      const { data } = await (supabase as any).from("project_users").select("*, profiles:user_id(full_name, avatar_url)").in("project_id", projectIds);
       return data || [];
     },
     enabled: projects.length > 0,
   });
 
-  // --- Account members ---
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members", activeAccountId],
     queryFn: async () => {
@@ -157,18 +151,6 @@ export default function Settings() {
     setAvatarUrl(url);
     qc.invalidateQueries({ queryKey: ["profile"] });
     toast({ title: "Foto atualizada!" });
-  };
-
-  const uploadProjectAvatar = async (file: File, projectId: string) => {
-    const ext = file.name.split(".").pop();
-    const path = `projects/${projectId}.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (error) { toast({ title: "Erro no upload", description: error.message, variant: "destructive" }); return; }
-    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
-    const url = urlData.publicUrl + "?t=" + Date.now();
-    await (supabase as any).from("projects").update({ avatar_url: url }).eq("id", projectId);
-    qc.invalidateQueries({ queryKey: ["projects"] });
-    toast({ title: "Foto do projeto atualizada!" });
   };
 
   const saveProfile = async () => {
@@ -222,15 +204,6 @@ export default function Settings() {
     qc.invalidateQueries({ queryKey: ["projects"] });
   };
 
-  const saveProjectName = async (id: string) => {
-    if (!editingProjectName.trim()) return;
-    await (supabase as any).from("projects").update({ name: editingProjectName.trim() }).eq("id", id);
-    setEditingProjectId(null);
-    qc.invalidateQueries({ queryKey: ["projects"] });
-    qc.invalidateQueries({ queryKey: ["sidebar-active-project"] });
-    toast({ title: "Nome do projeto atualizado!" });
-  };
-
   const inviteMember = async () => {
     if (!inviteEmail.trim() || !inviteProjectId) {
       toast({ title: "Preencha email e selecione um projeto", variant: "destructive" });
@@ -263,7 +236,7 @@ export default function Settings() {
     { key: "organization", label: "Minha Organização", icon: Building2 },
     { key: "projects", label: "Projetos", icon: FolderOpen },
     { key: "team", label: "Equipe", icon: Users },
-    { key: "webhooks", label: "Webhook Logs", icon: Globe },
+    { key: "webhooks", label: "Webhook Logs", icon: Webhook },
     { key: "subscription", label: "Assinatura", icon: CreditCard },
   ];
 
@@ -338,10 +311,7 @@ export default function Settings() {
                 <div className="space-y-1.5"><Label>Razão Social</Label><Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Empresa LTDA" /></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Documento (CPF ou CNPJ)</Label>
-                  <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} placeholder="000.000.000-00 ou 00.000.000/0001-00" />
-                </div>
+                <div className="space-y-1.5"><Label>Documento (CPF ou CNPJ)</Label><Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} placeholder="000.000.000-00 ou 00.000.000/0001-00" /></div>
                 <div className="space-y-1.5"><Label>Telefone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" /></div>
               </div>
               <div className="space-y-1.5"><Label>Endereço</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, cidade - UF" /></div>
@@ -351,7 +321,6 @@ export default function Settings() {
               </div>
             </div>
           </div>
-
           <Button onClick={saveOrganization} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
             {saving ? "Salvando..." : "Salvar organização"}
           </Button>
@@ -376,25 +345,17 @@ export default function Settings() {
                   <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                        {p.avatar_url ? (
-                          <img src={p.avatar_url} alt={p.name} className="h-full w-full object-cover" />
-                        ) : (
-                          p.name?.charAt(0)?.toUpperCase()
-                        )}
+                        {p.avatar_url ? <img src={p.avatar_url} alt={p.name} className="h-full w-full object-cover" /> : p.name?.charAt(0)?.toUpperCase()}
                       </div>
                       <div>
                         <p className="text-sm font-medium flex items-center gap-1.5">
                           {p.name}
-                          <button onClick={() => setEditProject(p)} className="text-muted-foreground hover:text-foreground">
-                            <Edit2 className="h-3 w-3" />
-                          </button>
+                          <button onClick={() => setEditProject(p)} className="text-muted-foreground hover:text-foreground"><Edit2 className="h-3 w-3" /></button>
                         </p>
                         <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Switch checked={p.is_active} onCheckedChange={() => toggleProject(p.id, p.is_active)} />
-                    </div>
+                    <Switch checked={p.is_active} onCheckedChange={() => toggleProject(p.id, p.is_active)} />
                   </div>
                 ))}
               </div>
@@ -411,30 +372,15 @@ export default function Settings() {
             <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30 mb-4">
               <div>
                 <p className="text-lg font-bold capitalize">{subscription?.plans?.name || subscription?.plan_type || "Free"}</p>
-                <p className="text-xs text-muted-foreground">
-                  Status: <Badge variant="outline" className="text-[10px] ml-1 capitalize">{subscription?.status || "ativo"}</Badge>
-                </p>
+                <p className="text-xs text-muted-foreground">Status: <Badge variant="outline" className="text-[10px] ml-1 capitalize">{subscription?.status || "ativo"}</Badge></p>
               </div>
-              <p className="text-2xl font-bold">
-                R$ {(subscription?.plans?.price || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                <span className="text-xs text-muted-foreground font-normal">/mês</span>
-              </p>
+              <p className="text-2xl font-bold">R$ {(subscription?.plans?.price || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
             </div>
-            {subscription?.current_period_end && (
-              <p className="text-xs text-muted-foreground">Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</p>
-            )}
+            {subscription?.current_period_end && <p className="text-xs text-muted-foreground">Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</p>}
             {subscription?.stripe_subscription_id && (
               <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={async () => {
-                try {
-                  const { data, error } = await supabase.functions.invoke("customer-portal");
-                  if (error) throw error;
-                  if (data?.url) window.location.href = data.url;
-                } catch (err: any) {
-                  toast({ title: "Erro", description: err.message, variant: "destructive" });
-                }
-              }}>
-                Gerenciar assinatura
-              </Button>
+                try { const { data, error } = await supabase.functions.invoke("customer-portal"); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro", description: err.message, variant: "destructive" }); }
+              }}>Gerenciar assinatura</Button>
             )}
           </div>
 
@@ -449,31 +395,16 @@ export default function Settings() {
                     <p className="text-xl font-bold mb-3">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
                     <ul className="space-y-1">
                       {(plan.features || []).map((f: string, i: number) => (
-                        <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}
-                        </li>
+                        <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}</li>
                       ))}
                     </ul>
                     {isCurrentPlan ? (
                       <Badge className="w-full mt-3 justify-center text-xs">Plano atual</Badge>
                     ) : plan.name === 'free' ? null : (
                       <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={async () => {
-                        if (!plan.stripe_price_id) {
-                          toast({ title: "Plano indisponível", description: "Stripe ainda não configurado para este plano.", variant: "destructive" });
-                          return;
-                        }
-                        try {
-                          const { data, error } = await supabase.functions.invoke("create-checkout", {
-                            body: { priceId: plan.stripe_price_id },
-                          });
-                          if (error) throw error;
-                          if (data?.url) window.location.href = data.url;
-                        } catch (err: any) {
-                          toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" });
-                        }
-                      }}>
-                        {subscription?.stripe_subscription_id ? "Alterar plano" : "Assinar"}
-                      </Button>
+                        if (!plan.stripe_price_id) { toast({ title: "Plano indisponível", variant: "destructive" }); return; }
+                        try { const { data, error } = await supabase.functions.invoke("create-checkout", { body: { priceId: plan.stripe_price_id } }); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" }); }
+                      }}>{subscription?.stripe_subscription_id ? "Alterar plano" : "Assinar"}</Button>
                     )}
                   </div>
                 );
@@ -487,19 +418,9 @@ export default function Settings() {
                 <h2 className="text-sm font-semibold mb-2 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" />Configuração Stripe (Super Admin)</h2>
                 <p className="text-xs text-muted-foreground mb-3">Criar products e prices no Stripe e vincular aos planos.</p>
                 <Button size="sm" variant="outline" className="text-xs" onClick={async () => {
-                  try {
-                    const { data, error } = await supabase.functions.invoke("setup-stripe");
-                    if (error) throw error;
-                    toast({ title: "Stripe configurado!", description: JSON.stringify(data?.results?.map((r: any) => `${r.plan}: ${r.status}`)) });
-                    refetchPlans();
-                  } catch (err: any) {
-                    toast({ title: "Erro", description: err.message, variant: "destructive" });
-                  }
-                }}>
-                  Configurar Stripe
-                </Button>
+                  try { const { data, error } = await supabase.functions.invoke("setup-stripe"); if (error) throw error; toast({ title: "Stripe configurado!", description: JSON.stringify(data?.results?.map((r: any) => `${r.plan}: ${r.status}`)) }); refetchPlans(); } catch (err: any) { toast({ title: "Erro", description: err.message, variant: "destructive" }); }
+                }}>Configurar Stripe</Button>
               </div>
-
               <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
                 <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Globe className="h-4 w-4 text-primary" />Configuração do Webhook Stripe</h2>
                 <div className="space-y-3 text-xs text-muted-foreground">
@@ -523,7 +444,7 @@ export default function Settings() {
                   </div>
                   <div className="space-y-1">
                     <p className="font-semibold text-foreground">3. Webhook Secret:</p>
-                    <p>Após criar o webhook no Stripe, copie o <code className="bg-muted px-1 rounded">Signing secret</code> (whsec_...) e adicione como <code className="bg-muted px-1 rounded">STRIPE_WEBHOOK_SECRET</code> nas configurações de secrets do Supabase.</p>
+                    <p>Após criar o webhook, copie o <code className="bg-muted px-1 rounded">Signing secret</code> (whsec_...) e adicione como <code className="bg-muted px-1 rounded">STRIPE_WEBHOOK_SECRET</code>.</p>
                   </div>
                 </div>
               </div>
@@ -535,29 +456,16 @@ export default function Settings() {
       {/* ===== TEAM ===== */}
       {activeTab === "team" && (
         <div className="max-w-4xl w-full mx-auto space-y-6">
-          {/* Invite form */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" />Convidar Membro</h2>
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>E-mail do usuário</Label>
-                  <Input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="usuario@email.com"
-                  />
-                </div>
+                <div className="space-y-1.5"><Label>E-mail do usuário</Label><Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="usuario@email.com" /></div>
                 <div className="space-y-1.5">
                   <Label>Projeto</Label>
                   <Select value={inviteProjectId} onValueChange={setInviteProjectId}>
                     <SelectTrigger><SelectValue placeholder="Selecione o projeto" /></SelectTrigger>
-                    <SelectContent>
-                      {projects.map((p: any) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
@@ -582,15 +490,13 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Members by project */}
           {projects.map((project: any) => {
             const members = projectMembers.filter((m: any) => m.project_id === project.id);
             return (
               <div key={project.id} className="rounded-xl bg-card border border-border/50 card-shadow p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-sm font-semibold flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary" />
-                    {project.name}
+                    <Users className="h-4 w-4 text-primary" />{project.name}
                     <Badge variant="outline" className="text-[10px] ml-1">{members.length} {members.length === 1 ? "membro" : "membros"}</Badge>
                   </h2>
                 </div>
@@ -602,24 +508,16 @@ export default function Settings() {
                       <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                            {m.profiles?.avatar_url ? (
-                              <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"
-                            )}
+                            {m.profiles?.avatar_url ? <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" /> : m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"}
                           </div>
                           <div>
                             <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {m.accepted_at ? `Adicionado em ${new Date(m.accepted_at).toLocaleDateString("pt-BR")}` : "Convite pendente"}
-                            </p>
+                            <p className="text-[10px] text-muted-foreground">{m.accepted_at ? `Adicionado em ${new Date(m.accepted_at).toLocaleDateString("pt-BR")}` : "Convite pendente"}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeMember(m.id)}>
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeMember(m.id)}><X className="h-3.5 w-3.5" /></Button>
                         </div>
                       </div>
                     ))}
@@ -629,7 +527,6 @@ export default function Settings() {
             );
           })}
 
-          {/* Account-level team */}
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-primary" />Membros da Organização</h2>
             {teamMembers.length === 0 ? (
@@ -640,17 +537,11 @@ export default function Settings() {
                   <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/30">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                        {m.profiles?.avatar_url ? (
-                          <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"
-                        )}
+                        {m.profiles?.avatar_url ? <img src={m.profiles.avatar_url} alt="" className="h-full w-full object-cover" /> : m.profiles?.full_name?.charAt(0)?.toUpperCase() || "?"}
                       </div>
                       <div>
                         <p className="text-sm font-medium">{m.profiles?.full_name || "Usuário"}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {m.accepted_at ? new Date(m.accepted_at).toLocaleDateString("pt-BR") : "Pendente"}
-                        </p>
+                        <p className="text-[10px] text-muted-foreground">{m.accepted_at ? new Date(m.accepted_at).toLocaleDateString("pt-BR") : "Pendente"}</p>
                       </div>
                     </div>
                     <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
@@ -664,7 +555,7 @@ export default function Settings() {
 
       {/* ===== WEBHOOK LOGS ===== */}
       {activeTab === "webhooks" && (
-        <div className="max-w-4xl w-full mx-auto">
+        <div className="max-w-5xl w-full mx-auto">
           <WebhookLogsTab accountId={activeAccountId} />
         </div>
       )}
@@ -674,6 +565,8 @@ export default function Settings() {
     </DashboardLayout>
   );
 }
+
+/* ─── Webhook Logs Tab with full filters ─── */
 
 const STATUS_COLOR: Record<string, string> = {
   approved: "bg-success/20 text-success",
@@ -691,18 +584,53 @@ const WH_PAGE_SIZE = 50;
 function WebhookLogsTab({ accountId }: { accountId?: string }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [webhookFilter, setWebhookFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+
+  const since = dateRange.from.toISOString();
+  const until = dateRange.to.toISOString();
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["wh-tab-projects", accountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("projects").select("id, name").eq("account_id", accountId).order("name");
+      return data || [];
+    },
+    enabled: !!accountId,
+  });
+
+  const { data: webhooks = [] } = useQuery({
+    queryKey: ["wh-tab-webhooks", accountId, projectFilter],
+    queryFn: async () => {
+      let q = (supabase as any).from("webhooks").select("id, name").eq("account_id", accountId).order("name");
+      if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+      const { data } = await q;
+      return data || [];
+    },
+    enabled: !!accountId,
+  });
+
+  const projectMap = new Map<string, string>(projects.map((p: any) => [p.id, p.name]));
+  const webhookMap = new Map<string, string>(webhooks.map((w: any) => [w.id, w.name]));
 
   const { data, isLoading } = useQuery({
-    queryKey: ["webhook-logs-tab", accountId, page],
+    queryKey: ["wh-tab-logs", accountId, projectFilter, since, until, page, statusFilter, webhookFilter],
     queryFn: async () => {
       const from = page * WH_PAGE_SIZE;
       const to = from + WH_PAGE_SIZE - 1;
       let q = (supabase as any)
         .from("webhook_logs")
         .select("*", { count: "exact" })
+        .eq("account_id", accountId)
+        .gte("created_at", since)
+        .lte("created_at", until)
         .order("created_at", { ascending: false })
         .range(from, to);
-      if (accountId) q = q.eq("account_id", accountId);
+      if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+      if (statusFilter !== "all") q = q.eq("status", statusFilter);
+      if (webhookFilter !== "all") q = q.eq("webhook_id", webhookFilter);
       const { data, error, count } = await q;
       if (error) throw error;
       return { logs: data || [], total: count || 0 };
@@ -715,95 +643,126 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / WH_PAGE_SIZE);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
-
-  if (logs.length === 0) {
-    return (
-      <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center text-muted-foreground text-sm">
-        Nenhum webhook recebido.
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <span className="text-xs text-muted-foreground">{total} registro(s)</span>
+      {/* Filters */}
+      <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="h-4 w-4 text-primary" />
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtros</span>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Período</Label>
+            <div className="mt-1"><DateFilter value={dateRange} onChange={(v) => { setDateRange(v); setPage(0); }} /></div>
+          </div>
+          <div className="min-w-[150px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Projeto</Label>
+            <Select value={projectFilter} onValueChange={(v) => { setProjectFilter(v); setWebhookFilter("all"); setPage(0); }}>
+              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[150px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Webhook</Label>
+            <Select value={webhookFilter} onValueChange={(v) => { setWebhookFilter(v); setPage(0); }}>
+              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {webhooks.map((w: any) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[130px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</Label>
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
+              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+                <SelectItem value="error">Error</SelectItem>
+                <SelectItem value="ignored">Ignored</SelectItem>
+                <SelectItem value="duplicate">Duplicate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{total} registro(s)</span>
+            <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8" onClick={() => exportToCsv(logs.map((l: any) => ({
+              data: new Date(l.created_at).toLocaleString("pt-BR"),
+              projeto: projectMap.get(l.project_id) || "—",
+              webhook: webhookMap.get(l.webhook_id) || "—",
+              plataforma: l.platform,
+              evento: l.event_type,
+              transaction_id: l.transaction_id,
+              status: l.status,
+            })), "webhook-logs")}>
+              <Download className="h-3.5 w-3.5" /> CSV
+            </Button>
+          </div>
+        </div>
       </div>
-      <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/30">
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20"><div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>
+      ) : logs.length === 0 ? (
+        <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center text-muted-foreground text-sm">Nenhum webhook recebido no período.</div>
+      ) : (
+        <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-border/30">
                 <th className="w-8" />
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Data</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Projeto</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Webhook</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Plataforma</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Evento</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Atribuição</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log: any) => (
-                <React.Fragment key={log.id}>
-                  <tr
-                    className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer"
-                    onClick={() => setExpanded(expanded === log.id ? null : log.id)}
-                  >
-                    <td className="px-2 py-3 text-center">
-                      {expanded === log.id ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString("pt-BR")}
-                    </td>
-                    <td className="px-4 py-3"><span className="text-xs capitalize font-medium">{log.platform}</span></td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{log.event_type || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_COLOR[log.status] || "bg-muted text-muted-foreground")}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {log.is_attributed ? (
-                        <span className="text-xs text-success">✓ Atribuído</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Não atribuído</span>
-                      )}
-                    </td>
-                  </tr>
-                  {expanded === log.id && (
-                    <tr className="border-b border-border/10">
-                      <td colSpan={6} className="px-4 py-3 bg-muted/30">
-                        <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
-                        <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">
-                          {JSON.stringify(log.raw_payload, null, 2)}
-                        </pre>
-                      </td>
+              </tr></thead>
+              <tbody>
+                {logs.map((log: any) => (
+                  <React.Fragment key={log.id}>
+                    <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer" onClick={() => setExpanded(expanded === log.id ? null : log.id)}>
+                      <td className="px-2 py-3 text-center">{expanded === log.id ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">{new Date(log.created_at).toLocaleString("pt-BR")}</td>
+                      <td className="px-4 py-3 text-xs font-medium truncate max-w-[120px]">{projectMap.get(log.project_id) || "—"}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[140px]">{webhookMap.get(log.webhook_id) || "—"}</td>
+                      <td className="px-4 py-3"><span className="text-xs capitalize font-medium">{log.platform}</span></td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{log.event_type || "—"}</td>
+                      <td className="px-4 py-3"><span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_COLOR[log.status] || "bg-muted text-muted-foreground")}>{log.status}</span></td>
+                      <td className="px-4 py-3">{log.is_attributed ? <span className="text-xs text-success">✓ Atribuído</span> : <span className="text-xs text-muted-foreground">—</span>}</td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                    {expanded === log.id && (
+                      <tr className="border-b border-border/10">
+                        <td colSpan={8} className="px-4 py-3 bg-muted/30">
+                          {log.ignore_reason && <div className="text-xs mb-2"><span className="text-muted-foreground">Motivo: </span><span className="text-foreground">{log.ignore_reason}</span></div>}
+                          <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
+                          <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">{JSON.stringify(log.raw_payload, null, 2)}</pre>
+                          {log.attributed_click_id && <div className="mt-2 text-xs"><span className="text-muted-foreground">Click ID: </span><span className="font-mono text-primary">{log.attributed_click_id}</span></div>}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-xs gap-1">
-              <ChevronLeft className="h-3.5 w-3.5" /> Anterior
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="text-xs gap-1">
-              Próxima <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-xs gap-1"><ChevronLeft className="h-3.5 w-3.5" /> Anterior</Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="text-xs gap-1">Próxima <ChevronRight className="h-3.5 w-3.5" /></Button>
           </div>
         </div>
       )}
