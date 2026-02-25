@@ -386,7 +386,7 @@ export default function Dashboard() {
             <ChartHeader title="Tráfego & Conversões" icon={<TrendingUp className="h-4 w-4 text-primary" />} tooltipKey="traffic-chart" />
             {computed.chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={computed.chartData}>
+                <ComposedChart data={computed.chartData}>
                   <defs>
                     <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0} /></linearGradient>
                     <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 60%, 30%)" stopOpacity={0.2} /><stop offset="95%" stopColor="hsl(0, 60%, 30%)" stopOpacity={0} /></linearGradient>
@@ -398,8 +398,8 @@ export default function Dashboard() {
                   <Tooltip content={<CustomTooltipContent />} />
                   <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(0, 90%, 60%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
                   <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(0, 60%, 30%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
-                  <Area yAxisId="right" type="monotone" dataKey="revenue" name="Faturamento (R$)" stroke="hsl(30, 80%, 55%)" fillOpacity={0.1} fill="hsl(30, 80%, 55%)" strokeWidth={2} />
-                </AreaChart>
+                  <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="hsl(30, 80%, 55%)" radius={[3, 3, 0, 0]} opacity={0.7} />
+                </ComposedChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhum dado no período" />}
           </div>
