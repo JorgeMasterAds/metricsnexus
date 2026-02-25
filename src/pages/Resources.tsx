@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
 import { useState } from "react";
 import { Globe, Copy, Check, RefreshCw } from "lucide-react";
 
@@ -38,15 +39,16 @@ function CopyableValue({ value }: { value: string }) {
 
 export default function Resources() {
   const { activeAccountId } = useAccount();
+  const { activeProjectId } = useActiveProject();
 
   return (
     <DashboardLayout title="Recursos" subtitle="Gerencie domínios e recursos da plataforma">
-      <DomainsSection accountId={activeAccountId} />
+      <DomainsSection accountId={activeAccountId} projectId={activeProjectId} />
     </DashboardLayout>
   );
 }
 
-function DomainsSection({ accountId }: { accountId?: string }) {
+function DomainsSection({ accountId, projectId }: { accountId?: string; projectId?: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [domain, setDomain] = useState("");
@@ -54,9 +56,11 @@ function DomainsSection({ accountId }: { accountId?: string }) {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   const { data: domains = [] } = useQuery({
-    queryKey: ["custom-domains", accountId],
+    queryKey: ["custom-domains", accountId, projectId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("custom_domains").select("*").eq("account_id", accountId).order("created_at");
+      let query = (supabase as any).from("custom_domains").select("*").eq("account_id", accountId);
+      if (projectId) query = query.eq("project_id", projectId);
+      const { data } = await query.order("created_at");
       return data || [];
     },
     enabled: !!accountId,
@@ -66,11 +70,11 @@ function DomainsSection({ accountId }: { accountId?: string }) {
     if (!domain.trim() || !accountId) return;
     setAdding(true);
     try {
-      const { error } = await (supabase as any).from("custom_domains").insert({ account_id: accountId, domain: domain.trim().toLowerCase() });
+      const { error } = await (supabase as any).from("custom_domains").insert({ account_id: accountId, project_id: projectId || null, domain: domain.trim().toLowerCase() });
       if (error) throw error;
       toast({ title: "Domínio adicionado!" });
       setDomain("");
-      await qc.refetchQueries({ queryKey: ["custom-domains", accountId] });
+      await qc.refetchQueries({ queryKey: ["custom-domains", accountId, projectId] });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally { setAdding(false); }
