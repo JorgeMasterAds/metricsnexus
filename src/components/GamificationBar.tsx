@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
 import { getFixedGoal } from "@/hooks/useSubscription";
 import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
 
 interface Props {
   since: string;
@@ -12,20 +13,21 @@ interface Props {
 
 export default function GamificationBar({ since, until }: Props) {
   const { activeAccountId } = useAccount();
-
-  const sinceDate = since.split("T")[0];
-  const untilDate = until.split("T")[0];
+  const { activeProjectId } = useActiveProject();
 
   const { data: revenue = 0 } = useQuery({
-    queryKey: ["gamification-revenue", sinceDate, untilDate, activeAccountId],
+    queryKey: ["gamification-revenue", since, until, activeAccountId, activeProjectId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("daily_metrics")
-        .select("revenue")
-        .gte("date", sinceDate)
-        .lte("date", untilDate)
-        .eq("account_id", activeAccountId);
-      return (data || []).reduce((s: number, m: any) => s + Number(m.revenue), 0);
+      let q = (supabase as any)
+        .from("conversions")
+        .select("amount")
+        .eq("status", "approved")
+        .gte("created_at", since)
+        .lte("created_at", until);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data } = await q;
+      return (data || []).reduce((s: number, c: any) => s + Number(c.amount), 0);
     },
     staleTime: 60000,
     enabled: !!activeAccountId,

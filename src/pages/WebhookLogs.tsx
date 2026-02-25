@@ -9,7 +9,6 @@ import ProductTour, { TOURS } from "@/components/ProductTour";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useAccount } from "@/hooks/useAccount";
-import { useActiveProject } from "@/hooks/useActiveProject";
 import {
   Select,
   SelectContent,
@@ -37,36 +36,37 @@ export default function WebhookLogs() {
   const [page, setPage] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [webhookFilter, setWebhookFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const { activeAccountId } = useAccount();
-  const { activeProjectId } = useActiveProject();
 
   const since = dateRange.from.toISOString();
   const until = dateRange.to.toISOString();
 
-  // Fetch webhooks for filter dropdown
-  const { data: webhooks = [] } = useQuery({
-    queryKey: ["wh-filter-list", activeAccountId, activeProjectId],
-    queryFn: async () => {
-      let q = (supabase as any)
-        .from("webhooks")
-        .select("id, name")
-        .eq("account_id", activeAccountId)
-        .order("name");
-      if (activeProjectId) q = q.eq("project_id", activeProjectId);
-      const { data } = await q;
-      return data || [];
-    },
-    enabled: !!activeAccountId,
-  });
-
-  // Fetch projects for name display
+  // Fetch all projects for the account
   const { data: projects = [] } = useQuery({
     queryKey: ["wh-projects", activeAccountId],
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("projects")
         .select("id, name")
-        .eq("account_id", activeAccountId);
+        .eq("account_id", activeAccountId)
+        .order("name");
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+
+  // Fetch webhooks filtered by project if selected
+  const { data: webhooks = [] } = useQuery({
+    queryKey: ["wh-filter-list", activeAccountId, projectFilter],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("webhooks")
+        .select("id, name")
+        .eq("account_id", activeAccountId)
+        .order("name");
+      if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
+      const { data } = await q;
       return data || [];
     },
     enabled: !!activeAccountId,
@@ -76,19 +76,19 @@ export default function WebhookLogs() {
   const webhookMap = new Map<string, string>(webhooks.map((w: any) => [w.id, w.name]));
 
   const { data, isLoading } = useQuery({
-    queryKey: ["webhook-logs", activeAccountId, activeProjectId, since, until, page, statusFilter, webhookFilter],
+    queryKey: ["webhook-logs", activeAccountId, projectFilter, since, until, page, statusFilter, webhookFilter],
     queryFn: async () => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       let q = (supabase as any)
         .from("webhook_logs")
         .select("*", { count: "exact" })
+        .eq("account_id", activeAccountId)
         .gte("created_at", since)
         .lte("created_at", until)
         .order("created_at", { ascending: false })
         .range(from, to);
-      if (activeAccountId) q = q.eq("account_id", activeAccountId);
-      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      if (projectFilter !== "all") q = q.eq("project_id", projectFilter);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
       if (webhookFilter !== "all") q = q.eq("webhook_id", webhookFilter);
       const { data, error, count } = await q;
@@ -106,7 +106,7 @@ export default function WebhookLogs() {
   return (
     <DashboardLayout
       title="Webhook Logs"
-      subtitle="Histórico de webhooks recebidos"
+      subtitle="Histórico de webhooks recebidos (toda a conta)"
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.webhookLogs} />
@@ -119,6 +119,17 @@ export default function WebhookLogs() {
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Filter className="h-3.5 w-3.5" /> Filtros:
         </div>
+        <Select value={projectFilter} onValueChange={(v) => { setProjectFilter(v); setWebhookFilter("all"); setPage(0); }}>
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue placeholder="Projeto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os projetos</SelectItem>
+            {projects.map((p: any) => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
           <SelectTrigger className="w-[140px] h-8 text-xs">
             <SelectValue placeholder="Status" />
