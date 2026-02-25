@@ -4,7 +4,7 @@ import WebhookManager from "@/components/WebhookManager";
 export default function Integrations() {
   return (
     <DashboardLayout title="Integrações" subtitle="Gerencie seus webhooks e integrações">
-      <div className="max-w-3xl">
+      <div className="max-w-4xl">
         <WebhookManager />
       </div>
     </DashboardLayout>

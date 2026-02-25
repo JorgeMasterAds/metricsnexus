@@ -70,7 +70,7 @@ function DomainsSection({ accountId }: { accountId?: string }) {
       if (error) throw error;
       toast({ title: "Domínio adicionado!" });
       setDomain("");
-      qc.invalidateQueries({ queryKey: ["custom-domains"] });
+      await qc.refetchQueries({ queryKey: ["custom-domains", accountId] });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally { setAdding(false); }
