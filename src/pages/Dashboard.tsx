@@ -401,31 +401,32 @@ export default function Dashboard() {
 
     // Section: Daily traffic data
     computed.chartData.forEach((d: any) => {
-      rows.push({ seção: "Tráfego Diário", data: d.date, views: d.views, vendas: d.sales, receita: d.revenue.toFixed(2) });
+      rows.push({ seção: "Tráfego Diário", data: d.date, views: d.views, vendas: d.sales, receita: fmt(d.revenue) });
     });
 
     // Section: Products
     computed.productData.forEach((p: any) => {
-      rows.push({ seção: "Produtos", produto: p.name, vendas: p.vendas, receita: p.receita.toFixed(2), ticket_medio: p.ticket.toFixed(2), percentual: p.percentual.toFixed(1) + "%", tipo: p.isOrderBump ? "Order Bump" : "Principal" });
+      rows.push({ seção: "Produtos", produto: p.name, vendas: p.vendas, receita: fmt(p.receita), ticket_medio: fmt(p.ticket), percentual: p.percentual.toFixed(1) + "%", tipo: p.isOrderBump ? "Order Bump" : "Principal" });
     });
 
     // Section: Order Bumps summary
-    rows.push({ seção: "Order Bumps", categoria: "Produto Principal", vendas: computed.mainProductsCount, receita: computed.mainRevenue.toFixed(2) });
-    rows.push({ seção: "Order Bumps", categoria: "Order Bump", vendas: computed.orderBumpsCount, receita: computed.obRevenue.toFixed(2) });
+    rows.push({ seção: "Order Bumps", categoria: "Produto Principal", vendas: computed.mainProductsCount, receita: fmt(computed.mainRevenue) });
+    rows.push({ seção: "Order Bumps", categoria: "Order Bump", vendas: computed.orderBumpsCount, receita: fmt(computed.obRevenue) });
 
     // Section: SmartLinks
     computed.linkStats.forEach((l: any) => {
-      rows.push({ seção: "Smart Links", nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: l.revenue.toFixed(2), taxa: l.rate.toFixed(2) + "%", status: l.is_active ? "Ativo" : "Pausado" });
+      rows.push({ seção: "Smart Links", nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: fmt(l.revenue), taxa: l.rate.toFixed(2) + "%", status: l.is_active ? "Ativo" : "Pausado" });
     });
 
     // Section: UTM Sources
-    computed.sourceData.forEach((s: any) => { rows.push({ seção: "Receita por Origem", nome: s.name, receita: s.value.toFixed(2) }); });
-    computed.campaignData.forEach((s: any) => { rows.push({ seção: "Receita por Campanha", nome: s.name, receita: s.value.toFixed(2) }); });
-    computed.mediumData.forEach((s: any) => { rows.push({ seção: "Receita por Medium", nome: s.name, receita: s.value.toFixed(2) }); });
-    computed.contentData.forEach((s: any) => { rows.push({ seção: "Receita por Content", nome: s.name, receita: s.value.toFixed(2) }); });
+    computed.sourceData.forEach((s: any) => { rows.push({ seção: "Receita por Origem", nome: s.name, receita: fmt(s.value) }); });
+    computed.campaignData.forEach((s: any) => { rows.push({ seção: "Receita por Campanha", nome: s.name, receita: fmt(s.value) }); });
+    computed.mediumData.forEach((s: any) => { rows.push({ seção: "Receita por Medium", nome: s.name, receita: fmt(s.value) }); });
+    computed.contentData.forEach((s: any) => { rows.push({ seção: "Receita por Content", nome: s.name, receita: fmt(s.value) }); });
+    computed.productChartData.forEach((s: any) => { rows.push({ seção: "Receita por Produto", nome: s.name, receita: fmt(s.value) }); });
 
     // Section: Payment methods
-    computed.paymentData.forEach((p: any) => { rows.push({ seção: "Meios de Pagamento", nome: p.name, vendas: p.vendas, receita: p.receita.toFixed(2) }); });
+    computed.paymentData.forEach((p: any) => { rows.push({ seção: "Meios de Pagamento", nome: p.name, vendas: p.vendas, receita: fmt(p.receita) }); });
 
     return rows;
   };
