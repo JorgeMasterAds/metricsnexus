@@ -428,7 +428,7 @@ export default function Settings() {
             <Button onClick={changePassword} disabled={saving || !newPassword} className="gradient-bg border-0 text-primary-foreground hover:opacity-90">Alterar senha</Button>
           </div>
 
-          <Button onClick={saveProfile} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90 w-full">
+          <Button onClick={saveProfile} disabled={saving} className="gradient-bg border-0 text-primary-foreground hover:opacity-90">
             {saving ? "Salvando..." : "Salvar dados pessoais"}
           </Button>
         </div>
