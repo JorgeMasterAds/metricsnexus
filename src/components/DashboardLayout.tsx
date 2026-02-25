@@ -20,12 +20,15 @@ import {
   Shield,
   ScrollText,
   Webhook,
+  Megaphone,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import ProjectSelector from "@/components/ProjectSelector";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "@/hooks/useAccount";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const mainNavItems = [
   { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
@@ -58,8 +61,18 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
   const [integrationsOpen, setIntegrationsOpen] = useState(location.pathname === "/integrations");
+  const [novidadesOpen, setNovidadesOpen] = useState(false);
   
   const { activeAccountId } = useAccount();
+
+  const { data: announcements = [] } = useQuery({
+    queryKey: ["sidebar-announcements"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("system_announcements").select("id, title, body, published_at").order("published_at", { ascending: false }).limit(10);
+      return data || [];
+    },
+    staleTime: 120000,
+  });
 
   const { data: userProfile } = useQuery({
     queryKey: ["sidebar-user-profile"],
@@ -225,6 +238,61 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                   </Link>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Disabled future items */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+              Meta Ads
+              <span className="ml-auto text-[9px] bg-muted/50 px-1.5 py-0.5 rounded">em breve</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+              Google Ads
+              <span className="ml-auto text-[9px] bg-muted/50 px-1.5 py-0.5 rounded">em breve</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
+        </Tooltip>
+
+        {/* Novidades (feed) */}
+        <div>
+          <button
+            onClick={() => setNovidadesOpen(!novidadesOpen)}
+            className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+          >
+            <span className="flex items-center gap-3">
+              <Sparkles className="h-4 w-4" />
+              Novidades
+              {announcements.length > 0 && (
+                <span className="h-4 min-w-[16px] px-1 rounded-full bg-primary text-[9px] text-primary-foreground font-bold flex items-center justify-center">
+                  {announcements.length}
+                </span>
+              )}
+            </span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", novidadesOpen && "rotate-180")} />
+          </button>
+          {novidadesOpen && (
+            <div className="ml-4 mt-1 border-l border-sidebar-border pl-3 space-y-2 max-h-[300px] overflow-y-auto">
+              {announcements.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground px-2 py-1">Nenhuma novidade.</p>
+              ) : announcements.map((a: any) => (
+                <div key={a.id} className="px-2 py-2 rounded-lg bg-sidebar-accent/30 border border-sidebar-border/50">
+                  <p className="text-[11px] font-semibold text-sidebar-foreground">{a.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-3">{a.body}</p>
+                  <p className="text-[9px] text-muted-foreground/70 mt-1">{new Date(a.published_at).toLocaleDateString("pt-BR")}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>
