@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Activity, Eye, EyeOff, RefreshCw, AlertTriangle, Sparkles } from "lucide-react";
 
-type Mode = "login" | "register" | "forgot";
+type Mode = "login" | "register" | "forgot" | "limit-reached";
 
 function generateCaptcha() {
   const a = Math.floor(Math.random() * 20) + 1;
@@ -81,7 +81,7 @@ export default function Auth() {
         const { data: limitData, error: limitError } = await supabase.functions.invoke("check-user-limit");
         if (limitError) throw limitError;
         if (!limitData?.canRegister) {
-          toast({ title: "Limite de usuários atingido", description: `O sistema suporta no máximo ${limitData?.maxUsers || 10} usuários.`, variant: "destructive" });
+          setMode("limit-reached");
           setLoading(false);
           return;
         }
@@ -121,6 +121,47 @@ export default function Auth() {
         </div>
 
         <div className="w-full max-w-sm">
+          {mode === "limit-reached" ? (
+            <div className="text-center space-y-6">
+              <div className="h-20 w-20 rounded-2xl bg-destructive/10 mx-auto flex items-center justify-center">
+                <AlertTriangle className="h-10 w-10 text-destructive" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold mb-2">Vagas esgotadas!</h1>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Devido à alta demanda, as vagas para usuários do plano gratuito estão temporariamente encerradas.
+                </p>
+              </div>
+              <div className="rounded-xl bg-card border border-border/50 p-5 space-y-3">
+                <div className="flex items-center gap-2 justify-center">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold">Assine um plano e garanta seu acesso!</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Com um plano pago você tem acesso imediato, mais smartlinks, webhooks, projetos e suporte prioritário.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { name: "Bronze", price: "R$ 29,90" },
+                    { name: "Prata", price: "R$ 49,90" },
+                    { name: "Ouro", price: "R$ 99,90" },
+                  ].map((plan) => (
+                    <div key={plan.name} className="p-3 rounded-lg bg-secondary/50 border border-border/30 text-center">
+                      <p className="text-xs font-semibold">{plan.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{plan.price}/mês</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => setMode("login")}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ← Voltar ao login
+              </button>
+            </div>
+          ) : (
+          <>
           <h1 className="text-2xl font-bold mb-1">
             {mode === "login" ? "Entrar" : mode === "register" ? "Criar conta" : "Recuperar senha"}
           </h1>
@@ -273,6 +314,8 @@ export default function Auth() {
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 

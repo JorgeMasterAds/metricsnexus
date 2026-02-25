@@ -74,8 +74,7 @@ export default function AdminSettings() {
 
   const [limits, setLimits] = useState({
     max_accounts: 1000,
-    max_users_per_account: 10,
-    max_projects_per_account: 10,
+    max_free_users: 100,
     log_retention_days: 90,
   });
 
@@ -83,8 +82,7 @@ export default function AdminSettings() {
     if (globalLimits) {
       setLimits({
         max_accounts: globalLimits.max_accounts ?? 1000,
-        max_users_per_account: globalLimits.max_users_per_account ?? 10,
-        max_projects_per_account: globalLimits.max_projects_per_account ?? 10,
+        max_free_users: globalLimits.max_free_users ?? 100,
         log_retention_days: globalLimits.log_retention_days ?? 90,
       });
     }
@@ -475,10 +473,9 @@ export default function AdminSettings() {
               <Sliders className="h-4 w-4 text-primary" />Limites Globais da Plataforma
             </h2>
             <p className="text-xs text-muted-foreground mb-4">Configurações gerais que se aplicam a toda a plataforma, independente do plano.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5"><Label className="text-xs">Máx. contas na plataforma</Label><Input type="number" value={limits.max_accounts} onChange={e => setLimits({ ...limits, max_accounts: Number(e.target.value) })} className="text-xs" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Máx. usuários por conta</Label><Input type="number" value={limits.max_users_per_account} onChange={e => setLimits({ ...limits, max_users_per_account: Number(e.target.value) })} className="text-xs" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Máx. projetos por conta</Label><Input type="number" value={limits.max_projects_per_account} onChange={e => setLimits({ ...limits, max_projects_per_account: Number(e.target.value) })} className="text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Máx. usuários free permitidos</Label><Input type="number" value={limits.max_free_users} onChange={e => setLimits({ ...limits, max_free_users: Number(e.target.value) })} className="text-xs" /></div>
               <div className="space-y-1.5"><Label className="text-xs">Retenção de logs (dias)</Label><Input type="number" value={limits.log_retention_days} onChange={e => setLimits({ ...limits, log_retention_days: Number(e.target.value) })} className="text-xs" /></div>
             </div>
             <Button onClick={saveLimits} size="sm" className="gradient-bg border-0 text-primary-foreground hover:opacity-90 text-xs mt-4">Salvar limites globais</Button>
