@@ -60,10 +60,9 @@ export default function Support() {
   return (
     <DashboardLayout title="Suporte" subtitle="Central de ajuda e atendimento">
       <div className="space-y-6">
-        {/* Main row: Form + Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="max-w-2xl mx-auto space-y-4">
           {/* Contact Form */}
-          <div className="lg:col-span-2 rounded-xl bg-card border border-border/50 card-shadow p-6">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Send className="h-4 w-4 text-primary" />
               Enviar mensagem
@@ -99,29 +98,17 @@ export default function Support() {
             </div>
           </div>
 
-          {/* Side cards */}
-          <div className="flex flex-col gap-4">
+          {/* Cards row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* WhatsApp */}
             <div className="rounded-xl bg-card border border-border/50 card-shadow p-5 flex flex-col">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 rounded-lg bg-primary/10 text-primary"><MessageCircle className="h-4 w-4" /></div>
                 <h3 className="text-sm font-semibold">WhatsApp</h3>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed flex-1 mb-4">Fale diretamente com nossa equipe pelo WhatsApp.</p>
+              <p className="text-xs text-muted-foreground leading-relaxed flex-1 mb-4">Fale com nossa equipe.</p>
               <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={() => window.open(WHATSAPP_URL, "_blank")}>
-                Abrir WhatsApp <ExternalLink className="h-3 w-3" />
-              </Button>
-            </div>
-
-            {/* Email */}
-            <div className="rounded-xl bg-card border border-border/50 card-shadow p-5 flex flex-col">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary"><Mail className="h-4 w-4" /></div>
-                <h3 className="text-sm font-semibold">E-mail</h3>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed flex-1 mb-4">Envie sua dúvida detalhada por e-mail.</p>
-              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={() => window.open(`mailto:${SUPPORT_EMAIL}?subject=Suporte%20Nexus%20Metrics`, "_blank")}>
-                Enviar e-mail <ExternalLink className="h-3 w-3" />
+                Abrir <ExternalLink className="h-3 w-3" />
               </Button>
             </div>
 
