@@ -551,7 +551,7 @@ export default function Dashboard() {
                             <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
                             <td className="text-right px-5 py-3 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
                             <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
-                            <td className="text-right px-5 py-3 font-mono text-xs" style={{ color: "hsl(0, 85%, 55%)" }}>{link.rate.toFixed(2)}%</td>
+                            <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{link.rate.toFixed(2)}%</td>
                             <td className="text-right px-5 py-3">
                               <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
                                 <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-primary" : "bg-muted-foreground"}`} />
