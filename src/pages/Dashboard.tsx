@@ -32,7 +32,7 @@ import {
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
-const SECTION_IDS = ["investment-roas", "gamification", "metrics", "traffic-chart", "products", "order-bumps", "smartlinks", "sales-chart", "mini-charts"];
+const SECTION_IDS = ["metrics", "traffic-chart", "smartlinks", "products", "order-bumps", "mini-charts"];
 
 const TOOLTIP_STYLE = {
   backgroundColor: "hsl(240, 6%, 10%)",
@@ -403,111 +403,52 @@ export default function Dashboard() {
   const renderSection = (id: string) => {
     switch (id) {
       case "gamification":
-        return (
-          <div className="mb-6">
-            <GamificationBar
-              since={sinceISO}
-              until={untilISO}
-              goal={revenueGoal ?? 1000000}
-              onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
-            />
-            <div className="flex justify-end mt-2">
-              <ExportMenu
-                data={buildFullExportData()}
-                filename="dashboard-nexus"
-                title="Dashboard Completo — Nexus Metrics"
-                kpis={[
-                  { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
-                  { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
-                  { label: "Faturamento", value: fmt(computed.totalRevenue) },
-                  { label: "Ticket Médio", value: fmt(computed.avgTicket) },
-                  { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
-                  { label: "Smart Links", value: computed.linkStats.length.toString() },
-                ]}
-                size="default"
-              />
-            </div>
-          </div>
-        );
+        return null;
 
-      case "metrics":
+      case "metrics": {
+        const roas = investmentValue > 0 ? computed.totalRevenue / investmentValue : 0;
+        const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
         return (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
             <MetricWithTooltip label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} tooltipKey="total_views" />
             <MetricWithTooltip label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} tooltipKey="sales" />
             <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" />
-            <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" />
-            <MetricWithTooltip label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} tooltipKey="avg_ticket" />
-            <MetricWithTooltip label="Smart Links" value={computed.linkStats.length.toLocaleString("pt-BR")} icon={Target} tooltipKey="smart_links" />
-          </div>
-        );
-
-      case "investment-roas": {
-        const roas = investmentValue > 0 ? computed.totalRevenue / investmentValue : 0;
-        const roasColor = roas >= 3 ? "hsl(var(--success))" : roas >= 1 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {/* Investment Input */}
-            <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow flex flex-col justify-center">
-              <div className="flex items-center gap-2 mb-3">
-                <DollarSign className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold">Investimento</h3>
+            {/* Investment inline card */}
+            <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow relative">
+              <div className="flex items-center gap-1.5 mb-1">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[11px] text-muted-foreground font-medium">Investimento</span>
                 <UITooltip>
                   <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px] text-xs">Insira o valor total investido em ads no período para calcular o ROAS.</TooltipContent>
+                  <TooltipContent side="top" className="max-w-[200px] text-xs">Valor investido em ads no período. Sincronizado com o Relatório UTM.</TooltipContent>
                 </UITooltip>
               </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+              <div className="relative mt-1">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">R$</span>
                 <Input
                   value={investmentInput}
                   onChange={(e) => setInvestmentInput(e.target.value)}
                   placeholder="0,00"
-                  className="pl-10 font-mono text-lg h-12 bg-secondary/50 border-border/50"
+                  className="pl-7 font-mono text-sm h-8 bg-secondary/50 border-border/50"
                 />
               </div>
             </div>
-
-            {/* Faturamento vs Investimento */}
-            <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow flex flex-col justify-center">
-              <h3 className="text-xs font-semibold mb-3 flex items-center gap-2 text-muted-foreground uppercase">Comparativo</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Investimento</span>
-                  <span className="font-mono font-bold text-sm">{fmt(investmentValue)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Faturamento</span>
-                  <span className="font-mono font-bold text-sm text-primary">{fmt(computed.totalRevenue)}</span>
-                </div>
-                <div className="h-px bg-border/50" />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Lucro Bruto</span>
-                  <span className="font-mono font-bold text-sm" style={{ color: computed.totalRevenue - investmentValue >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
-                    {fmt(computed.totalRevenue - investmentValue)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* ROAS Gauge */}
-            <div className="rounded-xl bg-card border border-border/50 p-5 card-shadow flex flex-col items-center justify-center">
-              <h3 className="text-xs font-semibold mb-2 flex items-center gap-2 text-muted-foreground uppercase">
-                ROAS
+            <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" />
+            {/* ROAS inline card */}
+            <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow relative flex flex-col items-center justify-center">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[11px] text-muted-foreground font-medium">ROAS</span>
                 <UITooltip>
                   <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px] text-xs">Return on Ad Spend = Faturamento ÷ Investimento. Acima de 3x é considerado bom.</TooltipContent>
+                  <TooltipContent side="top" className="max-w-[200px] text-xs">Faturamento ÷ Investimento</TooltipContent>
                 </UITooltip>
-              </h3>
-              <div className="text-4xl font-black font-mono" style={{ color: roasColor }}>
+              </div>
+              <div className="text-2xl font-black font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
                 {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {investmentValue > 0
-                  ? roas >= 3 ? "Excelente" : roas >= 2 ? "Bom" : roas >= 1 ? "Atenção" : "Negativo"
-                  : "Insira o investimento"}
-              </p>
             </div>
+            <MetricWithTooltip label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} tooltipKey="avg_ticket" />
+            <MetricWithTooltip label="Smart Links" value={computed.linkStats.length.toLocaleString("pt-BR")} icon={Target} tooltipKey="smart_links" />
           </div>
         );
       }
@@ -721,9 +662,6 @@ export default function Dashboard() {
           </div>
         );
 
-      case "sales-chart":
-        return null;
-
       case "mini-charts":
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -759,6 +697,32 @@ export default function Dashboard() {
         </div>
       }
     >
+      {/* Fixed: Meta de Faturamento + Export always on top */}
+      <div className="mb-6">
+        <GamificationBar
+          since={sinceISO}
+          until={untilISO}
+          goal={revenueGoal ?? 1000000}
+          onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
+        />
+        <div className="flex justify-end mt-2">
+          <ExportMenu
+            data={buildFullExportData()}
+            filename="dashboard-nexus"
+            title="Dashboard Completo — Nexus Metrics"
+            kpis={[
+              { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
+              { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
+              { label: "Faturamento", value: fmt(computed.totalRevenue) },
+              { label: "Ticket Médio", value: fmt(computed.avgTicket) },
+              { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
+              { label: "Smart Links", value: computed.linkStats.length.toString() },
+            ]}
+            size="default"
+          />
+        </div>
+      </div>
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           {order.map(id => (
