@@ -90,9 +90,19 @@ export default function Settings() {
     enabled: !!activeAccountId,
   });
 
-  const { data: plans = [] } = useQuery({
+  const { data: plans = [], refetch: refetchPlans } = useQuery({
     queryKey: ["plans"],
     queryFn: async () => { const { data } = await (supabase as any).from("plans").select("*").order("price"); return data || []; },
+  });
+
+  const { data: isSuperAdmin } = useQuery({
+    queryKey: ["is-super-admin"],
+    queryFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return false;
+      const { data } = await (supabase as any).from("super_admins").select("id").eq("user_id", userData.user.id).maybeSingle();
+      return !!data;
+    },
   });
 
   // --- Team members ---
@@ -358,31 +368,82 @@ export default function Settings() {
             {subscription?.current_period_end && (
               <p className="text-xs text-muted-foreground">Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</p>
             )}
+            {subscription?.stripe_subscription_id && (
+              <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={async () => {
+                try {
+                  const { data, error } = await supabase.functions.invoke("customer-portal");
+                  if (error) throw error;
+                  if (data?.url) window.location.href = data.url;
+                } catch (err: any) {
+                  toast({ title: "Erro", description: err.message, variant: "destructive" });
+                }
+              }}>
+                Gerenciar assinatura
+              </Button>
+            )}
           </div>
 
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4">Planos Disponíveis</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {plans.map((plan: any) => (
-                <div key={plan.id} className={`p-4 rounded-xl border transition-colors ${subscription?.plan_id === plan.id ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/50"}`}>
-                  <h3 className="font-semibold capitalize mb-1">{plan.name}</h3>
-                  <p className="text-xl font-bold mb-3">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
-                  <ul className="space-y-1">
-                    {(plan.features || []).map((f: string, i: number) => (
-                      <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        <span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                  {subscription?.plan_id !== plan.id && (
-                    <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={() => toast({ title: "Em breve", description: "Integração com Stripe será ativada." })}>
-                      Selecionar
-                    </Button>
-                  )}
-                </div>
-              ))}
+              {plans.map((plan: any) => {
+                const isCurrentPlan = subscription?.plan_id === plan.id || (!subscription?.plan_id && plan.name === 'free');
+                return (
+                  <div key={plan.id} className={`p-4 rounded-xl border transition-colors ${isCurrentPlan ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/50"}`}>
+                    <h3 className="font-semibold capitalize mb-1">{plan.name}</h3>
+                    <p className="text-xl font-bold mb-3">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
+                    <ul className="space-y-1">
+                      {(plan.features || []).map((f: string, i: number) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <span className="h-1 w-1 rounded-full bg-primary shrink-0" />{f}
+                        </li>
+                      ))}
+                    </ul>
+                    {isCurrentPlan ? (
+                      <Badge className="w-full mt-3 justify-center text-xs">Plano atual</Badge>
+                    ) : plan.name === 'free' ? null : (
+                      <Button size="sm" variant="outline" className="w-full mt-3 text-xs" onClick={async () => {
+                        if (!plan.stripe_price_id) {
+                          toast({ title: "Plano indisponível", description: "Stripe ainda não configurado para este plano.", variant: "destructive" });
+                          return;
+                        }
+                        try {
+                          const { data, error } = await supabase.functions.invoke("create-checkout", {
+                            body: { priceId: plan.stripe_price_id },
+                          });
+                          if (error) throw error;
+                          if (data?.url) window.location.href = data.url;
+                        } catch (err: any) {
+                          toast({ title: "Erro ao iniciar checkout", description: err.message, variant: "destructive" });
+                        }
+                      }}>
+                        {subscription?.stripe_subscription_id ? "Alterar plano" : "Assinar"}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {isSuperAdmin && (
+            <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+              <h2 className="text-sm font-semibold mb-2 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" />Configuração Stripe (Super Admin)</h2>
+              <p className="text-xs text-muted-foreground mb-3">Criar products e prices no Stripe e vincular aos planos.</p>
+              <Button size="sm" variant="outline" className="text-xs" onClick={async () => {
+                try {
+                  const { data, error } = await supabase.functions.invoke("setup-stripe");
+                  if (error) throw error;
+                  toast({ title: "Stripe configurado!", description: JSON.stringify(data?.results?.map((r: any) => `${r.plan}: ${r.status}`)) });
+                  refetchPlans();
+                } catch (err: any) {
+                  toast({ title: "Erro", description: err.message, variant: "destructive" });
+                }
+              }}>
+                Configurar Stripe
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
