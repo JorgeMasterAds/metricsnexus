@@ -1537,24 +1537,30 @@ export type Database = {
       system_announcements: {
         Row: {
           body: string
+          cover_image_url: string | null
           created_by: string | null
           id: string
           published_at: string | null
           title: string
+          version: string | null
         }
         Insert: {
           body: string
+          cover_image_url?: string | null
           created_by?: string | null
           id?: string
           published_at?: string | null
           title: string
+          version?: string | null
         }
         Update: {
           body?: string
+          cover_image_url?: string | null
           created_by?: string | null
           id?: string
           published_at?: string | null
           title?: string
+          version?: string | null
         }
         Relationships: []
       }
