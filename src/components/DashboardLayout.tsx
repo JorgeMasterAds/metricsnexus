@@ -273,7 +273,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
               Google Ads
               <span className="ml-auto text-[9px] bg-muted/50 px-1.5 py-0.5 rounded">em breve</span>
             </div>
