@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ function generateCaptcha() {
 }
 
 export default function Auth() {
+  const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,6 +28,14 @@ export default function Auth() {
   const [captcha, setCaptcha] = useState(generateCaptcha);
   const [captchaInput, setCaptchaInput] = useState("");
   const { toast } = useToast();
+
+  // Capture referral code from URL and store it
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      localStorage.setItem("referral_code", ref);
+    }
+  }, [searchParams]);
 
   const refreshCaptcha = useCallback(() => {
     setCaptcha(generateCaptcha());
