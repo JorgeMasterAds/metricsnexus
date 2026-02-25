@@ -220,7 +220,7 @@ export default function UtmReport() {
         </div>
       }
     >
-      {/* Filters */}
+      {/* Filters + Grouping */}
       <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
         <div className="flex items-center gap-2 mb-3">
           <FileBarChart className="h-4 w-4 text-primary" />
@@ -228,34 +228,33 @@ export default function UtmReport() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           <DropdownFilter label="utm_source" value={fSource} onChange={setFSource} options={distinctValues.sources} />
-          <DropdownFilter label="utm_medium" value={fMedium} onChange={setFMedium} options={distinctValues.mediums} />
           <DropdownFilter label="utm_campaign" value={fCampaign} onChange={setFCampaign} options={distinctValues.campaigns} />
+          <DropdownFilter label="utm_medium" value={fMedium} onChange={setFMedium} options={distinctValues.mediums} />
           <DropdownFilter label="utm_content" value={fContent} onChange={setFContent} options={distinctValues.contents} />
           <DropdownFilter label="utm_term" value={fTerm} onChange={setFTerm} options={distinctValues.terms} />
           <DropdownFilter label="Produto" value={fProduct} onChange={setFProduct} options={distinctValues.products} />
           <DropdownFilter label="Pagamento" value={fPayment} onChange={setFPayment} options={distinctValues.payments} />
         </div>
-      </div>
 
-      {/* Grouping */}
-      <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {GROUP_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => toggleGroup(opt.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                activeGroups.includes(opt.value)
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="border-t border-border/30 mt-4 pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {GROUP_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => toggleGroup(opt.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                  activeGroups.includes(opt.value)
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
