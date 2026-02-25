@@ -12,10 +12,11 @@ import { useActiveProject } from "@/hooks/useActiveProject";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type GroupKey = "utm_source" | "utm_campaign" | "utm_medium" | "utm_content" | "utm_term" | "product_name" | "payment_method";
-type SortKey = GroupKey | "views" | "sales" | "revenue" | "ticket";
+type GroupKey = "utm_source" | "utm_campaign" | "utm_medium" | "utm_content" | "utm_term" | "product_name" | "payment_method" | "date";
+type SortKey = GroupKey | "sales" | "revenue";
 
 const GROUP_OPTIONS: { value: GroupKey; label: string }[] = [
+  { value: "date", label: "Data" },
   { value: "utm_source", label: "Source" },
   { value: "utm_campaign", label: "Campaign" },
   { value: "utm_medium", label: "Medium" },
@@ -29,7 +30,7 @@ export default function UtmReport() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [activeGroups, setActiveGroups] = useState<GroupKey[]>(["utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"]);
+  const [activeGroups, setActiveGroups] = useState<GroupKey[]>(["date", "utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"]);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const { activeAccountId } = useAccount();
@@ -90,8 +91,14 @@ export default function UtmReport() {
     };
   }, [clicks, conversions]);
 
-  const { displayRows, totalSales, totalRevenue, totalViews, totalTicket } = useMemo(() => {
-    const filtered = conversions.filter((c: any) => {
+  const { displayRows, totalSales, totalRevenue } = useMemo(() => {
+    // Add computed date field to conversions
+    const withDate = conversions.map((c: any) => ({
+      ...c,
+      date: new Date(c.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
+    }));
+
+    const filtered = withDate.filter((c: any) => {
       if (fSource !== "all" && (c.utm_source || '') !== fSource) return false;
       if (fMedium !== "all" && (c.utm_medium || '') !== fMedium) return false;
       if (fCampaign !== "all" && (c.utm_campaign || '') !== fCampaign) return false;
@@ -102,7 +109,10 @@ export default function UtmReport() {
       return true;
     });
 
-    const filteredClicks = clicks.filter((v: any) => {
+    const filteredClicks = clicks.map((v: any) => ({
+      ...v,
+      date: new Date(v.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
+    })).filter((v: any) => {
       if (fSource !== "all" && (v.utm_source || '') !== fSource) return false;
       if (fMedium !== "all" && (v.utm_medium || '') !== fMedium) return false;
       if (fCampaign !== "all" && (v.utm_campaign || '') !== fCampaign) return false;
@@ -132,10 +142,7 @@ export default function UtmReport() {
       if (entry) entry.views++;
     });
 
-    const rows = Array.from(groups.values()).map(val => ({
-      ...val,
-      ticket: val.sales > 0 ? val.revenue / val.sales : 0,
-    }));
+    const rows = Array.from(groups.values());
 
     rows.sort((a: any, b: any) => {
       const aV = a[sortKey];
@@ -146,14 +153,10 @@ export default function UtmReport() {
 
     const tSales = filtered.length;
     const tRevenue = filtered.reduce((s: number, c: any) => s + Number(c.amount), 0);
-    const tViews = rows.reduce((s: number, r: any) => s + r.views, 0);
-
     return {
       displayRows: rows,
       totalSales: tSales,
       totalRevenue: tRevenue,
-      totalViews: tViews,
-      totalTicket: tSales > 0 ? tRevenue / tSales : 0,
     };
   }, [clicks, conversions, sortKey, sortDir, fSource, fMedium, fCampaign, fContent, fTerm, fProduct, fPayment, activeGroups]);
 
@@ -197,7 +200,7 @@ export default function UtmReport() {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
           <div className="text-xs text-muted-foreground">Vendas</div>
           <div className="text-xl font-bold mt-1">{totalSales}</div>
@@ -205,14 +208,6 @@ export default function UtmReport() {
         <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
           <div className="text-xs text-muted-foreground">Faturamento</div>
           <div className="text-xl font-bold mt-1">{fmt(totalRevenue)}</div>
-        </div>
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Ticket Médio</div>
-          <div className="text-xl font-bold mt-1">{fmt(totalTicket)}</div>
-        </div>
-        <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
-          <div className="text-xs text-muted-foreground">Views (clicks)</div>
-          <div className="text-xl font-bold mt-1">{totalViews.toLocaleString("pt-BR")}</div>
         </div>
       </div>
 
@@ -245,7 +240,7 @@ export default function UtmReport() {
           data={displayRows.map((r: any) => {
             const row: any = {};
             activeGroups.forEach(g => { row[g] = r[g]; });
-            row.views = r.views; row.vendas = r.sales; row.receita = r.revenue.toFixed(2); row.ticket_medio = r.ticket.toFixed(2);
+            row.vendas = r.sales; row.receita = r.revenue.toFixed(2);
             return row;
           })}
           filename="utm-report"
@@ -253,8 +248,6 @@ export default function UtmReport() {
           kpis={[
             { label: "Vendas", value: String(totalSales) },
             { label: "Faturamento", value: fmt(totalRevenue) },
-            { label: "Ticket Médio", value: fmt(totalTicket) },
-            { label: "Views", value: totalViews.toLocaleString("pt-BR") },
           ]}
         />
       </div>
@@ -275,14 +268,12 @@ export default function UtmReport() {
                       const label = GROUP_OPTIONS.find(o => o.value === g)?.label || g;
                       return <SortHeader key={g} label={label} sortKey={g} current={sortKey} dir={sortDir} onClick={toggleSort} />;
                     })}
-                    <SortHeader label="Views" sortKey="views" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                     <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                     <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
-                    <SortHeader label="Ticket" sortKey="ticket" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                   </tr></thead>
                   <tbody>
                     {paginatedRows.length === 0 ? (
-                      <tr><td colSpan={activeGroups.length + 4} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
+                      <tr><td colSpan={activeGroups.length + 2} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
                     ) : (
                       <>
                         {paginatedRows.map((r: any, i: number) => {
@@ -298,10 +289,8 @@ export default function UtmReport() {
                                   <td key={g} className={`px-4 py-3 text-xs truncate max-w-[160px] ${gi === 0 ? "font-medium" : "text-muted-foreground"} ${gi === 0 && firstGroupSame ? "opacity-0" : ""}`} title={r[g]}>{showValue}</td>
                                 );
                               })}
-                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{r.views.toLocaleString("pt-BR")}</td>
                               <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{r.sales.toLocaleString("pt-BR")}</td>
                               <td className="text-right px-4 py-3 font-mono text-xs tabular-nums font-medium">{fmt(r.revenue)}</td>
-                              <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(r.ticket)}</td>
                             </tr>
                           );
                         })}
@@ -310,10 +299,8 @@ export default function UtmReport() {
                           {activeGroups.map((g, gi) => (
                             <td key={g} className="px-4 py-3 text-xs uppercase tracking-wider">{gi === 0 ? "Total" : ""}</td>
                           ))}
-                          <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{totalViews.toLocaleString("pt-BR")}</td>
                           <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{totalSales.toLocaleString("pt-BR")}</td>
                           <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(totalRevenue)}</td>
-                          <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(totalTicket)}</td>
                         </tr>
                       </>
                     )}
