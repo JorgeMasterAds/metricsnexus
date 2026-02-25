@@ -859,6 +859,54 @@ export type Database = {
           },
         ]
       }
+      investments: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          date_from: string
+          date_to: string
+          id: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount?: number
+          created_at?: string
+          date_from: string
+          date_to: string
+          id?: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          date_from?: string
+          date_to?: string
+          id?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_settings: {
         Row: {
           account_id: string
