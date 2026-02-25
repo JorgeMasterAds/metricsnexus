@@ -94,7 +94,7 @@ function DomainsSection({ accountId }: { accountId?: string }) {
         <h2 className="text-sm font-semibold mb-4">Instruções de configuração DNS</h2>
         <div className="space-y-3 text-xs text-muted-foreground">
           <p>Para usar um domínio personalizado, configure os seguintes registros DNS no seu provedor:</p>
-          <div className="bg-muted/30 rounded-lg p-4 space-y-2 font-mono text-xs">
+         <div className="bg-muted/30 rounded-lg p-4 space-y-2 font-mono text-xs">
             <div className="grid grid-cols-3 gap-2">
               <span className="text-foreground font-semibold">Tipo</span>
               <span className="text-foreground font-semibold">Nome</span>
@@ -103,11 +103,11 @@ function DomainsSection({ accountId }: { accountId?: string }) {
             <div className="grid grid-cols-3 gap-2">
               <span>CNAME</span>
               <span>links (ou seu subdomínio)</span>
-              <span className="text-primary break-all">Apontar para o IP do seu servidor de redirecionamento</span>
+              <span className="text-primary break-all">api.nexusmetrics.jmads.com.br</span>
             </div>
           </div>
+          <p className="mt-2"><strong>Exemplo:</strong> Se seu domínio é <code className="bg-muted px-1.5 py-0.5 rounded text-primary">meusite.com.br</code>, crie um registro CNAME chamado <code className="bg-muted px-1.5 py-0.5 rounded text-primary">links</code> apontando para <code className="bg-muted px-1.5 py-0.5 rounded text-primary">api.nexusmetrics.jmads.com.br</code>.</p>
           <p>Após configurar o DNS, aguarde a propagação (até 72 horas) e clique em "Verificar DNS" para ativar.</p>
-          <p className="text-warning">⚠️ Nota: Domínios customizados requerem que o servidor de redirecionamento esteja configurado para aceitar requisições do seu domínio.</p>
         </div>
       </div>
     </div>
