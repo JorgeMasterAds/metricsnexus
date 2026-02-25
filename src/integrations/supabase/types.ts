@@ -1465,6 +1465,36 @@ export type Database = {
         }
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          account_id: string | null
+          body: string
+          category: string
+          created_at: string
+          id: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          body: string
+          category?: string
+          created_at?: string
+          id?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       system_announcement_reads: {
         Row: {
           announcement_id: string
@@ -1814,6 +1844,13 @@ export type Database = {
       cleanup_old_webhook_logs: { Args: never; Returns: undefined }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_user_account_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_user_emails_by_ids: {
+        Args: { _user_ids: string[] }
+        Returns: {
+          email: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

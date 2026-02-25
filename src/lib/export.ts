@@ -5,13 +5,11 @@ export { exportToCsv };
 export function exportToExcel(data: Record<string, any>[], filename: string) {
   if (data.length === 0) return;
   
-  // Dynamic import to keep bundle size small
   import("xlsx").then((XLSX) => {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Relatório");
     
-    // Auto-size columns
     const colWidths = Object.keys(data[0]).map((key) => {
       const maxLen = Math.max(
         key.length,
@@ -67,13 +65,14 @@ ${kpiHtml}
 <div class="footer">Nexus Metrics — Relatório exportado automaticamente</div>
 </body></html>`;
 
+  // Use download approach instead of window.open to avoid popup blockers
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
-  if (win) {
-    win.onload = () => {
-      setTimeout(() => { win.print(); }, 500);
-    };
-  }
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
