@@ -225,30 +225,38 @@ export default function UtmReport() {
         <div className="flex items-center gap-2 mb-3">
           <FileBarChart className="h-4 w-4 text-primary" />
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtros</span>
+          <UITooltip>
+            <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" /></TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[240px] text-xs">Filtre os dados por parâmetros UTM, produto ou forma de pagamento.</TooltipContent>
+          </UITooltip>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-          <DropdownFilter label="utm_source" value={fSource} onChange={setFSource} options={distinctValues.sources} />
-          <DropdownFilter label="utm_campaign" value={fCampaign} onChange={setFCampaign} options={distinctValues.campaigns} />
-          <DropdownFilter label="utm_medium" value={fMedium} onChange={setFMedium} options={distinctValues.mediums} />
-          <DropdownFilter label="utm_content" value={fContent} onChange={setFContent} options={distinctValues.contents} />
-          <DropdownFilter label="utm_term" value={fTerm} onChange={setFTerm} options={distinctValues.terms} />
-          <DropdownFilter label="Produto" value={fProduct} onChange={setFProduct} options={distinctValues.products} />
-          <DropdownFilter label="Pagamento" value={fPayment} onChange={setFPayment} options={distinctValues.payments} />
+          <DropdownFilter label="utm_source" value={fSource} onChange={setFSource} options={distinctValues.sources} tooltip="Origem do tráfego (ex: google, facebook)." />
+          <DropdownFilter label="utm_campaign" value={fCampaign} onChange={setFCampaign} options={distinctValues.campaigns} tooltip="Nome da campanha de marketing." />
+          <DropdownFilter label="utm_medium" value={fMedium} onChange={setFMedium} options={distinctValues.mediums} tooltip="Meio utilizado (ex: cpc, email, social)." />
+          <DropdownFilter label="utm_content" value={fContent} onChange={setFContent} options={distinctValues.contents} tooltip="Variação de conteúdo do anúncio." />
+          <DropdownFilter label="utm_term" value={fTerm} onChange={setFTerm} options={distinctValues.terms} tooltip="Termo de busca pago (keyword)." />
+          <DropdownFilter label="Produto" value={fProduct} onChange={setFProduct} options={distinctValues.products} tooltip="Filtra por produto vendido." />
+          <DropdownFilter label="Pagamento" value={fPayment} onChange={setFPayment} options={distinctValues.payments} tooltip="Filtra por meio de pagamento utilizado." />
         </div>
 
-        <div className="border-t border-border/30 mt-4 pt-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Agrupamento</span>
+        <div className="mt-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider">Agrupamento</span>
+            <UITooltip>
+              <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[240px] text-xs">Selecione quais colunas agrupar na tabela. Clique para ativar/desativar.</TooltipContent>
+            </UITooltip>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
             {GROUP_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => toggleGroup(opt.value)}
-                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors border text-center ${
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border text-center ${
                   activeGroups.includes(opt.value)
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                    ? "border-primary/50 bg-primary/5 text-primary/80"
+                    : "border-border/30 text-muted-foreground/60 hover:text-muted-foreground hover:border-border/50"
                 }`}
               >
                 {opt.label}
@@ -286,20 +294,26 @@ export default function UtmReport() {
       <div id="utm-export-root">
         {/* Summary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
-              <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-                <FileBarChart className="h-3.5 w-3.5 text-primary" />
+              <div className="flex items-center gap-1">
+                <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Total de vendas aprovadas no período.</TooltipContent></UITooltip>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <FileBarChart className="h-3.5 w-3.5 text-primary" />
+                </div>
               </div>
             </div>
             <div className="text-lg font-bold">{totalSales}</div>
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
-              <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-                <DollarSign className="h-3.5 w-3.5 text-primary" />
+              <div className="flex items-center gap-1">
+                <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Valor investido em anúncios no período. Editável manualmente.</TooltipContent></UITooltip>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <DollarSign className="h-3.5 w-3.5 text-primary" />
+                </div>
               </div>
             </div>
             <input
@@ -309,11 +323,14 @@ export default function UtmReport() {
               className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
             />
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
-              <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-                <DollarSign className="h-3.5 w-3.5 text-primary" />
+              <div className="flex items-center gap-1">
+                <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Soma total da receita de vendas aprovadas.</TooltipContent></UITooltip>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <DollarSign className="h-3.5 w-3.5 text-primary" />
+                </div>
               </div>
             </div>
             <div className="text-lg font-bold">{fmt(totalRevenue)}</div>
@@ -322,11 +339,14 @@ export default function UtmReport() {
             const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
             const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
             return (
-              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
-                  <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                  <div className="flex items-center gap-1">
+                    <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Retorno sobre investimento em anúncios. ROAS = Faturamento / Investimento.</TooltipContent></UITooltip>
+                    <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                      <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                    </div>
                   </div>
                 </div>
                 <div className="text-lg font-bold font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
@@ -440,10 +460,15 @@ export default function UtmReport() {
   );
 }
 
-function DropdownFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
+function DropdownFilter({ label, value, onChange, options, tooltip }: { label: string; value: string; onChange: (v: string) => void; options: string[]; tooltip?: string }) {
   return (
     <div>
-      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-1">
+        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</Label>
+        {tooltip && (
+          <UITooltip><TooltipTrigger asChild><HelpCircle className="h-2.5 w-2.5 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">{tooltip}</TooltipContent></UITooltip>
+        )}
+      </div>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
         <SelectContent>
