@@ -2,25 +2,48 @@ import { exportToCsv, formatDateForFilename } from "./csv";
 
 export { exportToCsv };
 
-export function exportToExcel(data: Record<string, any>[], filename: string) {
+export async function exportToExcel(data: Record<string, any>[], filename: string) {
   if (data.length === 0) return;
   
-  import("xlsx").then((XLSX) => {
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Relatório");
-    
-    const colWidths = Object.keys(data[0]).map((key) => {
-      const maxLen = Math.max(
-        key.length,
-        ...data.map((row) => String(row[key] ?? "").length)
-      );
-      return { wch: Math.min(maxLen + 2, 40) };
-    });
-    ws["!cols"] = colWidths;
-    
-    XLSX.writeFile(wb, `${filename}_${formatDateForFilename()}.xlsx`);
+  const ExcelJS = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Relatório");
+
+  const headers = Object.keys(data[0]);
+  sheet.addRow(headers);
+
+  // Style header row
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true };
+  headerRow.eachCell((cell) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F1F24" } };
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
   });
+
+  // Add data rows
+  data.forEach((row) => {
+    sheet.addRow(headers.map((h) => row[h] ?? ""));
+  });
+
+  // Auto-width columns
+  headers.forEach((_, i) => {
+    const col = sheet.getColumn(i + 1);
+    let maxLen = headers[i].length;
+    data.forEach((row) => {
+      const val = String(row[headers[i]] ?? "");
+      if (val.length > maxLen) maxLen = val.length;
+    });
+    col.width = Math.min(maxLen + 2, 40);
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}_${formatDateForFilename()}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Colors ───
@@ -100,18 +123,14 @@ export async function exportToPdf(
 
     kpis.forEach((k, i) => {
       const x = 14 + i * (kpiW + gap);
-      // Card background
       doc.setFillColor(...CARD_BG);
       doc.roundedRect(x, y, kpiW, kpiH, 2, 2, "F");
-      // Border
       doc.setDrawColor(...BORDER);
       doc.setLineWidth(0.2);
       doc.roundedRect(x, y, kpiW, kpiH, 2, 2, "S");
-      // Label
       doc.setFontSize(6);
       doc.setTextColor(...GRAY);
       doc.text(k.label.toUpperCase(), x + 3, y + 6);
-      // Value
       doc.setFontSize(11);
       doc.setTextColor(...WHITE);
       doc.text(k.value, x + 3, y + 14);
@@ -137,7 +156,6 @@ export async function exportToPdf(
 
     y = ensureSpace(20, y);
 
-    // Section title with red accent
     doc.setFillColor(RED[0], RED[1], RED[2]);
     doc.rect(14, y, 2, 6, "F");
     doc.setFontSize(10);

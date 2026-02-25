@@ -221,6 +221,7 @@ export type Database = {
           device_type: string | null
           id: string
           ip: string | null
+          ip_hash: string | null
           project_id: string | null
           referrer: string | null
           smartlink_id: string | null
@@ -240,6 +241,7 @@ export type Database = {
           device_type?: string | null
           id?: string
           ip?: string | null
+          ip_hash?: string | null
           project_id?: string | null
           referrer?: string | null
           smartlink_id?: string | null
@@ -259,6 +261,7 @@ export type Database = {
           device_type?: string | null
           id?: string
           ip?: string | null
+          ip_hash?: string | null
           project_id?: string | null
           referrer?: string | null
           smartlink_id?: string | null
@@ -1445,6 +1448,13 @@ export type Database = {
             referencedRelation: "plans"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       super_admins: {
@@ -1841,6 +1851,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans_public: {
+        Row: {
+          created_at: string | null
+          features: Json | null
+          id: string | null
+          max_projects: number | null
+          max_smartlinks: number | null
+          max_users: number | null
+          max_webhooks: number | null
+          name: string | null
+          price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          features?: Json | null
+          id?: string | null
+          max_projects?: number | null
+          max_smartlinks?: number | null
+          max_users?: number | null
+          max_webhooks?: number | null
+          name?: string | null
+          price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          features?: Json | null
+          id?: string | null
+          max_projects?: number | null
+          max_smartlinks?: number | null
+          max_users?: number | null
+          max_webhooks?: number | null
+          name?: string | null
+          price?: number | null
+        }
+        Relationships: []
       }
     }
     Functions: {
