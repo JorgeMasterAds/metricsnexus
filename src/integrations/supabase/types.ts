@@ -64,7 +64,6 @@ export type Database = {
           tax_rate: number | null
           timezone: string | null
           updated_at: string
-          webhook_secret: string | null
         }
         Insert: {
           address?: string | null
@@ -80,7 +79,6 @@ export type Database = {
           tax_rate?: number | null
           timezone?: string | null
           updated_at?: string
-          webhook_secret?: string | null
         }
         Update: {
           address?: string | null
@@ -96,7 +94,6 @@ export type Database = {
           tax_rate?: number | null
           timezone?: string | null
           updated_at?: string
-          webhook_secret?: string | null
         }
         Relationships: []
       }
@@ -141,6 +138,13 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_accounts_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1572,7 +1576,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      integrations_safe: {
+        Row: {
+          account_id: string | null
+          config: Json | null
+          created_at: string | null
+          expires_at: string | null
+          external_account_id: string | null
+          id: string | null
+          provider: Database["public"]["Enums"]["integration_provider"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          external_account_id?: string | null
+          id?: string | null
+          provider?: Database["public"]["Enums"]["integration_provider"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          external_account_id?: string | null
+          id?: string | null
+          provider?: Database["public"]["Enums"]["integration_provider"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       find_user_id_by_email: { Args: { _email: string }; Returns: string }

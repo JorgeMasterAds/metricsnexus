@@ -17,11 +17,28 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const validatePassword = (pw: string): string | null => {
+    if (pw.length < 8) return "A senha deve ter no mínimo 8 caracteres";
+    if (!/[a-zA-Z]/.test(pw)) return "A senha deve conter pelo menos 1 letra";
+    if (!/[0-9]/.test(pw)) return "A senha deve conter pelo menos 1 número";
+    if (pw.toLowerCase() === email.toLowerCase()) return "A senha não pode ser igual ao email";
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      if (mode === "register") {
+        const pwError = validatePassword(password);
+        if (pwError) {
+          toast({ title: "Senha fraca", description: pwError, variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+      }
+
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -117,7 +134,7 @@ export default function Auth() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                   <button
                     type="button"

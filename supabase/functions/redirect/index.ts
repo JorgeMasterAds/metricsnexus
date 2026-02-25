@@ -131,8 +131,20 @@ Deno.serve(async (req) => {
   let destinationUrl: URL;
   try {
     destinationUrl = new URL(selectedVariant.url);
+    // Block dangerous protocols
     if (!['http:', 'https:'].includes(destinationUrl.protocol)) {
       return new Response('Protocolo de URL inválido', { status: 400, headers: corsHeaders });
+    }
+    // Block internal/private IPs and localhost
+    const hostname = destinationUrl.hostname.toLowerCase();
+    const blockedHosts = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]', '169.254.169.254'];
+    if (blockedHosts.includes(hostname) || hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('172.') || hostname.endsWith('.internal') || hostname.endsWith('.local')) {
+      return new Response('Destino bloqueado', { status: 403, headers: corsHeaders });
+    }
+    // Block protocol-relative and data/javascript URLs in variant URL
+    const rawUrl = selectedVariant.url.trim().toLowerCase();
+    if (rawUrl.startsWith('//') || rawUrl.startsWith('javascript:') || rawUrl.startsWith('data:')) {
+      return new Response('URL inválida', { status: 400, headers: corsHeaders });
     }
   } catch {
     return new Response('URL de redirecionamento inválida', { status: 400, headers: corsHeaders });
