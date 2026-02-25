@@ -717,7 +717,7 @@ export default function Dashboard() {
           goal={revenueGoal ?? 1000000}
           onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
         />
-        <div className="flex justify-end mt-1">
+        <div className="flex justify-end -mt-2 mb-0">
           <ExportMenu
             data={buildFullExportData()}
             filename="dashboard-nexus"
