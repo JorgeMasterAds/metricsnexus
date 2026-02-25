@@ -396,15 +396,19 @@ export default function Dashboard() {
                   <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltipContent />} />
-                  <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="hsl(30, 80%, 55%)" radius={[3, 3, 0, 0]} opacity={0.45}>
+                  <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="hsl(30, 80%, 55%)" radius={[3, 3, 0, 0]} opacity={0.45} />
+                  <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(0, 85%, 55%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
+                  <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(150, 60%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
+                  {/* Labels rendered last so they appear on top */}
+                  <Line yAxisId="right" dataKey="revenue" stroke="none" dot={false} activeDot={false}>
                     <LabelList dataKey="revenue" position="top" style={{ fontSize: 9, fill: "hsl(30, 80%, 65%)" }} formatter={(v: number) => v > 0 ? `R$${(v/100 >= 10 ? (v/1000).toFixed(1)+'k' : v.toLocaleString("pt-BR", {maximumFractionDigits:0}))}` : ""} />
-                  </Bar>
-                  <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(200, 70%, 55%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2}>
-                    <LabelList dataKey="views" position="top" style={{ fontSize: 9, fill: "hsl(200, 70%, 65%)" }} formatter={(v: number) => v > 0 ? v : ""} />
-                  </Area>
-                  <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(150, 60%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2}>
+                  </Line>
+                  <Line yAxisId="left" dataKey="views" stroke="none" dot={false} activeDot={false}>
+                    <LabelList dataKey="views" position="top" style={{ fontSize: 9, fill: "hsl(0, 85%, 65%)" }} formatter={(v: number) => v > 0 ? v : ""} />
+                  </Line>
+                  <Line yAxisId="left" dataKey="sales" stroke="none" dot={false} activeDot={false}>
                     <LabelList dataKey="sales" position="top" style={{ fontSize: 9, fill: "hsl(150, 60%, 55%)" }} formatter={(v: number) => v > 0 ? v : ""} />
-                  </Area>
+                  </Line>
                 </ComposedChart>
               </ResponsiveContainer>
             ) : <EmptyState text="Nenhum dado no período" />}
