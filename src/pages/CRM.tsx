@@ -36,6 +36,7 @@ export default function CRM() {
     }
   }, [pipelines, activePipelineId, isListView]);
 
+  // Only auto-prompt to create pipeline if user has zero pipelines and hasn't dismissed
   const [autoPrompted, setAutoPrompted] = useState(false);
   useEffect(() => {
     if (!isLoading && pipelines.length === 0 && !isListView && !autoPrompted) {
@@ -57,42 +58,7 @@ export default function CRM() {
     setDeletingPipelineId(null);
   };
 
-  const titleContent = isListView ? (
-    "Lista de leads"
-  ) : (
-    <div className="flex items-center gap-2">
-      <span>CRM</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 border border-border hover:bg-accent transition-colors text-sm font-medium">
-            {activePipeline?.name || "Selecionar pipeline"}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56 z-50 bg-popover border border-border shadow-lg">
-          {pipelines.map((p: any) => (
-            <DropdownMenuItem
-              key={p.id}
-              onClick={() => setActivePipelineId(p.id)}
-              className={cn("flex items-center justify-between cursor-pointer", activePipelineId === p.id && "bg-accent")}
-            >
-              <span>{p.name}</span>
-              {pipelines.length > 1 && (
-                <button onClick={(e) => { e.stopPropagation(); setDeletingPipelineId(p.id); }}
-                  className="text-muted-foreground hover:text-destructive p-0.5">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              )}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setShowPipelineModal(true)} className="cursor-pointer">
-            <Plus className="h-3.5 w-3.5 mr-2" /> Novo pipeline
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
+  const titleContent = isListView ? "Lista de leads" : "CRM";
 
   return (
     <DashboardLayout
@@ -100,6 +66,37 @@ export default function CRM() {
       subtitle={isListView ? "Todos os leads do projeto" : "Gerencie seus pipelines e funis de vendas"}
       actions={
         <div className="flex items-center gap-1.5 ml-auto">
+          {!isListView && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 border border-border hover:bg-accent transition-colors text-sm font-medium">
+                  {activePipeline?.name || "Selecionar pipeline"}
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 z-50 bg-popover border border-border shadow-lg">
+                {pipelines.map((p: any) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    onClick={() => setActivePipelineId(p.id)}
+                    className={cn("flex items-center justify-between cursor-pointer", activePipelineId === p.id && "bg-accent")}
+                  >
+                    <span>{p.name}</span>
+                    {pipelines.length > 1 && (
+                      <button onClick={(e) => { e.stopPropagation(); setDeletingPipelineId(p.id); }}
+                        className="text-muted-foreground hover:text-destructive p-0.5">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowPipelineModal(true)} className="cursor-pointer">
+                  <Plus className="h-3.5 w-3.5 mr-2" /> Novo pipeline
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button size="sm" variant={!isListView ? "default" : "outline"} onClick={() => navigate("/crm?tab=kanban")} className="gap-1.5 text-xs h-8">
             <LayoutGrid className="h-3.5 w-3.5" />
           </Button>
