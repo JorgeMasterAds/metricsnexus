@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, User, Clock, ShoppingCart, Tag, MessageSquare, ExternalLink, Trash2 } from "lucide-react";
+import { X, User, Clock, ShoppingCart, Tag, MessageSquare, ExternalLink, Trash2, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLeadDetail, useCRM } from "@/hooks/useCRM";
 import { cn } from "@/lib/utils";
 
@@ -18,15 +19,20 @@ interface Props {
   onClose: () => void;
 }
 
+const TAG_COLORS = ["#6366f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#8b5cf6", "#14b8a6"];
+
 export default function LeadDetailPanel({ lead, onClose }: Props) {
   const { history, notes, purchases } = useLeadDetail(lead.id);
-  const { addNote, tags, addTag, removeTag, updateLead, deleteLead } = useCRM();
+  const { addNote, tags, addTag, removeTag, createTag, updateLead, deleteLead } = useCRM();
   const [noteText, setNoteText] = useState("");
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(lead.name);
   const [editPhone, setEditPhone] = useState(lead.phone || "");
   const [editEmail, setEditEmail] = useState(lead.email || "");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#6366f1");
+  const [showNewTag, setShowNewTag] = useState(false);
 
   const leadTags = (lead.lead_tag_assignments || []).map((a: any) => a.lead_tags || a.tag_id);
   const leadTagIds = new Set(leadTags.map((t: any) => t.id));
@@ -48,6 +54,13 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
   const handleDelete = () => {
     deleteLead.mutate(lead.id);
     onClose();
+  };
+
+  const handleCreateTag = () => {
+    if (!newTagName.trim()) return;
+    createTag.mutate({ name: newTagName.trim(), color: newTagColor });
+    setNewTagName("");
+    setShowNewTag(false);
   };
 
   return (
@@ -84,13 +97,13 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
               <TabsTrigger value="history" className="text-xs">Histórico</TabsTrigger>
             </TabsList>
 
-            {/* ── DETALHES (unified) ── */}
+            {/* ── DETALHES ── */}
             <TabsContent value="details" className="space-y-5">
               {/* Contact info */}
               {editing ? (
                 <div className="space-y-3 rounded-xl border border-border p-4">
                   <div>
-                    <Label className="text-xs">Nome Completo</Label>
+                    <Label className="text-xs">Nome completo</Label>
                     <Input className="mt-1" value={editName} onChange={(e) => setEditName(e.target.value)} />
                   </div>
                   <div>
@@ -102,18 +115,17 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                     <Input className="mt-1" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
                   </div>
                   <div className="flex gap-2 pt-1">
-                    <Button size="sm" onClick={handleSaveEdit}>Salvar Alterações</Button>
+                    <Button size="sm" onClick={handleSaveEdit}>Salvar alterações</Button>
                     <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
                   </div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-border p-4 space-y-3">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                    <InfoField label="Nome Completo" value={lead.name} />
+                    <InfoField label="Nome completo" value={lead.name} />
                     <InfoField label="E-mail" value={lead.email} />
                     <InfoField label="Telefone" value={lead.phone} />
-                    <InfoField label="Origem" value={lead.source} />
-                    <InfoField label="Valor Total" value={`R$ ${Number(lead.total_value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} highlight />
+                    <InfoField label="Valor total" value={`R$ ${Number(lead.total_value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} highlight />
                   </div>
                   <Button size="sm" variant="outline" onClick={() => setEditing(true)} className="text-xs mt-2">
                     Editar
@@ -151,27 +163,58 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                 )}
               </div>
 
-              {/* UTM data */}
-              {purchases.length > 0 && (
-                <div className="rounded-xl border border-border p-4 space-y-2">
-                  <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5" /> Dados de Rastreamento (UTM)
-                  </h3>
-                  <div className="grid grid-cols-3 gap-3 text-xs">
-                    <UtmField label="Origem (Source)" value={purchases[0]?.conversions?.utm_source} />
-                    <UtmField label="Mídia (Medium)" value={purchases[0]?.conversions?.utm_medium} />
+              {/* UTM / Origem */}
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5" /> Origem do lead
+                </h3>
+                {lead.source && (
+                  <div className="mb-2">
+                    <p className="text-[11px] text-muted-foreground">Origem direta</p>
+                    <p className="text-sm text-foreground">{lead.source}</p>
+                  </div>
+                )}
+                {purchases.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                    <UtmField label="Source" value={purchases[0]?.conversions?.utm_source} />
+                    <UtmField label="Medium" value={purchases[0]?.conversions?.utm_medium} />
                     <UtmField label="Campanha" value={purchases[0]?.conversions?.utm_campaign} />
                     <UtmField label="Conteúdo" value={purchases[0]?.conversions?.utm_content} />
                     <UtmField label="Termo" value={purchases[0]?.conversions?.utm_term} />
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-muted-foreground">Sem dados de rastreamento disponíveis.</p>
+                )}
+              </div>
 
               {/* Tags */}
               <div className="rounded-xl border border-border p-4 space-y-3">
-                <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                  <Tag className="h-3.5 w-3.5" /> Tags
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5" /> Tags
+                  </h3>
+                  <Popover open={showNewTag} onOpenChange={setShowNewTag}>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1">
+                        <Plus className="h-3 w-3" /> Nova tag
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-60 z-50 space-y-3" align="end">
+                      <p className="text-xs font-medium">Criar nova tag</p>
+                      <Input placeholder="Nome da tag" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} className="text-xs h-8" />
+                      <div className="flex gap-1.5">
+                        {TAG_COLORS.map((c) => (
+                          <button key={c} onClick={() => setNewTagColor(c)}
+                            className={cn("h-5 w-5 rounded-full", newTagColor === c && "ring-2 ring-primary ring-offset-1 ring-offset-background")}
+                            style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                      <Button size="sm" onClick={handleCreateTag} disabled={!newTagName.trim()} className="w-full text-xs h-7">
+                        Criar
+                      </Button>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {leadTags.map((t: any) => (
                     <Badge key={t.id} variant="secondary" className="gap-1 text-xs" style={{ borderColor: t.color, color: t.color }}>
@@ -197,7 +240,7 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
               {/* Notes */}
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5" /> Anotações Internas
+                  <MessageSquare className="h-3.5 w-3.5" /> Anotações internas
                 </h3>
                 <Textarea
                   placeholder="Escreva detalhes sobre a negociação..."
@@ -272,7 +315,7 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir Lead
+              Excluir lead
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -293,8 +336,8 @@ function InfoField({ label, value, highlight }: { label: string; value?: string 
 function UtmField({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p className={value ? "text-primary font-medium" : "text-muted-foreground"}>{value || "—"}</p>
+      <p className="text-muted-foreground text-[11px]">{label}</p>
+      <p className={cn("text-sm", value ? "text-primary font-medium" : "text-muted-foreground")}>{value || "—"}</p>
     </div>
   );
 }
@@ -303,11 +346,14 @@ function formatAction(action: string): string {
   const map: Record<string, string> = {
     created: "Lead criado",
     purchase: "Nova compra",
-    stage_change: "Movido de etapa",
     note_added: "Anotação adicionada",
     tag_added: "Tag adicionada",
     tag_removed: "Tag removida",
     updated: "Lead atualizado",
+    webhook_received: "Webhook recebido",
+    cart_abandoned: "Carrinho abandonado",
+    refund: "Reembolso",
+    chargeback: "Chargeback",
   };
   return map[action] || action;
 }

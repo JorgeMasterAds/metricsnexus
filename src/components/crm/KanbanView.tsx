@@ -7,6 +7,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCRM } from "@/hooks/useCRM";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,11 @@ interface Props {
   pipelineId: string | null;
   stages: any[];
 }
+
+const STAGE_COLORS = [
+  "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444",
+  "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
+];
 
 function InlineLeadForm({ stageId, onClose }: { stageId: string; onClose: () => void }) {
   const { createLead } = useCRM();
@@ -48,28 +54,34 @@ function InlineLeadForm({ stageId, onClose }: { stageId: string; onClose: () => 
   );
 }
 
+function ColorPicker({ color, onChange }: { color: string; onChange: (c: string) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="h-3 w-3 rounded-full flex-shrink-0 ring-1 ring-border hover:ring-primary transition-all cursor-pointer" style={{ backgroundColor: color }} />
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-2 z-50" align="start">
+        <div className="flex flex-wrap gap-1.5 max-w-[140px]">
+          {STAGE_COLORS.map((c) => (
+            <button key={c} onClick={() => onChange(c)}
+              className={cn("h-5 w-5 rounded-full transition-all", color === c ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "hover:scale-110")}
+              style={{ backgroundColor: c }} />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function KanbanColumn({
-  stage,
-  leads,
-  onSelectLead,
-  onDropLead,
-  columnIndex,
-  dragOverColumnIndex,
-  onDragColumnStart,
-  onDragColumnOverHandler,
-  onDragColumnDrop,
-  onDragColumnEnd,
+  stage, leads, onSelectLead, onDropLead, columnIndex, dragOverColumnIndex,
+  onDragColumnStart, onDragColumnOverHandler, onDragColumnDrop, onDragColumnEnd,
 }: {
-  stage: any;
-  leads: any[];
-  onSelectLead: (l: any) => void;
+  stage: any; leads: any[]; onSelectLead: (l: any) => void;
   onDropLead: (leadId: string, stageId: string, stageName: string) => void;
-  columnIndex: number;
-  dragOverColumnIndex: number | null;
-  onDragColumnStart: (index: number) => void;
-  onDragColumnOverHandler: (index: number) => void;
-  onDragColumnDrop: (targetIndex: number) => void;
-  onDragColumnEnd: () => void;
+  columnIndex: number; dragOverColumnIndex: number | null;
+  onDragColumnStart: (index: number) => void; onDragColumnOverHandler: (index: number) => void;
+  onDragColumnDrop: (targetIndex: number) => void; onDragColumnEnd: () => void;
 }) {
   const { deleteStage, updateStage } = useCRM();
   const [editingName, setEditingName] = useState(false);
@@ -88,11 +100,10 @@ function KanbanColumn({
           ? "border-primary ring-2 ring-primary/40 bg-primary/5"
           : isColumnDropTarget
             ? "border-accent ring-1 ring-accent/30"
-            : "border-border"
+            : "border-border/60"
       )}
       onDragOver={(e) => {
         e.preventDefault();
-        // Detect if dragging a lead or column
         if (e.dataTransfer.types.includes("text/lead-id")) {
           setIsLeadDragOver(true);
         } else if (e.dataTransfer.types.includes("text/column-index")) {
@@ -100,7 +111,6 @@ function KanbanColumn({
         }
       }}
       onDragLeave={(e) => {
-        // Only clear if actually leaving the column
         const rect = e.currentTarget.getBoundingClientRect();
         const { clientX, clientY } = e;
         if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
@@ -120,7 +130,7 @@ function KanbanColumn({
       }}
     >
       {/* Column header */}
-      <div className="p-3 border-b border-border/50 flex items-center justify-between">
+      <div className="p-3 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div
             className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
@@ -134,7 +144,10 @@ function KanbanColumn({
           >
             <GripVertical className="h-3.5 w-3.5" />
           </div>
-          <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+          <ColorPicker
+            color={stage.color}
+            onChange={(c) => updateStage.mutate({ id: stage.id, color: c })}
+          />
           {editingName ? (
             <Input
               value={newName}
@@ -185,7 +198,7 @@ function KanbanColumn({
               </span>
             )}
             <p className="text-sm font-medium text-foreground">{lead.name}</p>
-            {lead.phone && <p className="text-xs text-muted-foreground mt-0.5">📱 {lead.phone}</p>}
+            {lead.phone && <p className="text-xs text-muted-foreground mt-0.5">{lead.phone}</p>}
             <div className="flex items-center justify-between mt-2">
               <span className="text-xs font-medium text-primary">
                 R$ {Number(lead.total_value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -276,7 +289,7 @@ export default function KanbanView({ onSelectLead, pipelineId, stages }: Props) 
   }, [sortedStages, reorderStages, draggingColumnIndex]);
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
+    <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-200px)]">
       {sortedStages.map((stage: any, index: number) => {
         const stageLeads = leads.filter((l: any) => l.stage_id === stage.id);
         return (

@@ -6,13 +6,14 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
-import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
+import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft, FileCode } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import { exportToCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
+import WebhookFormBuilder from "@/components/crm/WebhookFormBuilder";
 
 export default function Integrations() {
   const [searchParams] = useSearchParams();
@@ -25,11 +26,12 @@ export default function Integrations() {
 
   const tabs = [
     { key: "webhooks", label: "Webhooks", icon: Webhook },
+    { key: "forms", label: "Formulários", icon: FileCode },
     { key: "logs", label: "Webhook Logs", icon: ScrollText },
   ];
 
   return (
-    <DashboardLayout title="Integrações" subtitle="Gerencie seus webhooks e integrações">
+    <DashboardLayout title="Integrações" subtitle="Gerencie seus webhooks, formulários e integrações">
       <div className="w-full">
         <div className="flex items-center mb-6 border-b border-border/50">
           {tabs.map((tab) => (
@@ -49,9 +51,69 @@ export default function Integrations() {
         </div>
 
         {activeTab === "webhooks" && <WebhookManager />}
+        {activeTab === "forms" && <FormsTab accountId={activeAccountId} />}
         {activeTab === "logs" && <WebhookLogsTab accountId={activeAccountId} />}
       </div>
     </DashboardLayout>
+  );
+}
+
+/* ─── Forms Tab ─── */
+
+function FormsTab({ accountId }: { accountId?: string }) {
+  const { data: webhooks = [], isLoading } = useQuery({
+    queryKey: ["wh-forms-list", accountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("webhooks")
+        .select("id, name, token, platform")
+        .eq("account_id", accountId)
+        .eq("is_active", true)
+        .order("name");
+      return data || [];
+    },
+    enabled: !!accountId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (webhooks.length === 0) {
+    return (
+      <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center">
+        <FileCode className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">Nenhum webhook ativo encontrado.</p>
+        <p className="text-xs text-muted-foreground mt-1">Crie um webhook primeiro na aba Webhooks para poder criar formulários.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-sm font-semibold">Formulários de captura</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Crie formulários HTML para capturar leads diretamente em suas páginas. Cada formulário está vinculado a um webhook.
+        </p>
+      </div>
+      <div className="space-y-4">
+        {webhooks.map((wh: any) => (
+          <div key={wh.id} className="rounded-xl bg-card border border-border/50 card-shadow p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Webhook className="h-3.5 w-3.5 text-primary" />
+              <span className="text-sm font-medium">{wh.name}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">{wh.platform}</span>
+            </div>
+            <WebhookFormBuilder webhookId={wh.id} webhookToken={wh.token} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -137,15 +199,15 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
       <div className="rounded-xl bg-card border border-border/50 p-4 card-shadow">
         <div className="flex items-center gap-2 mb-3">
           <Filter className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtros</span>
+          <span className="text-xs font-medium text-muted-foreground tracking-wider">Filtros</span>
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Período</Label>
+            <Label className="text-[10px] tracking-wider text-muted-foreground">Período</Label>
             <div className="mt-1"><DateFilter value={dateRange} onChange={(v) => { setDateRange(v); setPage(0); }} /></div>
           </div>
           <div className="min-w-[150px]">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Projeto</Label>
+            <Label className="text-[10px] tracking-wider text-muted-foreground">Projeto</Label>
             <Select value={projectFilter} onValueChange={(v) => { setProjectFilter(v); setWebhookFilter("all"); setPage(0); }}>
               <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
               <SelectContent>
@@ -155,7 +217,7 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
             </Select>
           </div>
           <div className="min-w-[150px]">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Webhook</Label>
+            <Label className="text-[10px] tracking-wider text-muted-foreground">Webhook</Label>
             <Select value={webhookFilter} onValueChange={(v) => { setWebhookFilter(v); setPage(0); }}>
               <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
               <SelectContent>
@@ -165,7 +227,7 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
             </Select>
           </div>
           <div className="min-w-[130px]">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</Label>
+            <Label className="text-[10px] tracking-wider text-muted-foreground">Status</Label>
             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
               <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Todos" /></SelectTrigger>
               <SelectContent>
@@ -206,13 +268,13 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border/30">
                 <th className="w-8" />
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Data</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Projeto</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Webhook</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Plataforma</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Evento</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Atribuição</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Data</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Projeto</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Webhook</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Plataforma</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Evento</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Atribuição</th>
               </tr></thead>
               <tbody>
                 {logs.map((log: any) => (

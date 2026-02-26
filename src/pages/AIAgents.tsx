@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import {
   Plus, Bot, Trash2, Edit2, Play, Zap, MessageSquare, Webhook,
   MousePointerClick, Brain, Send, Tag, MoveRight, StickyNote,
-  Info, ChevronRight, ChevronLeft, ArrowRight, ExternalLink,
+  Info, ChevronLeft, ArrowRight, ExternalLink,
   Sparkles, ShieldAlert, BookOpen, Package, Target, Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -136,7 +136,7 @@ const PROMPT_TEMPLATES = [
   },
 ];
 
-// ─── Visual Flow Diagram (SVG) ──────────────────────────────
+// ─── n8n-style Flow Preview ─────────────────────────────────
 function FlowPreview({
   triggerType,
   actions,
@@ -158,57 +158,72 @@ function FlowPreview({
     }),
   ];
 
-  const nodeHeight = 52;
-  const gap = 40;
-  const startY = 24;
+  const nodeW = 200;
+  const nodeH = 56;
+  const gap = 48;
+  const dotRadius = 6;
+  const startY = 32;
   const centerX = 140;
 
+  const colorMap: Record<string, { bg: string; border: string; text: string; line: string; dot: string }> = {
+    blue: { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.4)", text: "#60a5fa", line: "#3b82f6", dot: "#3b82f6" },
+    purple: { bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.4)", text: "#c084fc", line: "#a855f7", dot: "#a855f7" },
+    emerald: { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.4)", text: "#34d399", line: "#10b981", dot: "#10b981" },
+  };
+
+  const svgHeight = Math.max(300, nodes.length * (nodeH + gap) + 60);
+
   return (
-    <div className="sticky top-6">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-        Fluxo Visual
+    <div className="sticky top-24">
+      <h3 className="text-xs font-semibold text-muted-foreground mb-4">
+        Fluxo de automação
       </h3>
-      <div className="rounded-xl border border-border bg-card/50 p-4 min-h-[300px]">
-        <svg width="280" height={Math.max(300, nodes.length * (nodeHeight + gap) + 40)} className="w-full">
+      <div className="rounded-xl border border-border bg-card/50 p-5">
+        <svg width="280" height={svgHeight} className="w-full">
           {nodes.map((node, i) => {
-            const y = startY + i * (nodeHeight + gap);
-            const nextY = startY + (i + 1) * (nodeHeight + gap);
-            const colorMap: Record<string, { bg: string; border: string; text: string; line: string }> = {
-              blue: { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.3)", text: "#60a5fa", line: "#3b82f6" },
-              purple: { bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.3)", text: "#c084fc", line: "#a855f7" },
-              emerald: { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.3)", text: "#34d399", line: "#10b981" },
-            };
+            const y = startY + i * (nodeH + gap);
             const c = colorMap[node.color] || colorMap.blue;
 
             return (
               <g key={node.id}>
-                {/* Connection line */}
-                {i < nodes.length - 1 && (
-                  <>
-                    <line
-                      x1={centerX} y1={y + nodeHeight}
-                      x2={centerX} y2={nextY}
-                      stroke={c.line} strokeWidth="2" strokeDasharray="6 3" opacity="0.4"
-                    />
-                    <polygon
-                      points={`${centerX - 5},${nextY - 8} ${centerX + 5},${nextY - 8} ${centerX},${nextY - 2}`}
-                      fill={c.line} opacity="0.5"
-                    />
-                  </>
-                )}
+                {/* Connection line + dots (n8n style) */}
+                {i > 0 && (() => {
+                  const prevY = startY + (i - 1) * (nodeH + gap);
+                  const prevC = colorMap[nodes[i - 1].color] || colorMap.blue;
+                  return (
+                    <>
+                      {/* Output dot on previous node */}
+                      <circle cx={centerX} cy={prevY + nodeH + dotRadius} r={dotRadius}
+                        fill={prevC.dot} stroke={prevC.border} strokeWidth="2" className="cursor-pointer" />
+                      {/* Connection line */}
+                      <line
+                        x1={centerX} y1={prevY + nodeH + dotRadius * 2}
+                        x2={centerX} y2={y - dotRadius * 2}
+                        stroke={prevC.line} strokeWidth="2" opacity="0.5"
+                      />
+                      {/* Input dot on current node */}
+                      <circle cx={centerX} cy={y - dotRadius} r={dotRadius}
+                        fill={c.dot} stroke={c.border} strokeWidth="2" className="cursor-pointer" />
+                    </>
+                  );
+                })()}
+
                 {/* Node box */}
                 <rect
-                  x={centerX - 100} y={y} width="200" height={nodeHeight}
-                  rx="12" fill={c.bg} stroke={c.border} strokeWidth="1.5"
-                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                  x={centerX - nodeW / 2} y={y} width={nodeW} height={nodeH}
+                  rx="14" fill={c.bg} stroke={c.border} strokeWidth="1.5"
+                  className="cursor-pointer transition-opacity"
                   onClick={() => onClickSection(node.id.startsWith("action") ? "actions" : node.id === "ai" ? "ai" : "trigger")}
                 />
-                <text x={centerX} y={y + nodeHeight / 2 + 5} textAnchor="middle" fill={c.text} fontSize="13" fontWeight="600">
+
+                {/* Node label */}
+                <text x={centerX} y={y + nodeH / 2 + 5} textAnchor="middle" fill={c.text} fontSize="13" fontWeight="600">
                   {node.label}
                 </text>
               </g>
             );
           })}
+
           {nodes.length === 0 && (
             <text x={centerX} y={100} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="12">
               Configure o fluxo ao lado
@@ -269,7 +284,6 @@ function AgentEditorPage({
   const [maxResponses, setMaxResponses] = useState(agent?.ai_config?.max_responses || 10);
   const [actions, setActions] = useState<any[]>(agent?.actions || []);
 
-  // Product context fields
   const [productName, setProductName] = useState(agent?.ai_config?.product_name || "");
   const [valueProposition, setValueProposition] = useState(agent?.ai_config?.value_proposition || "");
   const [commonObjections, setCommonObjections] = useState(agent?.ai_config?.common_objections || "");
@@ -297,26 +311,16 @@ function AgentEditorPage({
       trigger_type: triggerType,
       trigger_config: {},
       ai_config: {
-        prompt,
-        model: responseModel || readModel,
-        read_model: readModel,
-        response_model: responseModel,
-        api_key_id: apiKeyId,
-        tone,
-        use_emojis: useEmojis,
-        max_responses: maxResponses,
-        product_name: productName,
-        value_proposition: valueProposition,
-        common_objections: commonObjections,
-        differentials: differentials,
+        prompt, model: responseModel || readModel, read_model: readModel,
+        response_model: responseModel, api_key_id: apiKeyId, tone,
+        use_emojis: useEmojis, max_responses: maxResponses,
+        product_name: productName, value_proposition: valueProposition,
+        common_objections: commonObjections, differentials,
       },
       actions,
     };
-    if (agent?.id) {
-      updateAgent.mutate({ id: agent.id, ...payload });
-    } else {
-      createAgent.mutate(payload);
-    }
+    if (agent?.id) { updateAgent.mutate({ id: agent.id, ...payload }); }
+    else { createAgent.mutate(payload); }
     onClose();
   };
 
@@ -325,7 +329,7 @@ function AgentEditorPage({
 
   return (
     <DashboardLayout
-      title={agent ? "Editar Agente" : "Novo Agente de IA"}
+      title={agent ? "Editar agente" : "Novo agente de IA"}
       subtitle="Configure o fluxo de automação passo a passo"
       actions={
         <div className="flex items-center gap-2">
@@ -333,7 +337,7 @@ function AgentEditorPage({
             <ChevronLeft className="h-3.5 w-3.5" /> Voltar
           </Button>
           <Button size="sm" onClick={handleSave} className="gap-1.5 text-xs">
-            <Sparkles className="h-3.5 w-3.5" /> {agent ? "Salvar" : "Criar Agente"}
+            <Sparkles className="h-3.5 w-3.5" /> {agent ? "Salvar" : "Criar agente"}
           </Button>
         </div>
       }
@@ -344,11 +348,11 @@ function AgentEditorPage({
           {/* 1. Basic Info */}
           <section className="rounded-xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Bot className="h-4 w-4 text-primary" /> Informações Básicas
+              <Bot className="h-4 w-4 text-primary" /> Informações básicas
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label className="text-xs">Nome do Agente</Label>
+                <Label className="text-xs">Nome do agente</Label>
                 <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Assistente de Vendas WhatsApp" />
               </div>
               <div>
@@ -361,7 +365,7 @@ function AgentEditorPage({
           {/* 2. Trigger */}
           <section ref={sectionRefs.trigger} className="rounded-xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Zap className="h-4 w-4 text-blue-400" /> Trigger (Gatilho)
+              <Zap className="h-4 w-4 text-blue-400" /> Trigger (gatilho)
             </h2>
             <p className="text-xs text-muted-foreground">Escolha o evento que ativa este agente automaticamente.</p>
             <div className="grid grid-cols-2 gap-3">
@@ -400,11 +404,8 @@ function AgentEditorPage({
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-xs">API Key / Provedor</Label>
-                  <Button
-                    size="sm" variant="ghost"
-                    className="h-6 text-[10px] gap-1 text-primary"
-                    onClick={() => navigate("/settings?tab=apis")}
-                  >
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1 text-primary"
+                    onClick={() => navigate("/settings?tab=apis")}>
                     <ExternalLink className="h-3 w-3" /> Criar nova API Key
                   </Button>
                 </div>
@@ -414,9 +415,7 @@ function AgentEditorPage({
                   </SelectTrigger>
                   <SelectContent className="z-50 bg-popover border border-border shadow-lg">
                     {apiKeys.filter((k: any) => k.is_active).map((k: any) => (
-                      <SelectItem key={k.id} value={k.id}>
-                        {k.label} ({k.provider})
-                      </SelectItem>
+                      <SelectItem key={k.id} value={k.id}>{k.label} ({k.provider})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -426,13 +425,12 @@ function AgentEditorPage({
                   </p>
                 )}
               </div>
-
               <div className="grid gap-4 sm:grid-cols-2">
-                <ModelSelect value={readModel} onChange={setReadModel} label="Modelo para Leitura (interpretar mensagem)" />
-                <ModelSelect value={responseModel} onChange={setResponseModel} label="Modelo para Resposta (gerar resposta)" />
+                <ModelSelect value={readModel} onChange={setReadModel} label="Modelo para leitura (interpretar mensagem)" />
+                <ModelSelect value={responseModel} onChange={setResponseModel} label="Modelo para resposta (gerar resposta)" />
               </div>
               <p className="text-[11px] text-muted-foreground">
-                💡 Você pode usar modelos diferentes para leitura e resposta. Ex: GPT-4o Mini para interpretar e Claude 3.5 Sonnet para responder.
+                Você pode usar modelos diferentes para leitura e resposta. Ex: GPT-4o Mini para interpretar e Claude 3.5 Sonnet para responder.
               </p>
             </div>
           </section>
@@ -440,17 +438,14 @@ function AgentEditorPage({
           {/* 4. Prompt */}
           <section ref={sectionRefs.prompt} className="rounded-xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-400" /> Prompt Principal
+              <Sparkles className="h-4 w-4 text-amber-400" /> Prompt principal
             </h2>
             <div>
               <Label className="text-xs mb-2 block">Templates pré-configurados</Label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {PROMPT_TEMPLATES.map((t, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setPrompt(t.prompt)}
-                    className="flex items-center gap-2 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-muted/30 text-left transition-all"
-                  >
+                  <button key={i} onClick={() => setPrompt(t.prompt)}
+                    className="flex items-center gap-2 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-muted/30 text-left transition-all">
                     <t.icon className="h-4 w-4 text-primary flex-shrink-0" />
                     <span className="text-xs font-medium">{t.label}</span>
                   </button>
@@ -459,53 +454,38 @@ function AgentEditorPage({
             </div>
             <div>
               <Label className="text-xs">Prompt do agente</Label>
-              <Textarea
-                className="mt-1 font-mono text-xs"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={12}
-                placeholder="Defina o comportamento, objetivo e regras do agente..."
-              />
+              <Textarea className="mt-1 font-mono text-xs" value={prompt} onChange={(e) => setPrompt(e.target.value)}
+                rows={12} placeholder="Defina o comportamento, objetivo e regras do agente..." />
             </div>
           </section>
 
           {/* 5. Product Context */}
           <section ref={sectionRefs.context} className="rounded-xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Package className="h-4 w-4 text-emerald-400" /> Contexto do Produto
+              <Package className="h-4 w-4 text-emerald-400" /> Contexto do produto
             </h2>
             <p className="text-xs text-muted-foreground">
               Essas informações serão incluídas automaticamente no contexto da IA para respostas mais precisas.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label className="text-xs">Nome do Produto / Serviço</Label>
+                <Label className="text-xs">Nome do produto / serviço</Label>
                 <Input className="mt-1" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Ex: Curso de Marketing Digital" />
               </div>
               <div>
-                <Label className="text-xs">Proposta de Valor</Label>
+                <Label className="text-xs">Proposta de valor</Label>
                 <Input className="mt-1" value={valueProposition} onChange={(e) => setValueProposition(e.target.value)} placeholder="O que torna seu produto único?" />
               </div>
             </div>
             <div>
-              <Label className="text-xs">Objeções Comuns e Respostas</Label>
-              <Textarea
-                className="mt-1 text-xs"
-                value={commonObjections}
-                onChange={(e) => setCommonObjections(e.target.value)}
-                rows={3}
-                placeholder='Ex: "É caro" → Oferecemos parcelamento em 12x e garantia de 30 dias'
-              />
+              <Label className="text-xs">Objeções comuns e respostas</Label>
+              <Textarea className="mt-1 text-xs" value={commonObjections} onChange={(e) => setCommonObjections(e.target.value)}
+                rows={3} placeholder='Ex: "É caro" → Oferecemos parcelamento em 12x e garantia de 30 dias' />
             </div>
             <div>
-              <Label className="text-xs">Diferenciais Competitivos</Label>
-              <Textarea
-                className="mt-1 text-xs"
-                value={differentials}
-                onChange={(e) => setDifferentials(e.target.value)}
-                rows={2}
-                placeholder="Ex: Suporte 24h, comunidade exclusiva, certificado reconhecido"
-              />
+              <Label className="text-xs">Diferenciais competitivos</Label>
+              <Textarea className="mt-1 text-xs" value={differentials} onChange={(e) => setDifferentials(e.target.value)}
+                rows={2} placeholder="Ex: Suporte 24h, comunidade exclusiva, certificado reconhecido" />
             </div>
           </section>
 
@@ -516,7 +496,7 @@ function AgentEditorPage({
             </h2>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <Label className="text-xs">Tom de Voz</Label>
+                <Label className="text-xs">Tom de voz</Label>
                 <Select value={tone} onValueChange={setTone}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent className="z-50 bg-popover border border-border shadow-lg">
@@ -541,7 +521,7 @@ function AgentEditorPage({
           {/* 7. Actions */}
           <section ref={sectionRefs.actions} className="rounded-xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Send className="h-4 w-4 text-emerald-400" /> Ações Pós-IA
+              <Send className="h-4 w-4 text-emerald-400" /> Ações pós-IA
             </h2>
             <p className="text-xs text-muted-foreground">
               Defina o que acontece após o agente processar — enviar mensagem, atualizar CRM, etc.
@@ -565,31 +545,27 @@ function AgentEditorPage({
             )}
             <div className="grid grid-cols-2 gap-2">
               {ACTION_TYPES.map((a) => (
-                <button
-                  key={a.value}
-                  onClick={() => addAction(a.value)}
-                  className="flex items-center gap-2.5 p-3 rounded-lg border border-dashed border-border hover:border-emerald-500/30 hover:bg-emerald-500/5 text-sm text-muted-foreground hover:text-foreground transition-all"
-                >
-                  <a.icon className="h-4 w-4" />
-                  {a.label}
+                <button key={a.value} onClick={() => addAction(a.value)}
+                  className="flex items-center gap-2.5 p-3 rounded-lg border border-dashed border-border hover:border-emerald-500/30 hover:bg-emerald-500/5 text-sm text-muted-foreground hover:text-foreground transition-all">
+                  <a.icon className="h-4 w-4" /> {a.label}
                 </button>
               ))}
             </div>
           </section>
 
-          {/* Tutorial box */}
+          {/* Tutorial */}
           <section className="rounded-xl border border-border bg-card p-5 space-y-3">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Info className="h-4 w-4 text-primary" /> Como Funciona
+              <Info className="h-4 w-4 text-primary" /> Como funciona
             </h2>
             <div className="text-xs text-muted-foreground space-y-2">
               <p><strong>1. Trigger</strong> — O gatilho que inicia o agente (ex: mensagem no WhatsApp, nova venda via webhook, envio de formulário).</p>
-              <p><strong>2. Agente IA</strong> — Processa a informação usando o prompt, modelo e contexto do produto configurados. Pode usar modelos diferentes para interpretar e responder.</p>
+              <p><strong>2. Agente IA</strong> — Processa a informação usando o prompt, modelo e contexto do produto configurados.</p>
               <p><strong>3. Ações</strong> — Executam tarefas automaticamente: enviar mensagem, mover lead no Kanban, adicionar tags, registrar anotações.</p>
             </div>
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 space-y-1.5">
               <p className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
-                <ShieldAlert className="h-3.5 w-3.5" /> Boas Práticas — Evite bloqueio
+                <ShieldAlert className="h-3.5 w-3.5" /> Boas práticas — Evite bloqueio
               </p>
               <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc pl-4">
                 <li>Evite spam em massa, mensagens repetitivas e linguagem agressiva para não comprometer seu número</li>
@@ -602,7 +578,7 @@ function AgentEditorPage({
           </section>
         </div>
 
-        {/* Right column — Visual flow preview */}
+        {/* Right column — Visual flow preview (sticky to viewport) */}
         <div className="hidden lg:block">
           <FlowPreview triggerType={triggerType} actions={actions} onClickSection={scrollToSection} />
         </div>
@@ -633,7 +609,7 @@ export default function AIAgents() {
       subtitle="Crie fluxos automatizados com inteligência artificial"
       actions={
         <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1.5 text-xs">
-          <Plus className="h-3.5 w-3.5" /> Novo Agente
+          <Plus className="h-3.5 w-3.5" /> Novo agente
         </Button>
       }
     >
@@ -676,10 +652,7 @@ export default function AIAgents() {
                     <Badge variant={agent.is_active ? "default" : "secondary"} className="text-[10px]">
                       {agent.is_active ? "Ativo" : "Inativo"}
                     </Badge>
-                    <Switch
-                      checked={agent.is_active}
-                      onCheckedChange={(checked) => updateAgent.mutate({ id: agent.id, is_active: checked })}
-                    />
+                    <Switch checked={agent.is_active} onCheckedChange={(checked) => updateAgent.mutate({ id: agent.id, is_active: checked })} />
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAgent(agent)}>
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
