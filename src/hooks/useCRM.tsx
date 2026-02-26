@@ -79,13 +79,14 @@ export function useCRM() {
   });
 
   const createLead = useMutation({
-    mutationFn: async (lead: { name: string; email?: string; phone?: string; source?: string }) => {
-      const firstStage = stagesQuery.data?.[0];
+    mutationFn: async (lead: { name: string; email?: string; phone?: string; source?: string; stageId?: string }) => {
+      const targetStageId = lead.stageId || stagesQuery.data?.[0]?.id || null;
+      const { stageId: _, ...rest } = lead;
       const { error } = await (supabase as any).from("leads").insert({
         account_id: activeAccountId,
         project_id: activeProjectId,
-        stage_id: firstStage?.id || null,
-        ...lead,
+        stage_id: targetStageId,
+        ...rest,
       });
       if (error) throw error;
     },
