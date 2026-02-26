@@ -98,10 +98,10 @@ export default function CRM() {
             </DropdownMenu>
           )}
           <Button size="sm" variant={!isListView ? "default" : "outline"} onClick={() => navigate("/crm?tab=kanban")} className="gap-1.5 text-xs h-8">
-            <LayoutGrid className="h-3.5 w-3.5" />
+            <LayoutGrid className="h-3.5 w-3.5" /> Kanban
           </Button>
           <Button size="sm" variant={isListView ? "default" : "outline"} onClick={() => navigate("/crm?tab=leads")} className="gap-1.5 text-xs h-8">
-            <List className="h-3.5 w-3.5" />
+            <List className="h-3.5 w-3.5" /> Lista
           </Button>
         </div>
       }

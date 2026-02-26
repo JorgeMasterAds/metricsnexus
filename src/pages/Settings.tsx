@@ -527,12 +527,58 @@ export default function Settings() {
                 <p className="text-2xl font-bold">R$ {(subscription?.plans?.price || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
               )}
             </div>
+
+            {/* Plan entitlements */}
+            {(() => {
+              const plan = subscription?.plans;
+              if (!plan && !isSuperAdmin) return null;
+              const entitlements = isSuperAdmin
+                ? [
+                    { label: "Projetos", value: "Ilimitados" },
+                    { label: "Smart Links", value: "Ilimitados" },
+                    { label: "Webhooks", value: "Ilimitados" },
+                    { label: "Usuários", value: "Ilimitados" },
+                    { label: "Leads", value: "Ilimitados" },
+                    { label: "Agentes IA", value: "Ilimitados" },
+                    { label: "Dispositivos", value: "Ilimitados" },
+                  ]
+                : [
+                    { label: "Projetos", value: `${plan?.max_projects ?? 1}` },
+                    { label: "Smart Links", value: `${plan?.max_smartlinks ?? 1}` },
+                    { label: "Webhooks", value: plan?.max_webhooks === -1 ? "Ilimitados" : `${plan?.max_webhooks ?? 1}` },
+                    { label: "Usuários", value: `${plan?.max_users ?? 1}` },
+                    { label: "Leads", value: `${plan?.max_leads ?? 100}` },
+                    { label: "Agentes IA", value: `${plan?.max_agents ?? 1}` },
+                    { label: "Dispositivos", value: `${plan?.max_devices ?? 1}` },
+                  ];
+              return (
+                <div className="rounded-lg border border-border/30 p-4 mb-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Recursos incluídos no plano</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {entitlements.map((e, i) => (
+                      <div key={i} className="text-center p-2.5 rounded-lg bg-muted/30">
+                        <p className="text-sm font-bold text-foreground">{e.value}</p>
+                        <p className="text-[10px] text-muted-foreground">{e.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {!isSuperAdmin && subscription?.current_period_end && <p className="text-xs text-muted-foreground">Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</p>}
-            {!isSuperAdmin && subscription?.stripe_subscription_id && (
-              <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={async () => {
-                try { const { data, error } = await supabase.functions.invoke("customer-portal"); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro", description: err.message, variant: "destructive" }); }
-              }}>Gerenciar assinatura</Button>
-            )}
+            <div className="flex gap-2 mt-3">
+              {!isSuperAdmin && subscription?.stripe_subscription_id && (
+                <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={async () => {
+                  try { const { data, error } = await supabase.functions.invoke("customer-portal"); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro", description: err.message, variant: "destructive" }); }
+                }}><CreditCard className="h-3 w-3" /> Gerenciar assinatura</Button>
+              )}
+              {!isSuperAdmin && subscription?.stripe_subscription_id && (
+                <Button size="sm" variant="ghost" className="text-xs gap-1.5" onClick={async () => {
+                  try { const { data, error } = await supabase.functions.invoke("customer-portal"); if (error) throw error; if (data?.url) window.location.href = data.url; } catch (err: any) { toast({ title: "Erro", description: err.message, variant: "destructive" }); }
+                }}>Meio de pagamento</Button>
+              )}
+            </div>
           </div>
 
           {!isSuperAdmin && (

@@ -18,8 +18,8 @@ interface Props {
 }
 
 const STAGE_COLORS = [
-  "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444",
-  "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
+  "#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#f97316",
+  "#8b5cf6", "#ec4899",
 ];
 
 function InlineLeadForm({ stageId, onClose }: { stageId: string; onClose: () => void }) {
@@ -184,12 +184,22 @@ function KanbanColumn({
           <div
             key={lead.id}
             onClick={() => onSelectLead(lead)}
-            className="p-3 rounded-lg bg-card border border-border/60 cursor-pointer hover:border-primary/40 transition-all shadow-sm"
+            className="p-3 rounded-lg bg-card border border-border/60 cursor-pointer hover:border-primary/40 transition-all shadow-sm active:rotate-[2deg] active:scale-[1.03] active:opacity-60 active:shadow-lg"
             draggable
             onDragStart={(e) => {
               e.dataTransfer.setData("text/lead-id", lead.id);
               e.dataTransfer.effectAllowed = "move";
               e.stopPropagation();
+              const el = e.currentTarget;
+              el.style.transform = "rotate(2deg) scale(1.03)";
+              el.style.opacity = "0.6";
+              el.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)";
+            }}
+            onDragEnd={(e) => {
+              const el = e.currentTarget;
+              el.style.transform = "";
+              el.style.opacity = "";
+              el.style.boxShadow = "";
             }}
           >
             {lead.source && (
