@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Smartphone, Trash2, Wifi, WifiOff, AlertTriangle, RefreshCw } from "lucide-react";
+import { Plus, Smartphone, Trash2, Wifi, WifiOff, AlertTriangle, RefreshCw, Server } from "lucide-react";
 
 export default function Devices() {
   const { devices, addDevice, deleteDevice, isLoading } = useAIAgents();
@@ -34,8 +34,25 @@ export default function Devices() {
         </Button>
       }
     >
+      {/* Evolution API info */}
+      <div className="rounded-xl bg-muted/30 border border-border p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <Server className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1.5">
+            <p className="font-medium text-foreground">Sobre a Evolution API</p>
+            <p className="text-muted-foreground">
+              A conexão com WhatsApp requer um servidor externo com <strong>Evolution API</strong> instalada.
+              O Nexus Metrics não hospeda a instância — você precisa de seu próprio servidor ou de um provedor de Evolution API.
+            </p>
+            <p className="text-muted-foreground">
+              Cada dispositivo é vinculado ao projeto ativo. Apenas dispositivos do projeto atual são exibidos.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Warning banner */}
-      <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 mb-6">
+      <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 mb-6">
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm space-y-1">
