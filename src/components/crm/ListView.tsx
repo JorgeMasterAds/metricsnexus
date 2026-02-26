@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -45,13 +44,13 @@ export default function ListView({ leads, onSelectLead }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/30">
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Nome</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">E-mail</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Telefone</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Valor Total</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Origem</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Tags</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase">Data</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Nome</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">E-mail</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Telefone</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Valor total</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Origem</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Tags</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Data</th>
               </tr>
             </thead>
             <tbody>
