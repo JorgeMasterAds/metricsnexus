@@ -42,7 +42,7 @@ export default function ListView({ leads, onSelectLead }: Props) {
           <Input placeholder="Buscar leads..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9 text-sm" />
         </div>
-        <span className="text-xs text-muted-foreground">{filtered.length} lead(s)</span>
+        <span className="text-xs text-muted-foreground">{filtered.length} lead(s) · Limite do plano: verificar assinatura</span>
       </div>
 
       <div className="rounded-xl bg-card border border-border/50 overflow-hidden">
