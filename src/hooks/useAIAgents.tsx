@@ -38,16 +38,17 @@ export function useAIAgents() {
   });
 
   const devicesQuery = useQuery({
-    queryKey: ["whatsapp-devices", activeAccountId],
+    queryKey: ["whatsapp-devices", activeAccountId, activeProjectId],
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("whatsapp_devices")
         .select("*")
         .eq("account_id", activeAccountId)
+        .eq("project_id", activeProjectId)
         .order("created_at", { ascending: false });
       return data || [];
     },
-    enabled: !!activeAccountId,
+    enabled: !!activeAccountId && !!activeProjectId,
   });
 
   const logsQuery = useQuery({

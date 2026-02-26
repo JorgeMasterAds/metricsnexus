@@ -142,14 +142,18 @@ serve(async (req) => {
     for (const action of (agent.actions || [])) {
       try {
         if (action.type === "send_whatsapp") {
-          // Get device
-          const { data: device } = await supabase
+          // Get device filtered by project_id
+          let deviceQuery = supabase
             .from("whatsapp_devices")
             .select("*")
             .eq("account_id", agent.account_id)
-            .eq("status", "connected")
-            .limit(1)
-            .single();
+            .eq("status", "connected");
+          
+          if (agent.project_id) {
+            deviceQuery = deviceQuery.eq("project_id", agent.project_id);
+          }
+
+          const { data: device } = await deviceQuery.limit(1).single();
 
           if (device && trigger_data?.phone) {
             await fetch(`${device.api_url}/message/sendText/${device.instance_name}`, {
