@@ -40,11 +40,11 @@ export default function CreatePipelineModal({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Novo Pipeline (Kanban)</DialogTitle>
+          <DialogTitle>Criar Kanban</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground uppercase mb-1 block">Nome do Pipeline *</label>
+            <label className="text-xs text-muted-foreground uppercase mb-1 block">Nome do Kanban *</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Funil de Vendas - Produto X" />
           </div>
 
@@ -73,7 +73,7 @@ export default function CreatePipelineModal({ open, onOpenChange }: Props) {
                 })}
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Quando um lead comprar um produto associado, ele será direcionado automaticamente para este pipeline.
+                Quando um lead comprar um produto associado, ele será direcionado automaticamente para este Kanban.
               </p>
             </div>
           )}
@@ -81,7 +81,7 @@ export default function CreatePipelineModal({ open, onOpenChange }: Props) {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={!name.trim() || createPipeline.isPending}>
-              {createPipeline.isPending ? "Criando..." : "Criar Pipeline"}
+              {createPipeline.isPending ? "Criando..." : "Criar Kanban"}
             </Button>
           </div>
         </div>

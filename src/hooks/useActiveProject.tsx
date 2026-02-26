@@ -1,12 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+
+const LAST_PROJECT_KEY = "nexus_last_project";
 
 /**
  * Manages which project is currently "selected" for viewing.
- * This is separate from is_active (which controls whether a project processes events).
- * Selected project ID is stored in query cache under ["selected-project-id"].
+ * Persists the last used project in localStorage.
  */
 export function useActiveProject() {
   const { activeAccountId } = useAccount();
@@ -31,11 +32,22 @@ export function useActiveProject() {
   const { data: selectedId } = useQuery({
     queryKey: ["selected-project-id", activeAccountId],
     queryFn: () => null as string | null,
-    enabled: false, // never fetches, only used as cache store
+    enabled: false,
     staleTime: Infinity,
   });
 
-  // Determine the active project: use selection if valid, otherwise first active project
+  // On mount, restore from localStorage if no cache selection
+  useEffect(() => {
+    if (!activeAccountId || activeProjects.length === 0) return;
+    const cached = qc.getQueryData(["selected-project-id", activeAccountId]);
+    if (!cached) {
+      const saved = localStorage.getItem(`${LAST_PROJECT_KEY}_${activeAccountId}`);
+      if (saved && activeProjects.some((p: any) => p.id === saved)) {
+        qc.setQueryData(["selected-project-id", activeAccountId], saved);
+      }
+    }
+  }, [activeAccountId, activeProjects, qc]);
+
   const validSelection = selectedId && activeProjects.some((p: any) => p.id === selectedId);
   const activeProject = validSelection
     ? activeProjects.find((p: any) => p.id === selectedId)
@@ -43,7 +55,9 @@ export function useActiveProject() {
 
   const selectProject = useCallback((projectId: string) => {
     qc.setQueryData(["selected-project-id", activeAccountId], projectId);
-    // Also invalidate dependent queries
+    if (activeAccountId) {
+      localStorage.setItem(`${LAST_PROJECT_KEY}_${activeAccountId}`, projectId);
+    }
     qc.invalidateQueries({ queryKey: ["sidebar-active-project"] });
   }, [qc, activeAccountId]);
 
