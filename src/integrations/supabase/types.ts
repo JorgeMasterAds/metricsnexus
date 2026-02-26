@@ -1575,6 +1575,9 @@ export type Database = {
           created_at: string
           features: Json | null
           id: string
+          max_agents: number
+          max_devices: number
+          max_leads: number
           max_projects: number
           max_smartlinks: number
           max_users: number
@@ -1588,6 +1591,9 @@ export type Database = {
           created_at?: string
           features?: Json | null
           id?: string
+          max_agents?: number
+          max_devices?: number
+          max_leads?: number
           max_projects?: number
           max_smartlinks?: number
           max_users?: number
@@ -1601,6 +1607,9 @@ export type Database = {
           created_at?: string
           features?: Json | null
           id?: string
+          max_agents?: number
+          max_devices?: number
+          max_leads?: number
           max_projects?: number
           max_smartlinks?: number
           max_users?: number
@@ -2320,6 +2329,27 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_tour_completions: {
+        Row: {
+          completed_at: string
+          id: string
+          tour_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          tour_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          tour_id?: string
           user_id?: string
         }
         Relationships: []

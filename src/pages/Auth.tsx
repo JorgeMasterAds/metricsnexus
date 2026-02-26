@@ -121,7 +121,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left side - Login form */}
-      <div className="w-full lg:w-[480px] flex flex-col justify-center p-8 lg:p-12">
+      <div className="w-full lg:w-[480px] flex flex-col items-center justify-center p-8 lg:p-12">
         {/* Logo */}
         <div className="flex items-center gap-2 mb-10">
           <Activity className="h-6 w-6 text-primary" />

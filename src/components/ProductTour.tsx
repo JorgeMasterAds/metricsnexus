@@ -17,6 +17,43 @@ interface Props {
 
 const STORAGE_KEY_PREFIX = "tour_completed_";
 
+// Persist tour completion in the database so it's truly once-per-user
+async function checkTourCompleted(tourId: string): Promise<boolean> {
+  // First check localStorage as a fast cache
+  const localKey = `${STORAGE_KEY_PREFIX}${tourId}`;
+  if (localStorage.getItem(localKey)) return true;
+  // Then check DB
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data } = await (supabase as any)
+      .from("user_tour_completions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("tour_id", tourId)
+      .maybeSingle();
+    if (data) {
+      localStorage.setItem(localKey, "true");
+      return true;
+    }
+  } catch { /* table may not exist yet, fall back to localStorage */ }
+  return false;
+}
+
+async function markTourCompleted(tourId: string) {
+  const localKey = `${STORAGE_KEY_PREFIX}${tourId}`;
+  localStorage.setItem(localKey, "true");
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await (supabase as any)
+      .from("user_tour_completions")
+      .upsert({ user_id: user.id, tour_id: tourId }, { onConflict: "user_id,tour_id" });
+  } catch { /* silent */ }
+}
+
 export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
   const [open, setOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -25,12 +62,15 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
   const storageKey = `${STORAGE_KEY_PREFIX}${tourId}`;
 
   useEffect(() => {
-    const completed = localStorage.getItem(storageKey);
-    if (!completed) {
-      const timer = setTimeout(() => setOpen(true), 1200);
-      return () => clearTimeout(timer);
-    }
-  }, [storageKey]);
+    let cancelled = false;
+    checkTourCompleted(tourId).then((completed) => {
+      if (!cancelled && !completed) {
+        const timer = setTimeout(() => setOpen(true), 1200);
+        return () => clearTimeout(timer);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [tourId]);
 
   const computeRect = useCallback(() => {
     if (!open) return;
@@ -65,8 +105,8 @@ export default function ProductTour({ tourId, steps, triggerLabel }: Props) {
 
   const finish = useCallback(() => {
     setOpen(false); setCurrentStep(0);
-    localStorage.setItem(storageKey, "true");
-  }, [storageKey]);
+    markTourCompleted(tourId);
+  }, [tourId]);
 
   const next = () => { if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1); else finish(); };
   const prev = () => { if (currentStep > 0) setCurrentStep(currentStep - 1); };

@@ -509,12 +509,17 @@ export default function Settings() {
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" />Plano Atual</h2>
             <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border/30 mb-4">
-              <div>
-                <p className="text-lg font-bold capitalize">
-                  {isSuperAdmin ? "Ouro" : (subscription?.plans?.name || subscription?.plan_type || "Free")}
-                  {isSuperAdmin && <Badge variant="outline" className="text-[10px] ml-2 border-primary/50 text-primary">Super Admin</Badge>}
-                </p>
-                <p className="text-xs text-muted-foreground">Status: <Badge variant="outline" className="text-[10px] ml-1 capitalize">{subscription?.status || "ativo"}</Badge></p>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="text-lg font-bold capitalize">
+                    {isSuperAdmin ? "Ouro" : (subscription?.plans?.name || subscription?.plan_type || "Free")}
+                  </p>
+                  {isSuperAdmin && <Badge variant="outline" className="text-[10px] border-primary/50 text-primary">Super Admin</Badge>}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Status:</span>
+                  <Badge variant="outline" className="text-[10px] capitalize">{subscription?.status || "ativo"}</Badge>
+                </div>
               </div>
               {isSuperAdmin ? (
                 <p className="text-sm text-muted-foreground">Acesso completo</p>
