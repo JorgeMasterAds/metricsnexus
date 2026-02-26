@@ -76,6 +76,9 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
     setShowTagPicker(false);
   };
 
+  // Filter out stage_change from history
+  const filteredHistory = history.filter((h: any) => h.action !== "stage_change");
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -112,7 +115,7 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
 
             {/* ── DETALHES ── */}
             <TabsContent value="details" className="space-y-5">
-              {/* Contact info */}
+              {/* Contact info + Purchases + Origin consolidated */}
               {editing ? (
                 <div className="space-y-3 rounded-xl border border-border p-4">
                   <div>
@@ -133,20 +136,74 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="rounded-xl border border-border p-4 space-y-4">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                     <InfoField label="Nome completo" value={lead.name} />
                     <InfoField label="E-mail" value={lead.email} />
                     <InfoField label="Telefone" value={lead.phone} />
                     <InfoField label="Valor total" value={`R$ ${Number(lead.total_value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} highlight />
                   </div>
+
+                  {/* Origin inline */}
+                  {lead.source && (
+                    <div className="border-t border-border pt-3">
+                      <InfoField label="Origem" value={lead.source} />
+                    </div>
+                  )}
+
+                  {/* Purchases inline */}
+                  <div className="border-t border-border pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                        <ShoppingCart className="h-3.5 w-3.5 text-primary" /> Compras
+                      </h4>
+                      <span className="text-sm font-bold text-primary">
+                        R$ {totalPurchases.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {purchases.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhuma compra registrada.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {purchases.map((p: any) => (
+                          <div key={p.id} className="flex justify-between items-center p-2 rounded-lg bg-muted/30 text-xs">
+                            <div>
+                              <p className="font-medium text-foreground">{p.conversions?.product_name || "—"}</p>
+                              <p className="text-muted-foreground">{p.conversions?.platform} · {p.conversions?.payment_method || "—"}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium text-primary">R$ {Number(p.conversions?.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                              <p className="text-muted-foreground">{p.conversions?.paid_at ? new Date(p.conversions.paid_at).toLocaleDateString("pt-BR") : "—"}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* UTM data */}
+                  {purchases.length > 0 && (
+                    <div className="border-t border-border pt-3">
+                      <h4 className="text-xs font-semibold flex items-center gap-1.5 mb-2">
+                        <ExternalLink className="h-3.5 w-3.5" /> Rastreamento UTM
+                      </h4>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                        <UtmField label="Source" value={purchases[0]?.conversions?.utm_source} />
+                        <UtmField label="Medium" value={purchases[0]?.conversions?.utm_medium} />
+                        <UtmField label="Campanha" value={purchases[0]?.conversions?.utm_campaign} />
+                        <UtmField label="Conteúdo" value={purchases[0]?.conversions?.utm_content} />
+                        <UtmField label="Termo" value={purchases[0]?.conversions?.utm_term} />
+                      </div>
+                    </div>
+                  )}
+
                   <Button size="sm" variant="outline" onClick={() => setEditing(true)} className="text-xs mt-2">
                     Editar
                   </Button>
                 </div>
               )}
 
-              {/* Tags - improved UI */}
+              {/* Tags */}
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold flex items-center gap-1.5">
@@ -159,7 +216,7 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                           <Plus className="h-3 w-3" /> Adicionar
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-56 p-0 z-50" align="end">
+                      <PopoverContent className="w-56 p-0 z-[60]" align="end">
                         <Command>
                           <CommandInput placeholder="Buscar tag..." className="h-8 text-xs" />
                           <CommandList>
@@ -199,7 +256,7 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
               {/* Create tag popover */}
               <Popover open={showCreateTag} onOpenChange={setShowCreateTag}>
                 <PopoverTrigger asChild><span /></PopoverTrigger>
-                <PopoverContent className="w-60 z-50 space-y-3">
+                <PopoverContent className="w-60 z-[60] space-y-3">
                   <p className="text-xs font-medium">Criar nova tag</p>
                   <Input placeholder="Nome da tag" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} className="text-xs h-8" />
                   <div className="flex gap-1.5">
@@ -220,7 +277,7 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                 </PopoverContent>
               </Popover>
 
-              {/* Notes - moved BEFORE origin */}
+              {/* Notes */}
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <h3 className="text-xs font-semibold flex items-center gap-1.5">
                   <MessageSquare className="h-3.5 w-3.5" /> Anotações internas
@@ -245,69 +302,15 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                   </div>
                 )}
               </div>
-
-              {/* Purchases summary */}
-              <div className="rounded-xl border border-border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                    <ShoppingCart className="h-3.5 w-3.5 text-primary" /> Compras
-                  </h3>
-                  <span className="text-sm font-bold text-primary">
-                    R$ {totalPurchases.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                {purchases.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Nenhuma compra registrada.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {purchases.map((p: any) => (
-                      <div key={p.id} className="flex justify-between items-center p-2 rounded-lg bg-muted/30 text-xs">
-                        <div>
-                          <p className="font-medium text-foreground">{p.conversions?.product_name || "—"}</p>
-                          <p className="text-muted-foreground">{p.conversions?.platform} · {p.conversions?.payment_method || "—"}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-primary">R$ {Number(p.conversions?.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                          <p className="text-muted-foreground">{p.conversions?.paid_at ? new Date(p.conversions.paid_at).toLocaleDateString("pt-BR") : "—"}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* UTM / Origem */}
-              <div className="rounded-xl border border-border p-4 space-y-3">
-                <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                  <ExternalLink className="h-3.5 w-3.5" /> Origem do lead
-                </h3>
-                {lead.source && (
-                  <div className="mb-2">
-                    <p className="text-[11px] text-muted-foreground">Origem direta</p>
-                    <p className="text-sm text-foreground">{lead.source}</p>
-                  </div>
-                )}
-                {purchases.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-                    <UtmField label="Source" value={purchases[0]?.conversions?.utm_source} />
-                    <UtmField label="Medium" value={purchases[0]?.conversions?.utm_medium} />
-                    <UtmField label="Campanha" value={purchases[0]?.conversions?.utm_campaign} />
-                    <UtmField label="Conteúdo" value={purchases[0]?.conversions?.utm_content} />
-                    <UtmField label="Termo" value={purchases[0]?.conversions?.utm_term} />
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Sem dados de rastreamento disponíveis.</p>
-                )}
-              </div>
             </TabsContent>
 
             {/* ── HISTÓRICO ── */}
             <TabsContent value="history">
-              {history.length === 0 ? (
+              {filteredHistory.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">Nenhum registro no histórico.</p>
               ) : (
                 <div className="space-y-3">
-                  {history.map((h: any) => (
+                  {filteredHistory.map((h: any) => (
                     <div key={h.id} className="rounded-xl border border-border p-3 space-y-2">
                       <div className="flex items-start gap-2">
                         <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
