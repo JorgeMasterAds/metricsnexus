@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Plus, UserPlus, ChevronDown, Trash2, LayoutGrid, List } from "lucide-react";
+import { Plus, ChevronDown, Trash2, LayoutGrid, List } from "lucide-react";
 import { useCRM } from "@/hooks/useCRM";
 import ListView from "@/components/crm/ListView";
 import KanbanView from "@/components/crm/KanbanView";
 import LeadDetailPanel from "@/components/crm/LeadDetailPanel";
-import CreateLeadModal from "@/components/crm/CreateLeadModal";
 import CreatePipelineModal from "@/components/crm/CreatePipelineModal";
 import { cn } from "@/lib/utils";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,16 +16,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function CRM() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const tab = searchParams.get("tab") || "kanban";
   const isListView = tab === "leads";
 
   const [selectedLead, setSelectedLead] = useState<any>(null);
-  const [showCreate, setShowCreate] = useState(false);
   const [showPipelineModal, setShowPipelineModal] = useState(false);
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
+  const [deletingPipelineId, setDeletingPipelineId] = useState<string | null>(null);
   const { leads, pipelines, stages, isLoading, deletePipeline } = useCRM();
 
   // Auto-select first pipeline
@@ -36,7 +46,7 @@ export default function CRM() {
     }
   }, [pipelines, activePipelineId, isListView]);
 
-  // Auto-prompt to create pipeline if none exist and not loading
+  // Auto-prompt to create pipeline if none exist
   const [autoPrompted, setAutoPrompted] = useState(false);
   useEffect(() => {
     if (!isLoading && pipelines.length === 0 && !isListView && !autoPrompted) {
@@ -50,6 +60,13 @@ export default function CRM() {
     : stages;
 
   const activePipeline = pipelines.find((p: any) => p.id === activePipelineId);
+
+  const handleDeletePipeline = () => {
+    if (!deletingPipelineId) return;
+    deletePipeline.mutate(deletingPipelineId);
+    if (activePipelineId === deletingPipelineId) setActivePipelineId(null);
+    setDeletingPipelineId(null);
+  };
 
   const titleContent = isListView ? (
     "Lista de Leads"
@@ -78,8 +95,7 @@ export default function CRM() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    deletePipeline.mutate(p.id);
-                    if (activePipelineId === p.id) setActivePipelineId(null);
+                    setDeletingPipelineId(p.id);
                   }}
                   className="text-muted-foreground hover:text-destructive p-0.5"
                 >
@@ -103,9 +119,22 @@ export default function CRM() {
       title={titleContent as any}
       subtitle={isListView ? "Todos os leads do projeto" : "Gerencie seus pipelines e funis de vendas"}
       actions={
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1.5 text-xs">
-            <UserPlus className="h-3.5 w-3.5" /> Novo Lead
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant={!isListView ? "default" : "outline"}
+            onClick={() => navigate("/crm?tab=kanban")}
+            className="gap-1.5 text-xs h-8"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="sm"
+            variant={isListView ? "default" : "outline"}
+            onClick={() => navigate("/crm?tab=leads")}
+            className="gap-1.5 text-xs h-8"
+          >
+            <List className="h-3.5 w-3.5" />
           </Button>
         </div>
       }
@@ -128,8 +157,25 @@ export default function CRM() {
         <LeadDetailPanel lead={selectedLead} onClose={() => setSelectedLead(null)} />
       )}
 
-      <CreateLeadModal open={showCreate} onOpenChange={setShowCreate} />
       <CreatePipelineModal open={showPipelineModal} onOpenChange={setShowPipelineModal} />
+
+      {/* Delete pipeline confirmation */}
+      <AlertDialog open={!!deletingPipelineId} onOpenChange={(o) => !o && setDeletingPipelineId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir pipeline?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. Todas as etapas deste pipeline serão removidas. Os leads não serão excluídos, mas perderão a associação com as etapas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePipeline} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
