@@ -106,12 +106,6 @@ export function useCRM() {
     mutationFn: async ({ leadId, stageId, stageName }: { leadId: string; stageId: string; stageName: string }) => {
       const { error } = await (supabase as any).from("leads").update({ stage_id: stageId }).eq("id", leadId);
       if (error) throw error;
-      await (supabase as any).from("lead_history").insert({
-        lead_id: leadId,
-        account_id: activeAccountId,
-        action: "stage_change",
-        details: `Movido para: ${stageName}`,
-      });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["crm-leads"] }); },
   });

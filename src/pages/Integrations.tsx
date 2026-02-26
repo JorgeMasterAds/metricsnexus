@@ -7,13 +7,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
-import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft, FileCode, Plus, Copy, Trash2, ExternalLink } from "lucide-react";
+import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft, FileCode, Plus, Copy, Trash2, ExternalLink, User, Mail, Phone, Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -79,37 +80,20 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
   const [step, setStep] = useState(1);
   const [formName, setFormName] = useState("");
   const [fields, setFields] = useState({ name: true, email: true, phone: true });
-  const [redirectType, setRedirectType] = useState<"url" | "checkout">("url");
   const [redirectUrl, setRedirectUrl] = useState("");
-  const [selectedWebhookId, setSelectedWebhookId] = useState("");
+  const [isCheckout, setIsCheckout] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showEmbed, setShowEmbed] = useState<string | null>(null);
   const [deleteFormId, setDeleteFormId] = useState<string | null>(null);
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-  const { data: webhooks = [] } = useQuery({
-    queryKey: ["wh-forms-webhooks", accountId, projectId],
-    queryFn: async () => {
-      let q = (supabase as any)
-        .from("webhooks")
-        .select("id, name, token, platform")
-        .eq("account_id", accountId)
-        .eq("is_active", true)
-        .order("name");
-      if (projectId) q = q.eq("project_id", projectId);
-      const { data } = await q;
-      return data || [];
-    },
-    enabled: !!accountId,
-  });
-
   const { data: forms = [], isLoading } = useQuery({
     queryKey: ["webhook-forms", accountId, projectId],
     queryFn: async () => {
       let q = (supabase as any)
         .from("webhook_forms")
-        .select("*, webhooks:webhook_id(id, name, token)")
+        .select("*")
         .eq("account_id", accountId)
         .order("created_at", { ascending: false });
       if (projectId) q = q.eq("project_id", projectId);
@@ -123,21 +107,32 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
     setStep(1);
     setFormName("");
     setFields({ name: true, email: true, phone: true });
-    setRedirectType("url");
     setRedirectUrl("");
-    setSelectedWebhookId("");
+    setIsCheckout(false);
   };
 
   const createForm = async () => {
-    if (!formName.trim() || !selectedWebhookId || !accountId) return;
+    if (!formName.trim() || !accountId) return;
     setSaving(true);
     try {
+      // Create internal webhook for this form
+      const whToken = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+      const { data: whData, error: whError } = await (supabase as any).from("webhooks").insert({
+        account_id: accountId,
+        project_id: projectId || null,
+        name: `Formulário: ${formName.trim()}`,
+        token: whToken,
+        platform: "form",
+        is_active: true,
+      }).select("id").single();
+      if (whError) throw whError;
+
       const { error } = await (supabase as any).from("webhook_forms").insert({
         account_id: accountId,
         project_id: projectId || null,
-        webhook_id: selectedWebhookId,
+        webhook_id: whData.id,
         name: formName.trim(),
-        redirect_type: redirectType,
+        redirect_type: isCheckout ? "checkout" : "url",
         redirect_url: redirectUrl.trim() || null,
       });
       if (error) throw error;
@@ -154,34 +149,45 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
 
   const deleteForm = async () => {
     if (!deleteFormId) return;
+    // Also delete the internal webhook
+    const form = forms.find((f: any) => f.id === deleteFormId);
+    if (form?.webhook_id) {
+      await (supabase as any).from("webhooks").delete().eq("id", form.webhook_id);
+    }
     await (supabase as any).from("webhook_forms").delete().eq("id", deleteFormId);
     qc.invalidateQueries({ queryKey: ["webhook-forms"] });
     toast.success("Formulário excluído");
     setDeleteFormId(null);
   };
 
-  const getFormEndpoint = (token: string) =>
-    `https://${supabaseProjectId}.supabase.co/functions/v1/form-submit/${token}`;
+  const getFormEndpoint = (formId: string) => {
+    const form = forms.find((f: any) => f.id === formId);
+    // We need the webhook token - query it
+    return `https://${supabaseProjectId}.supabase.co/functions/v1/form-submit`;
+  };
 
   const generateEmbedCode = (form: any) => {
-    const token = form.webhooks?.token || "";
-    const endpoint = getFormEndpoint(token);
-    const redirect = form.redirect_url ? `\n      window.location.href = "${form.redirect_url}";` : `\n      alert("Enviado com sucesso!");`;
+    const endpoint = `https://${supabaseProjectId}.supabase.co/functions/v1/form-submit`;
+    const redirect = form.redirect_url
+      ? (isCheckout
+        ? `\n      const url = new URL("${form.redirect_url}");\n      url.searchParams.set("name", body.name || "");\n      url.searchParams.set("email", body.email || "");\n      url.searchParams.set("phone", body.phone || "");\n      window.location.href = url.toString();`
+        : `\n      window.location.href = "${form.redirect_url}";`)
+      : `\n      alert("Enviado com sucesso!");`;
 
     return `<!-- Formulário ${form.name} - Nexus Metrics -->
 <form id="nexus-form-${form.id.slice(0, 8)}" style="max-width:400px;font-family:system-ui,sans-serif;">
-  <div style="margin-bottom:12px;">
+${fields.name ? `  <div style="margin-bottom:12px;">
     <label style="display:block;font-size:14px;margin-bottom:4px;font-weight:500;">Nome</label>
     <input type="text" name="name" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;" />
-  </div>
-  <div style="margin-bottom:12px;">
-    <label style="display:block;font-size:14px;margin-bottom:4px;font-weight:500;">Telefone</label>
-    <input type="tel" name="phone" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;" />
-  </div>
-  <div style="margin-bottom:12px;">
+  </div>` : ""}
+${fields.email ? `  <div style="margin-bottom:12px;">
     <label style="display:block;font-size:14px;margin-bottom:4px;font-weight:500;">E-mail</label>
     <input type="email" name="email" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;" />
-  </div>
+  </div>` : ""}
+${fields.phone ? `  <div style="margin-bottom:12px;">
+    <label style="display:block;font-size:14px;margin-bottom:4px;font-weight:500;">Telefone</label>
+    <input type="tel" name="phone" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;" />
+  </div>` : ""}
   <button type="submit" style="width:100%;padding:12px;background:#6366f1;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
     Enviar
   </button>
@@ -192,6 +198,7 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
     const fd = new FormData(e.target);
     const body = Object.fromEntries(fd.entries());
     body.form_id = "${form.id}";
+    body.webhook_id = "${form.webhook_id}";
     try {
       const res = await fetch("${endpoint}", {
         method: "POST",
@@ -237,14 +244,20 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
               <Plus className="h-3.5 w-3.5" /> Novo formulário
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>
-                {step === 1 && "Dados do formulário"}
-                {step === 2 && "Campos a coletar"}
-                {step === 3 && "Destino após envio"}
-              </DialogTitle>
+              <DialogTitle className="text-sm">Configuração de formulário</DialogTitle>
             </DialogHeader>
+
+            {/* Stepper */}
+            <div className="flex items-center justify-center gap-0 py-2">
+              <StepIndicator step={1} current={step} label="Campos do formulário" />
+              <div className="w-16 h-px bg-border" />
+              <StepIndicator step={2} current={step} label="URL de redirecionamento" />
+              <div className="w-16 h-px bg-border" />
+              <StepIndicator step={3} current={step} label="Código" />
+            </div>
+
             <div className="space-y-4 pt-2">
               {step === 1 && (
                 <>
@@ -252,76 +265,75 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
                     <Label className="text-xs">Nome do formulário</Label>
                     <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Ex: Captura Landing Page" />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Webhook vinculado</Label>
-                    {webhooks.length === 0 ? (
-                      <p className="text-xs text-muted-foreground p-3 rounded-lg border border-border bg-muted/30">
-                        Nenhum webhook ativo neste projeto. Crie um webhook primeiro na aba Webhooks.
-                      </p>
-                    ) : (
-                      <Select value={selectedWebhookId} onValueChange={setSelectedWebhookId}>
-                        <SelectTrigger className="text-xs"><SelectValue placeholder="Selecione um webhook" /></SelectTrigger>
-                        <SelectContent>
-                          {webhooks.map((wh: any) => (
-                            <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+                  <p className="text-xs text-muted-foreground">
+                    Ative os interruptores abaixo de acordo com os campos que deseja em seu formulário.
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { key: "name" as const, label: "Campo do nome", desc: "Captura o nome completo do usuário", icon: User, required: true },
+                      { key: "email" as const, label: "Campo E-mail", desc: "Captura o endereço de e-mail", icon: Mail },
+                      { key: "phone" as const, label: "Campo número", desc: "Captura o número de telefone", icon: Phone },
+                    ].map((f) => (
+                      <div key={f.key} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <f.icon className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{f.label}</p>
+                            <p className="text-xs text-muted-foreground">{f.desc}</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={fields[f.key]}
+                          disabled={f.required}
+                          onCheckedChange={(v) => setFields(prev => ({ ...prev, [f.key]: !!v }))}
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <Button onClick={() => setStep(2)} disabled={!formName.trim() || !selectedWebhookId} className="w-full text-xs">
-                    Avançar
-                  </Button>
+                  <div className="flex justify-end">
+                    <Button onClick={() => setStep(2)} disabled={!formName.trim()} className="text-xs">
+                      Avançar
+                    </Button>
+                  </div>
                 </>
               )}
               {step === 2 && (
                 <>
-                  <p className="text-xs text-muted-foreground">Quais campos o formulário vai coletar?</p>
-                  <div className="space-y-3">
-                    {[
-                      { key: "name" as const, label: "Nome", required: true },
-                      { key: "email" as const, label: "E-mail" },
-                      { key: "phone" as const, label: "Telefone" },
-                    ].map((f) => (
-                      <label key={f.key} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox checked={fields[f.key]} disabled={f.required}
-                          onCheckedChange={(v) => setFields(prev => ({ ...prev, [f.key]: !!v }))} />
-                        {f.label} {f.required && <span className="text-[10px] text-muted-foreground">(obrigatório)</span>}
-                      </label>
-                    ))}
+                  <p className="text-xs text-muted-foreground">
+                    Insira o URL para que o lead será redirecionado após preencher o formulário.
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">URL de redirecionamento</Label>
+                    <Input value={redirectUrl} onChange={(e) => setRedirectUrl(e.target.value)} placeholder="https://..." />
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setStep(1)} className="flex-1 text-xs">Voltar</Button>
-                    <Button onClick={() => setStep(3)} className="flex-1 text-xs">Avançar</Button>
+                  <div className="rounded-lg border border-border p-4 space-y-2">
+                    <p className="text-xs font-medium">O link informado como destino é um checkout?</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Se marcado como "Sim", o sistema irá adicionar automaticamente parâmetros GET (UTM name, email, phone) ao URL de redirecionamento para pré-preencher informações no checkout.
+                    </p>
+                    <div className="flex gap-4 pt-1">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Checkbox checked={isCheckout} onCheckedChange={() => setIsCheckout(true)} /> Sim
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Checkbox checked={!isCheckout} onCheckedChange={() => setIsCheckout(false)} /> Não
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <Button variant="outline" onClick={() => setStep(1)} className="text-xs">Voltar</Button>
+                    <Button onClick={createForm} disabled={saving} className="text-xs">
+                      {saving ? "Criando..." : "Ver HTML gerado"}
+                    </Button>
                   </div>
                 </>
               )}
               {step === 3 && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Após envio, redirecionar para:</Label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setRedirectType("url")}
-                        className={cn("px-3 py-1.5 text-xs rounded-lg transition-colors", redirectType === "url" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-accent")}>
-                        URL personalizada
-                      </button>
-                      <button onClick={() => setRedirectType("checkout")}
-                        className={cn("px-3 py-1.5 text-xs rounded-lg transition-colors", redirectType === "checkout" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-accent")}>
-                        Checkout
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">{redirectType === "checkout" ? "URL do Checkout" : "URL de Redirecionamento"}</Label>
-                    <Input value={redirectUrl} onChange={(e) => setRedirectUrl(e.target.value)} placeholder="https://..." />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setStep(2)} className="flex-1 text-xs">Voltar</Button>
-                    <Button onClick={createForm} disabled={saving} className="flex-1 text-xs">
-                      {saving ? "Criando..." : "Criar Formulário"}
-                    </Button>
-                  </div>
-                </>
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Formulário criado! Veja o código na lista abaixo.
+                </p>
               )}
             </div>
           </DialogContent>
@@ -343,11 +355,8 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
                   <FileCode className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium">{form.name}</span>
                   <Badge variant="outline" className="text-[10px]">
-                    {form.redirect_type === "checkout" ? "→ Checkout" : "→ URL"}
+                    {form.redirect_type === "checkout" ? "→ Checkout" : form.redirect_url ? "→ URL" : "Sem redirecionamento"}
                   </Badge>
-                  {form.webhooks?.name && (
-                    <span className="text-[10px] text-muted-foreground">via {form.webhooks.name}</span>
-                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
@@ -390,7 +399,7 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir formulário?</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação é irreversível.</AlertDialogDescription>
+            <AlertDialogDescription>Esta ação é irreversível. O webhook interno também será removido.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -400,6 +409,22 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function StepIndicator({ step, current, label }: { step: number; current: number; label: string }) {
+  const done = current > step;
+  const active = current === step;
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className={cn(
+        "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+        done ? "bg-primary text-primary-foreground" : active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+      )}>
+        {done ? <Check className="h-3 w-3" /> : step}
+      </div>
+      <span className={cn("text-[10px] font-medium hidden sm:inline", active ? "text-foreground" : "text-muted-foreground")}>{label}</span>
     </div>
   );
 }

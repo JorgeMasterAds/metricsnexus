@@ -43,6 +43,7 @@ const mainNavItems = [
 
 const integrationSubItems = [
   { icon: Webhook, label: "Webhooks", path: "/integrations?tab=webhooks" },
+  { icon: FileBarChart, label: "Formulários", path: "/integrations?tab=forms" },
   { icon: ScrollText, label: "Webhook Logs", path: "/integrations?tab=logs" },
 ];
 

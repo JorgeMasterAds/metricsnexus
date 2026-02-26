@@ -3,7 +3,7 @@ import {
   ChevronLeft, Save, Play, Brain, Send, Tag, MoveRight, StickyNote,
   MessageSquare, Webhook, MousePointerClick, Zap, Plus, X, Trash2,
   Settings2, Sparkles, Package, ShieldAlert, ExternalLink, BookOpen, Target,
-  GitBranch, Filter, Bot, ArrowRight,
+  GitBranch, Filter, Bot, ArrowRight, ScrollText, Shield, Radio,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,8 +19,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useAIAgents } from "@/hooks/useAIAgents";
+
 import { useNavigate } from "react-router-dom";
 
 // ─── Types ──────────────────────────────────────────────────
@@ -103,11 +105,11 @@ function FlowNodeComponent({
 
   return (
     <g>
-      {/* Input dot (top center) - except for start */}
+      {/* Input dot (left center) - except for start */}
       {node.type !== "start" && (
         <circle
-          cx={node.x + NODE_W / 2}
-          cy={node.y - DOT_R}
+          cx={node.x - DOT_R}
+          cy={node.y + NODE_H / 2}
           r={DOT_R}
           fill={def.color}
           stroke={def.color}
@@ -128,8 +130,11 @@ function FlowNodeComponent({
         className="cursor-grab active:cursor-grabbing transition-all"
         onMouseDown={(e) => {
           e.stopPropagation();
-          onSelect();
           onDragStart(e);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
         }}
       />
 
@@ -167,10 +172,10 @@ function FlowNodeComponent({
         {def.label}
       </text>
 
-      {/* Output dot (bottom center) */}
+      {/* Output dot (right center) */}
       <circle
-        cx={node.x + NODE_W / 2}
-        cy={node.y + NODE_H + DOT_R}
+        cx={node.x + NODE_W + DOT_R}
+        cy={node.y + NODE_H / 2}
         r={DOT_R}
         fill={def.color}
         stroke="white"
@@ -188,20 +193,21 @@ function FlowNodeComponent({
 // ─── Connection Line ────────────────────────────────────────
 function ConnectionLine({ fromNode, toNode }: { fromNode: FlowNode; toNode: FlowNode }) {
   const fromDef = NODE_TYPES[fromNode.type];
-  const x1 = fromNode.x + NODE_W / 2;
-  const y1 = fromNode.y + NODE_H + DOT_R * 2;
-  const x2 = toNode.x + NODE_W / 2;
-  const y2 = toNode.y - DOT_R * 2;
+  // From right side of source to left side of target
+  const x1 = fromNode.x + NODE_W + DOT_R * 2;
+  const y1 = fromNode.y + NODE_H / 2;
+  const x2 = toNode.x - DOT_R * 2;
+  const y2 = toNode.y + NODE_H / 2;
 
-  const midY = (y1 + y2) / 2;
-  const path = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+  const midX = (x1 + x2) / 2;
+  const path = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
 
   return (
     <>
       <path d={path} fill="none" stroke={fromDef?.color || "#666"} strokeWidth="2" opacity="0.4" />
       {/* Arrow head */}
       <polygon
-        points={`${x2 - 4},${y2 - 6} ${x2 + 4},${y2 - 6} ${x2},${y2}`}
+        points={`${x2 - 6},${y2 - 4} ${x2 - 6},${y2 + 4} ${x2},${y2}`}
         fill={fromDef?.color || "#666"}
         opacity="0.6"
       />
@@ -413,7 +419,6 @@ function NodePickerDialog({
       ...cat,
       items: cat.items.filter((t) => {
         if (t === "start") return false;
-        // Don't show triggers if one exists (except start)
         if (cat.key === "trigger" && existingTypes.some((et) => et.startsWith("trigger_"))) return false;
         const def = NODE_TYPES[t];
         if (search && !def.label.toLowerCase().includes(search.toLowerCase())) return false;
@@ -479,29 +484,30 @@ interface AgentFlowEditorProps {
 }
 
 export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEditorProps) {
-  const { updateAgent } = useAIAgents();
+  const { updateAgent, agents } = useAIAgents();
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState("fluxo");
 
   // Parse existing flow data from agent
   const initialNodes = useMemo((): FlowNode[] => {
     const saved = agent.ai_config?.flow_nodes;
     if (saved && Array.isArray(saved) && saved.length > 0) return saved;
 
-    // Build from legacy data
+    // Build from legacy data - horizontal layout
     const nodes: FlowNode[] = [
-      { id: "start", type: "start", x: 400, y: 40, config: {} },
+      { id: "start", type: "start", x: 60, y: 200, config: {} },
     ];
 
     if (agent.trigger_type && agent.trigger_type !== "manual") {
-      nodes.push({ id: "trigger", type: `trigger_${agent.trigger_type}`, x: 400, y: 160, config: agent.trigger_config || {} });
+      nodes.push({ id: "trigger", type: `trigger_${agent.trigger_type}`, x: 320, y: 200, config: agent.trigger_config || {} });
     }
 
     nodes.push({
       id: "ai",
       type: "ai_agent",
-      x: 400,
-      y: nodes.length * 120 + 40,
+      x: nodes.length * 260 + 60,
+      y: 200,
       config: {
         prompt: agent.ai_config?.prompt || "",
         read_model: agent.ai_config?.read_model || agent.ai_config?.model || "",
@@ -517,8 +523,8 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
       nodes.push({
         id: `action-${i}`,
         type: action.type,
-        x: 400,
-        y: nodes.length * 120 + 40,
+        x: nodes.length * 260 + 60,
+        y: 200,
         config: action.config || {},
       });
     });
@@ -530,7 +536,6 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
     const saved = agent.ai_config?.flow_connections;
     if (saved && Array.isArray(saved) && saved.length > 0) return saved;
 
-    // Build linear chain from initial nodes
     const conns: FlowConnection[] = [];
     const nodes = initialNodes;
     for (let i = 0; i < nodes.length - 1; i++) {
@@ -544,12 +549,12 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showNodePicker, setShowNodePicker] = useState(false);
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
-  const [dragState, setDragState] = useState<{ nodeId: string; offsetX: number; offsetY: number } | null>(null);
+  const [dragState, setDragState] = useState<{ nodeId: string; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean } | null>(null);
   const [isActive, setIsActive] = useState(agent.is_active);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
-  // Drag handling
+  // Drag handling - separate drag from click
   useEffect(() => {
     if (!dragState) return;
 
@@ -559,6 +564,13 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left + canvas.scrollLeft - dragState.offsetX;
       const y = e.clientY - rect.top + canvas.scrollTop - dragState.offsetY;
+
+      const dx = Math.abs(e.clientX - dragState.startX);
+      const dy = Math.abs(e.clientY - dragState.startY);
+
+      if (dx > 4 || dy > 4) {
+        setDragState(prev => prev ? { ...prev, moved: true } : null);
+      }
 
       setNodes((prev) =>
         prev.map((n) => n.id === dragState.nodeId ? { ...n, x: Math.max(0, x), y: Math.max(0, y) } : n)
@@ -585,8 +597,17 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
       nodeId,
       offsetX: e.clientX - rect.left + canvas.scrollLeft - node.x,
       offsetY: e.clientY - rect.top + canvas.scrollTop - node.y,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
     });
   }, [nodes]);
+
+  const handleNodeClick = useCallback((nodeId: string) => {
+    // Only select if we didn't drag
+    if (dragState?.moved) return;
+    setSelectedNodeId(prev => prev === nodeId ? null : nodeId);
+  }, [dragState]);
 
   const handleDotClick = useCallback((nodeId: string) => {
     setConnectingFromId(nodeId);
@@ -596,8 +617,8 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
   const handleAddNode = useCallback((type: string) => {
     const fromNode = connectingFromId ? nodes.find((n) => n.id === connectingFromId) : null;
     const newId = `node-${Date.now()}`;
-    const x = fromNode ? fromNode.x : 400;
-    const y = fromNode ? fromNode.y + 140 : (nodes.length * 120) + 40;
+    const x = fromNode ? fromNode.x + NODE_W + 100 : (nodes.length * 260) + 60;
+    const y = fromNode ? fromNode.y : 200;
 
     const newNode: FlowNode = { id: newId, type, x, y, config: {} };
     setNodes((prev) => [...prev, newNode]);
@@ -623,7 +644,6 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
   }, []);
 
   const handleSave = useCallback(() => {
-    // Extract data from nodes for backward compatibility
     const triggerNode = nodes.find((n) => n.type.startsWith("trigger_"));
     const aiNode = nodes.find((n) => n.type === "ai_agent");
     const actionNodes = nodes.filter((n) =>
@@ -652,9 +672,12 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
 
   // Canvas dimensions
   const canvasW = Math.max(2000, ...nodes.map((n) => n.x + NODE_W + 200));
-  const canvasH = Math.max(1200, ...nodes.map((n) => n.y + NODE_H + 200));
+  const canvasH = Math.max(800, ...nodes.map((n) => n.y + NODE_H + 200));
 
   const existingTypes = nodes.map((n) => n.type);
+
+  // Agent limit info
+  const maxAgents = 3; // default
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -669,6 +692,31 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
             <Bot className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">{agent.name}</span>
           </div>
+          <div className="h-5 w-px bg-border" />
+          {/* Tab navigation */}
+          <div className="flex items-center gap-1">
+            {[
+              { key: "fluxo", label: "Fluxo", icon: GitBranch },
+              { key: "regras", label: "Regras", icon: ScrollText },
+              { key: "politica", label: "Política de uso", icon: Shield },
+              { key: "canais", label: "Canais", icon: Radio },
+              { key: "produtos", label: "Produtos", icon: Package },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                  activeTab === tab.key
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                <tab.icon className="h-3 w-3" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -681,59 +729,141 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
         </div>
       </div>
 
-      {/* Canvas + Config panel */}
+      {/* Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Canvas */}
-        <div
-          ref={canvasRef}
-          className="flex-1 overflow-auto relative"
-          style={{ background: "radial-gradient(circle, hsl(var(--muted)) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
-          onClick={() => setSelectedNodeId(null)}
-        >
-          <svg width={canvasW} height={canvasH} className="absolute inset-0">
-            {/* Connections */}
-            {connections.map((conn, i) => {
-              const fromNode = nodes.find((n) => n.id === conn.from);
-              const toNode = nodes.find((n) => n.id === conn.to);
-              if (!fromNode || !toNode) return null;
-              return <ConnectionLine key={i} fromNode={fromNode} toNode={toNode} />;
-            })}
-
-            {/* Nodes */}
-            {nodes.map((node) => (
-              <FlowNodeComponent
-                key={node.id}
-                node={node}
-                selected={selectedNodeId === node.id}
-                onSelect={() => setSelectedNodeId(node.id)}
-                onDragStart={(e) => handleNodeDragStart(node.id, e)}
-                onDotClick={() => handleDotClick(node.id)}
-              />
-            ))}
-          </svg>
-
-          {/* Floating add button */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs shadow-lg bg-card"
-              onClick={() => { setConnectingFromId(null); setShowNodePicker(true); }}
+        {activeTab === "fluxo" ? (
+          <>
+            {/* Canvas */}
+            <div
+              ref={canvasRef}
+              className="flex-1 overflow-auto relative"
+              style={{ background: "radial-gradient(circle, hsl(var(--muted)) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+              onClick={() => setSelectedNodeId(null)}
             >
-              <Plus className="h-3.5 w-3.5" /> Adicionar bloco
-            </Button>
-          </div>
-        </div>
+              <svg width={canvasW} height={canvasH} className="absolute inset-0">
+                {/* Connections */}
+                {connections.map((conn, i) => {
+                  const fromNode = nodes.find((n) => n.id === conn.from);
+                  const toNode = nodes.find((n) => n.id === conn.to);
+                  if (!fromNode || !toNode) return null;
+                  return <ConnectionLine key={i} fromNode={fromNode} toNode={toNode} />;
+                })}
 
-        {/* Config panel */}
-        {selectedNode && (
-          <NodeConfigPanel
-            node={selectedNode}
-            onUpdate={(config) => handleUpdateNodeConfig(selectedNode.id, config)}
-            onDelete={() => handleDeleteNode(selectedNode.id)}
-            onClose={() => setSelectedNodeId(null)}
-            apiKeys={apiKeys}
-          />
+                {/* Nodes */}
+                {nodes.map((node) => (
+                  <FlowNodeComponent
+                    key={node.id}
+                    node={node}
+                    selected={selectedNodeId === node.id}
+                    onSelect={() => handleNodeClick(node.id)}
+                    onDragStart={(e) => handleNodeDragStart(node.id, e)}
+                    onDotClick={() => handleDotClick(node.id)}
+                  />
+                ))}
+              </svg>
+
+              {/* Floating add button */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs shadow-lg bg-card"
+                  onClick={() => { setConnectingFromId(null); setShowNodePicker(true); }}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Adicionar bloco
+                </Button>
+              </div>
+            </div>
+
+            {/* Config panel */}
+            {selectedNode && (
+              <NodeConfigPanel
+                node={selectedNode}
+                onUpdate={(config) => handleUpdateNodeConfig(selectedNode.id, config)}
+                onDelete={() => handleDeleteNode(selectedNode.id)}
+                onClose={() => setSelectedNodeId(null)}
+                apiKeys={apiKeys}
+              />
+            )}
+          </>
+        ) : (
+          <div className="flex-1 overflow-auto p-8 max-w-2xl mx-auto">
+            {activeTab === "regras" && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Regras do agente</h2>
+                <p className="text-sm text-muted-foreground">Configure regras de comportamento para o agente de IA.</p>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Mensagem de boas-vindas</Label>
+                    <Textarea className="mt-1 text-xs" rows={3} placeholder="Olá! Como posso ajudar?" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Horário de funcionamento</Label>
+                    <Input className="mt-1 text-xs" placeholder="Ex: 08:00 - 18:00" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Máximo de mensagens por conversa</Label>
+                    <Input className="mt-1 text-xs" type="number" placeholder="50" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tempo limite de inatividade (minutos)</Label>
+                    <Input className="mt-1 text-xs" type="number" placeholder="30" />
+                  </div>
+                </div>
+              </div>
+            )}
+            {activeTab === "politica" && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Política de uso</h2>
+                <p className="text-sm text-muted-foreground">Defina políticas e restrições para o agente.</p>
+                <div>
+                  <Label className="text-xs">Tópicos proibidos</Label>
+                  <Textarea className="mt-1 text-xs" rows={4} placeholder="Liste tópicos que o agente não deve abordar..." />
+                </div>
+                <div>
+                  <Label className="text-xs">Instrução de encerramento</Label>
+                  <Textarea className="mt-1 text-xs" rows={3} placeholder="Quando encerrar e redirecionar para humano..." />
+                </div>
+              </div>
+            )}
+            {activeTab === "canais" && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Canais de comunicação</h2>
+                <p className="text-sm text-muted-foreground">Selecione os canais onde o agente vai atuar.</p>
+                <div className="space-y-2">
+                  {[
+                    { label: "WhatsApp", icon: MessageSquare, desc: "Atendimento via WhatsApp Business" },
+                    { label: "Webhook", icon: Webhook, desc: "Recebimento de eventos externos" },
+                    { label: "Formulário", icon: MousePointerClick, desc: "Formulários de captura de leads" },
+                  ].map((ch) => (
+                    <div key={ch.label} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                      <div className="flex items-center gap-3">
+                        <ch.icon className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="text-sm font-medium">{ch.label}</p>
+                          <p className="text-xs text-muted-foreground">{ch.desc}</p>
+                        </div>
+                      </div>
+                      <Switch />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {activeTab === "produtos" && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Produtos vinculados</h2>
+                <p className="text-sm text-muted-foreground">Vincule produtos para o agente ter conhecimento sobre eles.</p>
+                <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                  <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Nenhum produto vinculado.</p>
+                  <Button variant="outline" size="sm" className="mt-3 text-xs gap-1.5">
+                    <Plus className="h-3 w-3" /> Vincular produto
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
