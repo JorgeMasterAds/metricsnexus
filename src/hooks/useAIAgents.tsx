@@ -74,12 +74,13 @@ export function useAIAgents() {
       ai_config?: any;
       actions?: any[];
     }) => {
-      const { error } = await (supabase as any).from("ai_agents").insert({
+      const { data, error } = await (supabase as any).from("ai_agents").insert({
         account_id: activeAccountId,
         project_id: activeProjectId,
         ...agent,
-      });
+      }).select().single();
       if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ai-agents"] });
