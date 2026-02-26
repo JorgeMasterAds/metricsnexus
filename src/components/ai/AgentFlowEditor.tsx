@@ -3,7 +3,8 @@ import {
   ChevronLeft, Save, Play, Brain, Send, Tag, MoveRight, StickyNote,
   MessageSquare, Webhook, MousePointerClick, Zap, Plus, X, Trash2,
   Settings2, Sparkles, Package, ShieldAlert, ExternalLink, BookOpen, Target,
-  GitBranch, Filter, Bot, ArrowRight, ScrollText, Shield, Radio,
+  GitBranch, Filter, Bot, ArrowRight, ScrollText, Shield, Radio, Edit2, Check,
+  Clock, AlertTriangle, UserX, Volume2, Ban, FileText, Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useAIAgents } from "@/hooks/useAIAgents";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAccount } from "@/hooks/useAccount";
+import { useActiveProject } from "@/hooks/useActiveProject";
 
 import { useNavigate } from "react-router-dom";
 
@@ -53,24 +58,26 @@ const NODE_TYPES: Record<string, {
   trigger_form: { label: "Formulário", icon: MousePointerClick, color: "#3b82f6", category: "trigger", description: "Ao enviar formulário do sistema" },
   trigger_manual: { label: "Manual", icon: Play, color: "#3b82f6", category: "trigger", description: "Execução sob demanda" },
   ai_agent: { label: "Agente IA", icon: Brain, color: "#a855f7", category: "ai", description: "Processa com inteligência artificial" },
-  send_whatsapp: { label: "Enviar WhatsApp", icon: Send, color: "#10b981", category: "action", description: "Envia mensagem via WhatsApp" },
+  send_message: { label: "Enviar Mensagem", icon: Send, color: "#10b981", category: "action", description: "Envia mensagem pelo canal configurado" },
   send_text: { label: "Enviar Texto", icon: MessageSquare, color: "#10b981", category: "action", description: "Envia mensagem de texto" },
   router: { label: "Roteador", icon: GitBranch, color: "#f59e0b", category: "logic", description: "Redireciona o fluxo baseado em condições" },
   update_lead: { label: "Atualizar Lead", icon: MoveRight, color: "#10b981", category: "action", description: "Move lead no CRM ou atualiza dados" },
   add_tag: { label: "Adicionar Tag", icon: Tag, color: "#10b981", category: "action", description: "Adiciona tag ao lead" },
   add_note: { label: "Registrar Nota", icon: StickyNote, color: "#10b981", category: "action", description: "Adiciona anotação ao lead" },
   filter: { label: "Filtro", icon: Filter, color: "#f59e0b", category: "logic", description: "Filtra baseado em dados do lead" },
+  delay: { label: "Aguardar", icon: Clock, color: "#f59e0b", category: "logic", description: "Aguarda um tempo antes de continuar" },
 };
 
 const NODE_CATEGORIES = [
   { key: "trigger", label: "Triggers / Gatilhos", items: ["trigger_whatsapp", "trigger_webhook", "trigger_form", "trigger_manual"] },
   { key: "ai", label: "Inteligência Artificial", items: ["ai_agent"] },
-  { key: "action", label: "Ações", items: ["send_whatsapp", "send_text", "update_lead", "add_tag", "add_note"] },
-  { key: "logic", label: "Lógica / Decisão", items: ["router", "filter"] },
+  { key: "action", label: "Ações", items: ["send_message", "send_text", "update_lead", "add_tag", "add_note"] },
+  { key: "logic", label: "Lógica / Decisão", items: ["router", "filter", "delay"] },
 ];
 
 const MODEL_GROUPS = [
   { provider: "OpenAI", models: [{ value: "gpt-4o", label: "GPT-4o" }, { value: "gpt-4o-mini", label: "GPT-4o Mini" }] },
+  { provider: "Google Gemini", models: [{ value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" }, { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" }, { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" }] },
   { provider: "Anthropic", models: [{ value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet" }, { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" }] },
   { provider: "Groq", models: [{ value: "llama-3.1-70b-versatile", label: "Llama 3.1 70B" }, { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B" }] },
 ];
@@ -91,13 +98,13 @@ function FlowNodeComponent({
   selected,
   onSelect,
   onDragStart,
-  onDotClick,
+  onDotMouseDown,
 }: {
   node: FlowNode;
   selected: boolean;
   onSelect: () => void;
   onDragStart: (e: React.MouseEvent) => void;
-  onDotClick: () => void;
+  onDotMouseDown: (e: React.MouseEvent) => void;
 }) {
   const def = NODE_TYPES[node.type];
   if (!def) return null;
@@ -108,7 +115,7 @@ function FlowNodeComponent({
       {/* Input dot (left center) - except for start */}
       {node.type !== "start" && (
         <circle
-          cx={node.x - DOT_R}
+          cx={node.x}
           cy={node.y + NODE_H / 2}
           r={DOT_R}
           fill={def.color}
@@ -174,16 +181,16 @@ function FlowNodeComponent({
 
       {/* Output dot (right center) */}
       <circle
-        cx={node.x + NODE_W + DOT_R}
+        cx={node.x + NODE_W}
         cy={node.y + NODE_H / 2}
         r={DOT_R}
         fill={def.color}
         stroke="white"
         strokeWidth="2"
-        className="cursor-pointer hover:r-[9px] transition-all"
-        onClick={(e) => {
+        className="cursor-crosshair"
+        onMouseDown={(e) => {
           e.stopPropagation();
-          onDotClick();
+          onDotMouseDown(e);
         }}
       />
     </g>
@@ -193,10 +200,9 @@ function FlowNodeComponent({
 // ─── Connection Line ────────────────────────────────────────
 function ConnectionLine({ fromNode, toNode }: { fromNode: FlowNode; toNode: FlowNode }) {
   const fromDef = NODE_TYPES[fromNode.type];
-  // From right side of source to left side of target
-  const x1 = fromNode.x + NODE_W + DOT_R * 2;
+  const x1 = fromNode.x + NODE_W;
   const y1 = fromNode.y + NODE_H / 2;
-  const x2 = toNode.x - DOT_R * 2;
+  const x2 = toNode.x;
   const y2 = toNode.y + NODE_H / 2;
 
   const midX = (x1 + x2) / 2;
@@ -205,13 +211,55 @@ function ConnectionLine({ fromNode, toNode }: { fromNode: FlowNode; toNode: Flow
   return (
     <>
       <path d={path} fill="none" stroke={fromDef?.color || "#666"} strokeWidth="2" opacity="0.4" />
-      {/* Arrow head */}
       <polygon
         points={`${x2 - 6},${y2 - 4} ${x2 - 6},${y2 + 4} ${x2},${y2}`}
         fill={fromDef?.color || "#666"}
         opacity="0.6"
       />
     </>
+  );
+}
+
+// ─── Dragging Line (temporary) ──────────────────────────────
+function DraggingLine({ fromNode, mouseX, mouseY }: { fromNode: FlowNode; mouseX: number; mouseY: number }) {
+  const x1 = fromNode.x + NODE_W;
+  const y1 = fromNode.y + NODE_H / 2;
+  const midX = (x1 + mouseX) / 2;
+  const path = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${mouseY}, ${mouseX} ${mouseY}`;
+  return <path d={path} fill="none" stroke="#a855f7" strokeWidth="2" opacity="0.5" strokeDasharray="6 4" />;
+}
+
+// ─── Start Node Config ──────────────────────────────────────
+function StartConfigPanel({ config, onUpdate, onClose }: { config: Record<string, any>; onUpdate: (c: Record<string, any>) => void; onClose: () => void }) {
+  const triggers = [
+    { key: "whatsapp_message", label: "Mensagem no WhatsApp", desc: "Quando o lead envia uma mensagem" },
+    { key: "webhook_event", label: "Evento de Webhook", desc: "Venda, abandono de carrinho, etc." },
+    { key: "form_submit", label: "Formulário enviado", desc: "Quando um formulário é preenchido" },
+    { key: "manual", label: "Execução manual", desc: "Disparar manualmente" },
+    { key: "schedule", label: "Agendamento", desc: "Em horários programados" },
+    { key: "tag_added", label: "Tag adicionada", desc: "Quando uma tag é atribuída ao lead" },
+  ];
+  return (
+    <div className="w-80 bg-card border-l border-border h-full overflow-y-auto animate-in slide-in-from-right">
+      <div className="sticky top-0 bg-card border-b border-border p-4 flex items-center justify-between z-10">
+        <span className="text-sm font-semibold">Gatilhos de início</span>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}><X className="h-4 w-4" /></Button>
+      </div>
+      <div className="p-4 space-y-2">
+        <p className="text-xs text-muted-foreground mb-3">Selecione o que vai acionar este fluxo:</p>
+        {triggers.map((t) => (
+          <button key={t.key} onClick={() => onUpdate({ ...config, trigger: t.key })}
+            className={cn("flex items-center gap-3 w-full p-3 rounded-lg border transition-colors text-left",
+              config.trigger === t.key ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30")}>
+            <div className="flex-1">
+              <p className="text-xs font-medium">{t.label}</p>
+              <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+            </div>
+            {config.trigger === t.key && <Check className="h-4 w-4 text-primary" />}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -233,6 +281,10 @@ function NodeConfigPanel({
   if (!def) return null;
   const Icon = def.icon;
   const config = node.config || {};
+
+  if (node.type === "start") {
+    return <StartConfigPanel config={config} onUpdate={onUpdate} onClose={onClose} />;
+  }
 
   if (node.type === "ai_agent") {
     return (
@@ -310,12 +362,6 @@ function NodeConfigPanel({
             <Textarea className="mt-1 font-mono text-[10px]" value={config.prompt || ""} onChange={(e) => onUpdate({ ...config, prompt: e.target.value })} rows={10} />
           </div>
 
-          {/* Product context */}
-          <div>
-            <Label className="text-xs">Nome do produto</Label>
-            <Input className="mt-1 text-xs" value={config.product_name || ""} onChange={(e) => onUpdate({ ...config, product_name: e.target.value })} placeholder="Ex: Curso de Marketing" />
-          </div>
-
           {/* Settings */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -371,7 +417,7 @@ function NodeConfigPanel({
             <Input className="mt-1 text-xs" value={config.field || ""} onChange={(e) => onUpdate({ ...config, field: e.target.value })} placeholder="Ex: lead.phone" />
           </div>
         )}
-        {node.type === "send_text" && (
+        {(node.type === "send_text" || node.type === "send_message") && (
           <div>
             <Label className="text-xs">Mensagem</Label>
             <Textarea className="mt-1 text-xs" value={config.message || ""} onChange={(e) => onUpdate({ ...config, message: e.target.value })} rows={4} placeholder="Texto da mensagem..." />
@@ -387,6 +433,25 @@ function NodeConfigPanel({
           <div>
             <Label className="text-xs">Conteúdo da nota</Label>
             <Textarea className="mt-1 text-xs" value={config.note || ""} onChange={(e) => onUpdate({ ...config, note: e.target.value })} rows={3} placeholder="Texto da anotação..." />
+          </div>
+        )}
+        {node.type === "delay" && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Tempo</Label>
+              <Input className="mt-1 text-xs" type="number" value={config.delay_value || ""} onChange={(e) => onUpdate({ ...config, delay_value: e.target.value })} placeholder="5" />
+            </div>
+            <div>
+              <Label className="text-xs">Unidade</Label>
+              <Select value={config.delay_unit || "minutes"} onValueChange={(v) => onUpdate({ ...config, delay_unit: v })}>
+                <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="seconds">Segundos</SelectItem>
+                  <SelectItem value="minutes">Minutos</SelectItem>
+                  <SelectItem value="hours">Horas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 
@@ -419,7 +484,6 @@ function NodePickerDialog({
       ...cat,
       items: cat.items.filter((t) => {
         if (t === "start") return false;
-        if (cat.key === "trigger" && existingTypes.some((et) => et.startsWith("trigger_"))) return false;
         const def = NODE_TYPES[t];
         if (search && !def.label.toLowerCase().includes(search.toLowerCase())) return false;
         return true;
@@ -484,29 +548,63 @@ interface AgentFlowEditorProps {
 }
 
 export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEditorProps) {
-  const { updateAgent, agents } = useAIAgents();
+  const { updateAgent } = useAIAgents();
+  const { activeAccountId } = useAccount();
+  const { activeProjectId } = useActiveProject();
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState("fluxo");
+  const [editingName, setEditingName] = useState(false);
+  const [agentName, setAgentName] = useState(agent.name);
+
+  // Spacebar panning
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number; scrollX: number; scrollY: number } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !editingName && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        setIsPanning(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") { setIsPanning(false); setPanStart(null); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => { window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keyup", handleKeyUp); };
+  }, [editingName]);
+
+  // Rules state
+  const [rules, setRules] = useState<Record<string, any>>(agent.ai_config?.rules || {});
+  const [policy, setPolicy] = useState<Record<string, any>>(agent.ai_config?.policy || {});
+  const [channels, setChannels] = useState<Record<string, boolean>>(agent.ai_config?.channels || { whatsapp: true });
+
+  // Products
+  const { data: products = [] } = useQuery({
+    queryKey: ["products-for-agent", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("products").select("*").eq("account_id", activeAccountId).order("name");
+      return data || [];
+    },
+    enabled: !!activeAccountId,
+  });
+  const [linkedProducts, setLinkedProducts] = useState<string[]>(agent.ai_config?.linked_products || []);
 
   // Parse existing flow data from agent
   const initialNodes = useMemo((): FlowNode[] => {
     const saved = agent.ai_config?.flow_nodes;
     if (saved && Array.isArray(saved) && saved.length > 0) return saved;
 
-    // Build from legacy data - horizontal layout
     const nodes: FlowNode[] = [
       { id: "start", type: "start", x: 60, y: 200, config: {} },
     ];
 
-    if (agent.trigger_type && agent.trigger_type !== "manual") {
-      nodes.push({ id: "trigger", type: `trigger_${agent.trigger_type}`, x: 320, y: 200, config: agent.trigger_config || {} });
-    }
-
     nodes.push({
       id: "ai",
       type: "ai_agent",
-      x: nodes.length * 260 + 60,
+      x: 340,
       y: 200,
       config: {
         prompt: agent.ai_config?.prompt || "",
@@ -515,18 +613,7 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
         api_key_id: agent.ai_config?.api_key_id || "",
         tone: agent.ai_config?.tone || "profissional",
         use_emojis: agent.ai_config?.use_emojis ?? true,
-        product_name: agent.ai_config?.product_name || "",
       },
-    });
-
-    (agent.actions || []).forEach((action: any, i: number) => {
-      nodes.push({
-        id: `action-${i}`,
-        type: action.type,
-        x: nodes.length * 260 + 60,
-        y: 200,
-        config: action.config || {},
-      });
     });
 
     return nodes;
@@ -535,7 +622,6 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
   const initialConnections = useMemo((): FlowConnection[] => {
     const saved = agent.ai_config?.flow_connections;
     if (saved && Array.isArray(saved) && saved.length > 0) return saved;
-
     const conns: FlowConnection[] = [];
     const nodes = initialNodes;
     for (let i = 0; i < nodes.length - 1; i++) {
@@ -552,9 +638,12 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
   const [dragState, setDragState] = useState<{ nodeId: string; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean } | null>(null);
   const [isActive, setIsActive] = useState(agent.is_active);
 
+  // Line dragging state
+  const [lineDrag, setLineDrag] = useState<{ fromId: string; mouseX: number; mouseY: number } | null>(null);
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
-  // Drag handling - separate drag from click
+  // Drag handling
   useEffect(() => {
     if (!dragState) return;
 
@@ -567,10 +656,7 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
 
       const dx = Math.abs(e.clientX - dragState.startX);
       const dy = Math.abs(e.clientY - dragState.startY);
-
-      if (dx > 4 || dy > 4) {
-        setDragState(prev => prev ? { ...prev, moved: true } : null);
-      }
+      if (dx > 4 || dy > 4) setDragState(prev => prev ? { ...prev, moved: true } : null);
 
       setNodes((prev) =>
         prev.map((n) => n.id === dragState.nodeId ? { ...n, x: Math.max(0, x), y: Math.max(0, y) } : n)
@@ -581,13 +667,61 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
+    return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
   }, [dragState]);
 
+  // Line drag handling
+  useEffect(() => {
+    if (!lineDrag) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      setLineDrag(prev => prev ? { ...prev, mouseX: e.clientX - rect.left + canvas.scrollLeft, mouseY: e.clientY - rect.top + canvas.scrollTop } : null);
+    };
+    const handleMouseUp = () => {
+      if (lineDrag) {
+        setConnectingFromId(lineDrag.fromId);
+        setShowNodePicker(true);
+      }
+      setLineDrag(null);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+  }, [lineDrag]);
+
+  // Panning with spacebar
+  useEffect(() => {
+    if (!isPanning) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.style.cursor = "grab";
+
+    const handleMouseDown = (e: MouseEvent) => {
+      canvas.style.cursor = "grabbing";
+      setPanStart({ x: e.clientX, y: e.clientY, scrollX: canvas.scrollLeft, scrollY: canvas.scrollTop });
+    };
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!panStart) return;
+      canvas.scrollLeft = panStart.scrollX - (e.clientX - panStart.x);
+      canvas.scrollTop = panStart.scrollY - (e.clientY - panStart.y);
+    };
+    const handleMouseUp = () => { setPanStart(null); canvas.style.cursor = isPanning ? "grab" : ""; };
+
+    canvas.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      canvas.style.cursor = "";
+    };
+  }, [isPanning, panStart]);
+
   const handleNodeDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
+    if (isPanning) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const node = nodes.find((n) => n.id === nodeId);
@@ -601,17 +735,22 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
       startY: e.clientY,
       moved: false,
     });
-  }, [nodes]);
+  }, [nodes, isPanning]);
 
   const handleNodeClick = useCallback((nodeId: string) => {
-    // Only select if we didn't drag
     if (dragState?.moved) return;
     setSelectedNodeId(prev => prev === nodeId ? null : nodeId);
   }, [dragState]);
 
-  const handleDotClick = useCallback((nodeId: string) => {
-    setConnectingFromId(nodeId);
-    setShowNodePicker(true);
+  const handleDotMouseDown = useCallback((nodeId: string, e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    setLineDrag({
+      fromId: nodeId,
+      mouseX: e.clientX - rect.left + canvas.scrollLeft,
+      mouseY: e.clientY - rect.top + canvas.scrollTop,
+    });
   }, []);
 
   const handleAddNode = useCallback((type: string) => {
@@ -644,40 +783,39 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
   }, []);
 
   const handleSave = useCallback(() => {
-    const triggerNode = nodes.find((n) => n.type.startsWith("trigger_"));
     const aiNode = nodes.find((n) => n.type === "ai_agent");
     const actionNodes = nodes.filter((n) =>
-      ["send_whatsapp", "send_text", "update_lead", "add_tag", "add_note"].includes(n.type)
+      ["send_message", "send_text", "update_lead", "add_tag", "add_note"].includes(n.type)
     );
-
-    const triggerType = triggerNode?.type.replace("trigger_", "") || "manual";
+    const startNode = nodes.find((n) => n.type === "start");
+    const triggerType = startNode?.config?.trigger || "manual";
 
     const payload: Record<string, any> = {
       id: agent.id,
+      name: agentName,
       trigger_type: triggerType,
-      trigger_config: triggerNode?.config || {},
+      trigger_config: startNode?.config || {},
       is_active: isActive,
       ai_config: {
         ...(aiNode?.config || {}),
         model: aiNode?.config?.response_model || aiNode?.config?.read_model || "",
         flow_nodes: nodes,
         flow_connections: connections,
+        rules,
+        policy,
+        channels,
+        linked_products: linkedProducts,
       },
       actions: actionNodes.map((n) => ({ type: n.type, config: n.config })),
     };
 
     updateAgent.mutate(payload as any);
     onClose();
-  }, [nodes, connections, isActive, agent.id]);
+  }, [nodes, connections, isActive, agent.id, agentName, rules, policy, channels, linkedProducts]);
 
-  // Canvas dimensions
   const canvasW = Math.max(2000, ...nodes.map((n) => n.x + NODE_W + 200));
   const canvasH = Math.max(800, ...nodes.map((n) => n.y + NODE_H + 200));
-
   const existingTypes = nodes.map((n) => n.type);
-
-  // Agent limit info
-  const maxAgents = 3; // default
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -690,7 +828,17 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
           <div className="h-5 w-px bg-border" />
           <div className="flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-sm">{agent.name}</span>
+            {editingName ? (
+              <div className="flex items-center gap-1">
+                <Input value={agentName} onChange={(e) => setAgentName(e.target.value)} className="h-7 w-40 text-sm" autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") setEditingName(false); }} />
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingName(false)}><Check className="h-3 w-3" /></Button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingName(true)} className="font-semibold text-sm hover:text-primary transition-colors flex items-center gap-1.5">
+                {agentName} <Edit2 className="h-3 w-3 text-muted-foreground" />
+              </button>
+            )}
           </div>
           <div className="h-5 w-px bg-border" />
           {/* Tab navigation */}
@@ -736,9 +884,9 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
             {/* Canvas */}
             <div
               ref={canvasRef}
-              className="flex-1 overflow-auto relative"
+              className={cn("flex-1 overflow-auto relative", isPanning && "select-none")}
               style={{ background: "radial-gradient(circle, hsl(var(--muted)) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
-              onClick={() => setSelectedNodeId(null)}
+              onClick={() => { if (!isPanning) setSelectedNodeId(null); }}
             >
               <svg width={canvasW} height={canvasH} className="absolute inset-0">
                 {/* Connections */}
@@ -749,6 +897,13 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
                   return <ConnectionLine key={i} fromNode={fromNode} toNode={toNode} />;
                 })}
 
+                {/* Dragging line */}
+                {lineDrag && (() => {
+                  const fromNode = nodes.find((n) => n.id === lineDrag.fromId);
+                  if (!fromNode) return null;
+                  return <DraggingLine fromNode={fromNode} mouseX={lineDrag.mouseX} mouseY={lineDrag.mouseY} />;
+                })()}
+
                 {/* Nodes */}
                 {nodes.map((node) => (
                   <FlowNodeComponent
@@ -757,7 +912,7 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
                     selected={selectedNodeId === node.id}
                     onSelect={() => handleNodeClick(node.id)}
                     onDragStart={(e) => handleNodeDragStart(node.id, e)}
-                    onDotClick={() => handleDotClick(node.id)}
+                    onDotMouseDown={(e) => handleDotMouseDown(node.id, e)}
                   />
                 ))}
               </svg>
@@ -773,6 +928,13 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
                   <Plus className="h-3.5 w-3.5" /> Adicionar bloco
                 </Button>
               </div>
+
+              {/* Spacebar hint */}
+              {isPanning && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-card/90 border border-border rounded-lg px-3 py-1.5 text-xs text-muted-foreground">
+                  Segure espaço + arraste para mover o canvas
+                </div>
+              )}
             </div>
 
             {/* Config panel */}
@@ -789,54 +951,134 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
         ) : (
           <div className="flex-1 overflow-auto p-8 max-w-2xl mx-auto">
             {activeTab === "regras" && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <h2 className="text-lg font-semibold">Regras do agente</h2>
-                <p className="text-sm text-muted-foreground">Configure regras de comportamento para o agente de IA.</p>
-                <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Configure comportamento, limites e regras.</p>
+                <div className="space-y-4">
                   <div>
                     <Label className="text-xs">Mensagem de boas-vindas</Label>
-                    <Textarea className="mt-1 text-xs" rows={3} placeholder="Olá! Como posso ajudar?" />
+                    <Textarea className="mt-1 text-xs" rows={3} placeholder="Olá! Como posso ajudar?"
+                      value={rules.welcome_message || ""} onChange={(e) => setRules({ ...rules, welcome_message: e.target.value })} />
                   </div>
                   <div>
-                    <Label className="text-xs">Horário de funcionamento</Label>
-                    <Input className="mt-1 text-xs" placeholder="Ex: 08:00 - 18:00" />
+                    <Label className="text-xs">Mensagem de ausência (fora do horário)</Label>
+                    <Textarea className="mt-1 text-xs" rows={2} placeholder="Nosso horário de atendimento é..."
+                      value={rules.away_message || ""} onChange={(e) => setRules({ ...rules, away_message: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Horário de início</Label>
+                      <Input className="mt-1 text-xs" type="time" value={rules.schedule_start || "08:00"} onChange={(e) => setRules({ ...rules, schedule_start: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Horário de fim</Label>
+                      <Input className="mt-1 text-xs" type="time" value={rules.schedule_end || "18:00"} onChange={(e) => setRules({ ...rules, schedule_end: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-xs font-medium">Funcionar 24h</p>
+                      <p className="text-[10px] text-muted-foreground">Ignorar horário de funcionamento</p>
+                    </div>
+                    <Switch checked={rules.always_on ?? false} onCheckedChange={(v) => setRules({ ...rules, always_on: v })} />
                   </div>
                   <div>
                     <Label className="text-xs">Máximo de mensagens por conversa</Label>
-                    <Input className="mt-1 text-xs" type="number" placeholder="50" />
+                    <Input className="mt-1 text-xs" type="number" placeholder="50"
+                      value={rules.max_messages || ""} onChange={(e) => setRules({ ...rules, max_messages: e.target.value })} />
                   </div>
                   <div>
                     <Label className="text-xs">Tempo limite de inatividade (minutos)</Label>
-                    <Input className="mt-1 text-xs" type="number" placeholder="30" />
+                    <Input className="mt-1 text-xs" type="number" placeholder="30"
+                      value={rules.idle_timeout || ""} onChange={(e) => setRules({ ...rules, idle_timeout: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Limite de execuções por minuto</Label>
+                    <Input className="mt-1 text-xs" type="number" placeholder="10"
+                      value={rules.rate_limit || ""} onChange={(e) => setRules({ ...rules, rate_limit: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Mensagem ao atingir limite de mensagens</Label>
+                    <Textarea className="mt-1 text-xs" rows={2} placeholder="Você atingiu o limite de mensagens..."
+                      value={rules.limit_message || ""} onChange={(e) => setRules({ ...rules, limit_message: e.target.value })} />
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-xs font-medium">Transferir para humano</p>
+                      <p className="text-[10px] text-muted-foreground">Permitir transferência quando solicitado</p>
+                    </div>
+                    <Switch checked={rules.allow_human_transfer ?? true} onCheckedChange={(v) => setRules({ ...rules, allow_human_transfer: v })} />
                   </div>
                 </div>
               </div>
             )}
             {activeTab === "politica" && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <h2 className="text-lg font-semibold">Política de uso</h2>
                 <p className="text-sm text-muted-foreground">Defina políticas e restrições para o agente.</p>
-                <div>
-                  <Label className="text-xs">Tópicos proibidos</Label>
-                  <Textarea className="mt-1 text-xs" rows={4} placeholder="Liste tópicos que o agente não deve abordar..." />
-                </div>
-                <div>
-                  <Label className="text-xs">Instrução de encerramento</Label>
-                  <Textarea className="mt-1 text-xs" rows={3} placeholder="Quando encerrar e redirecionar para humano..." />
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs">Tópicos proibidos</Label>
+                    <Textarea className="mt-1 text-xs" rows={3} placeholder="Liste tópicos que o agente não deve abordar..."
+                      value={policy.forbidden_topics || ""} onChange={(e) => setPolicy({ ...policy, forbidden_topics: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Instrução de encerramento</Label>
+                    <Textarea className="mt-1 text-xs" rows={2} placeholder="Quando encerrar e redirecionar para humano..."
+                      value={policy.escalation_instructions || ""} onChange={(e) => setPolicy({ ...policy, escalation_instructions: e.target.value })} />
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-xs font-medium">Nunca compartilhar preços</p>
+                      <p className="text-[10px] text-muted-foreground">O agente não deve informar valores diretamente</p>
+                    </div>
+                    <Switch checked={policy.hide_prices ?? false} onCheckedChange={(v) => setPolicy({ ...policy, hide_prices: v })} />
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-xs font-medium">Não mencionar concorrentes</p>
+                      <p className="text-[10px] text-muted-foreground">Evitar falar de produtos ou serviços concorrentes</p>
+                    </div>
+                    <Switch checked={policy.no_competitors ?? false} onCheckedChange={(v) => setPolicy({ ...policy, no_competitors: v })} />
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-xs font-medium">Coletar dados antes de responder</p>
+                      <p className="text-[10px] text-muted-foreground">Exigir nome e contato antes de prosseguir</p>
+                    </div>
+                    <Switch checked={policy.require_data ?? false} onCheckedChange={(v) => setPolicy({ ...policy, require_data: v })} />
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-xs font-medium">Respostas somente sobre produtos</p>
+                      <p className="text-[10px] text-muted-foreground">Limitar respostas ao escopo dos produtos vinculados</p>
+                    </div>
+                    <Switch checked={policy.only_products ?? false} onCheckedChange={(v) => setPolicy({ ...policy, only_products: v })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Idiomas permitidos</Label>
+                    <Input className="mt-1 text-xs" placeholder="Português, Inglês"
+                      value={policy.allowed_languages || ""} onChange={(e) => setPolicy({ ...policy, allowed_languages: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Instruções adicionais</Label>
+                    <Textarea className="mt-1 text-xs" rows={4} placeholder="Outras instruções de política..."
+                      value={policy.extra_instructions || ""} onChange={(e) => setPolicy({ ...policy, extra_instructions: e.target.value })} />
+                  </div>
                 </div>
               </div>
             )}
             {activeTab === "canais" && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <h2 className="text-lg font-semibold">Canais de comunicação</h2>
-                <p className="text-sm text-muted-foreground">Selecione os canais onde o agente vai atuar.</p>
+                <p className="text-sm text-muted-foreground">Selecione onde o agente vai atuar.</p>
                 <div className="space-y-2">
                   {[
-                    { label: "WhatsApp", icon: MessageSquare, desc: "Atendimento via WhatsApp Business" },
-                    { label: "Webhook", icon: Webhook, desc: "Recebimento de eventos externos" },
-                    { label: "Formulário", icon: MousePointerClick, desc: "Formulários de captura de leads" },
+                    { key: "whatsapp", label: "WhatsApp", icon: MessageSquare, desc: "Atendimento via WhatsApp Business", available: true },
+                    { key: "chatbot", label: "Chatbot (em breve)", icon: Bot, desc: "Widget de chat no seu site", available: false },
+                    { key: "instagram", label: "Direct Instagram (em breve)", icon: MessageSquare, desc: "Mensagens diretas do Instagram", available: false },
                   ].map((ch) => (
-                    <div key={ch.label} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div key={ch.key} className={cn("flex items-center justify-between p-3 rounded-lg border border-border", !ch.available && "opacity-50")}>
                       <div className="flex items-center gap-3">
                         <ch.icon className="h-4 w-4 text-primary" />
                         <div>
@@ -844,23 +1086,48 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
                           <p className="text-xs text-muted-foreground">{ch.desc}</p>
                         </div>
                       </div>
-                      <Switch />
+                      {ch.available ? (
+                        <Switch checked={channels[ch.key] ?? false} onCheckedChange={(v) => setChannels({ ...channels, [ch.key]: v })} />
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">Em breve</Badge>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
             {activeTab === "produtos" && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <h2 className="text-lg font-semibold">Produtos vinculados</h2>
                 <p className="text-sm text-muted-foreground">Vincule produtos para o agente ter conhecimento sobre eles.</p>
-                <div className="rounded-lg border border-dashed border-border p-8 text-center">
-                  <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Nenhum produto vinculado.</p>
-                  <Button variant="outline" size="sm" className="mt-3 text-xs gap-1.5">
-                    <Plus className="h-3 w-3" /> Vincular produto
-                  </Button>
-                </div>
+                {products.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                    <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Nenhum produto cadastrado.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Produtos são criados automaticamente via webhooks de vendas ou manualmente em Configurações.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {products.map((p: any) => {
+                      const linked = linkedProducts.includes(p.id);
+                      return (
+                        <div key={p.id} className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors",
+                          linked ? "border-primary/40 bg-primary/5" : "border-border")}>
+                          <div className="flex items-center gap-3">
+                            <Package className="h-4 w-4 text-primary" />
+                            <div>
+                              <p className="text-sm font-medium">{p.name}</p>
+                              {p.cost > 0 && <p className="text-[10px] text-muted-foreground">Custo: R$ {Number(p.cost).toFixed(2)}</p>}
+                            </div>
+                          </div>
+                          <Switch checked={linked} onCheckedChange={(v) => {
+                            setLinkedProducts(prev => v ? [...prev, p.id] : prev.filter(id => id !== p.id));
+                          }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

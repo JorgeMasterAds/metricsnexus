@@ -63,14 +63,14 @@ export default function CRM() {
   return (
     <DashboardLayout
       title={titleContent as any}
-      subtitle={isListView ? "Todos os leads do projeto" : "Gerencie seus pipelines e funis de vendas"}
+      subtitle={isListView ? "Todos os leads do projeto" : "Gerencie seus Kanbans e funis de vendas"}
       actions={
         <div className="flex items-center gap-1.5 ml-auto">
           {!isListView && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 border border-border hover:bg-accent transition-colors text-sm font-medium">
-                  {activePipeline?.name || "Selecionar pipeline"}
+                  {activePipeline?.name || "Selecionar Kanban"}
                   <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
@@ -92,7 +92,7 @@ export default function CRM() {
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowPipelineModal(true)} className="cursor-pointer">
-                  <Plus className="h-3.5 w-3.5 mr-2" /> Novo pipeline
+                  <Plus className="h-3.5 w-3.5 mr-2" /> Novo Kanban
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
