@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, User, Clock, ShoppingCart, Tag, MessageSquare, ExternalLink, Trash2, Plus } from "lucide-react";
+import { X, User, Clock, ShoppingCart, Tag, MessageSquare, ExternalLink, Trash2, Plus, Check } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLeadDetail, useCRM } from "@/hooks/useCRM";
 import { cn } from "@/lib/utils";
@@ -32,9 +35,10 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
-  const [showNewTag, setShowNewTag] = useState(false);
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [showCreateTag, setShowCreateTag] = useState(false);
 
-  const leadTags = (lead.lead_tag_assignments || []).map((a: any) => a.lead_tags || a.tag_id);
+  const leadTags = (lead.lead_tag_assignments || []).map((a: any) => a.lead_tags || a.tag_id).filter((t: any) => t?.id);
   const leadTagIds = new Set(leadTags.map((t: any) => t.id));
   const availableTags = (tags || []).filter((t: any) => !leadTagIds.has(t.id));
 
@@ -60,7 +64,16 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
     if (!newTagName.trim()) return;
     createTag.mutate({ name: newTagName.trim(), color: newTagColor });
     setNewTagName("");
-    setShowNewTag(false);
+    setShowCreateTag(false);
+  };
+
+  const handleRemoveTag = (tagId: string) => {
+    removeTag.mutate({ leadId: lead.id, tagId });
+  };
+
+  const handleAddTag = (tagId: string) => {
+    addTag.mutate({ leadId: lead.id, tagId });
+    setShowTagPicker(false);
   };
 
   return (
@@ -133,6 +146,106 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                 </div>
               )}
 
+              {/* Tags - improved UI */}
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5" /> Tags
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    <Popover open={showTagPicker} onOpenChange={setShowTagPicker}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1">
+                          <Plus className="h-3 w-3" /> Adicionar
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 p-0 z-50" align="end">
+                        <Command>
+                          <CommandInput placeholder="Buscar tag..." className="h-8 text-xs" />
+                          <CommandList>
+                            <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">Nenhuma tag encontrada.</CommandEmpty>
+                            <CommandGroup>
+                              {availableTags.map((t: any) => (
+                                <CommandItem key={t.id} onSelect={() => handleAddTag(t.id)} className="text-xs cursor-pointer gap-2">
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                                  {t.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                        <div className="border-t border-border p-2">
+                          <Button variant="ghost" size="sm" className="w-full text-xs h-7 justify-start gap-1.5"
+                            onClick={() => { setShowTagPicker(false); setShowCreateTag(true); }}>
+                            <Plus className="h-3 w-3" /> Criar nova tag
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {leadTags.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma tag atribuída.</p>}
+                  {leadTags.map((t: any) => (
+                    <span key={t.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border"
+                      style={{ borderColor: t.color + "40", backgroundColor: t.color + "15", color: t.color }}>
+                      {t.name}
+                      <button onClick={() => handleRemoveTag(t.id)} className="hover:opacity-70 transition-opacity ml-0.5 text-[10px] leading-none">×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Create tag popover */}
+              <Popover open={showCreateTag} onOpenChange={setShowCreateTag}>
+                <PopoverTrigger asChild><span /></PopoverTrigger>
+                <PopoverContent className="w-60 z-50 space-y-3">
+                  <p className="text-xs font-medium">Criar nova tag</p>
+                  <Input placeholder="Nome da tag" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} className="text-xs h-8" />
+                  <div className="flex gap-1.5">
+                    {TAG_COLORS.map((c) => (
+                      <button key={c} onClick={() => setNewTagColor(c)}
+                        className={cn("h-5 w-5 rounded-full", newTagColor === c && "ring-2 ring-primary ring-offset-1 ring-offset-background")}
+                        style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleCreateTag} disabled={!newTagName.trim()} className="flex-1 text-xs h-7">
+                      Criar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowCreateTag(false)} className="text-xs h-7">
+                      Cancelar
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Notes - moved BEFORE origin */}
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" /> Anotações internas
+                </h3>
+                <Textarea
+                  placeholder="Escreva detalhes sobre a negociação..."
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  className="text-xs min-h-[80px]"
+                />
+                <Button size="sm" onClick={handleSaveNote} disabled={!noteText.trim()} className="text-xs">
+                  Salvar anotação
+                </Button>
+                {notes.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    {notes.map((n: any) => (
+                      <div key={n.id} className="p-2.5 rounded-lg bg-muted/30 text-xs">
+                        <p className="text-foreground">{n.content}</p>
+                        <p className="text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString("pt-BR")}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Purchases summary */}
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -184,82 +297,6 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">Sem dados de rastreamento disponíveis.</p>
-                )}
-              </div>
-
-              {/* Tags */}
-              <div className="rounded-xl border border-border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                    <Tag className="h-3.5 w-3.5" /> Tags
-                  </h3>
-                  <Popover open={showNewTag} onOpenChange={setShowNewTag}>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1">
-                        <Plus className="h-3 w-3" /> Nova tag
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-60 z-50 space-y-3" align="end">
-                      <p className="text-xs font-medium">Criar nova tag</p>
-                      <Input placeholder="Nome da tag" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} className="text-xs h-8" />
-                      <div className="flex gap-1.5">
-                        {TAG_COLORS.map((c) => (
-                          <button key={c} onClick={() => setNewTagColor(c)}
-                            className={cn("h-5 w-5 rounded-full", newTagColor === c && "ring-2 ring-primary ring-offset-1 ring-offset-background")}
-                            style={{ backgroundColor: c }} />
-                        ))}
-                      </div>
-                      <Button size="sm" onClick={handleCreateTag} disabled={!newTagName.trim()} className="w-full text-xs h-7">
-                        Criar
-                      </Button>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {leadTags.map((t: any) => (
-                    <Badge key={t.id} variant="secondary" className="gap-1 text-xs" style={{ borderColor: t.color, color: t.color }}>
-                      {t.name}
-                      <button onClick={() => removeTag.mutate({ leadId: lead.id, tagId: t.id })} className="ml-0.5 hover:text-destructive">×</button>
-                    </Badge>
-                  ))}
-                  {leadTags.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma tag.</p>}
-                </div>
-                {availableTags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {availableTags.slice(0, 10).map((t: any) => (
-                      <button key={t.id} onClick={() => addTag.mutate({ leadId: lead.id, tagId: t.id })}
-                        className="text-[11px] px-2 py-0.5 rounded-full border border-border hover:bg-accent transition-colors"
-                        style={{ borderColor: t.color + "50", color: t.color }}>
-                        + {t.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Notes */}
-              <div className="rounded-xl border border-border p-4 space-y-3">
-                <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5" /> Anotações internas
-                </h3>
-                <Textarea
-                  placeholder="Escreva detalhes sobre a negociação..."
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  className="text-xs min-h-[80px]"
-                />
-                <Button size="sm" onClick={handleSaveNote} disabled={!noteText.trim()} className="text-xs">
-                  Salvar anotação
-                </Button>
-                {notes.length > 0 && (
-                  <div className="space-y-2 pt-2">
-                    {notes.map((n: any) => (
-                      <div key={n.id} className="p-2.5 rounded-lg bg-muted/30 text-xs">
-                        <p className="text-foreground">{n.content}</p>
-                        <p className="text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString("pt-BR")}</p>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </div>
             </TabsContent>
