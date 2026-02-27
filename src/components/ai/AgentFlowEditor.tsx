@@ -840,31 +840,7 @@ export default function AgentFlowEditor({ agent, apiKeys, onClose }: AgentFlowEd
               </button>
             )}
           </div>
-          <div className="h-5 w-px bg-border" />
-          {/* Tab navigation */}
-          <div className="flex items-center gap-1">
-            {[
-              { key: "fluxo", label: "Fluxo", icon: GitBranch },
-              { key: "regras", label: "Regras", icon: ScrollText },
-              { key: "politica", label: "Política de uso", icon: Shield },
-              { key: "canais", label: "Canais", icon: Radio },
-              { key: "produtos", label: "Produtos", icon: Package },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                  activeTab === tab.key
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-              >
-                <tab.icon className="h-3 w-3" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {/* Tab navigation - temporarily disabled */}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
