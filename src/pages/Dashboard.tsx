@@ -1,5 +1,7 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ReportTemplates from "@/components/reports/ReportTemplates";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -726,8 +728,8 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout
-      title="Dashboard"
-      subtitle="Visão geral dos seus experimentos"
+      title="Relatório"
+      subtitle="Visão geral e templates de relatório"
       actions={
         <div className="flex items-center gap-2">
           <ProductTour {...TOURS.dashboard} />
@@ -743,6 +745,12 @@ export default function Dashboard() {
         </div>
       }
     >
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="bg-muted/50 mb-4">
+          <TabsTrigger value="dashboard" className="text-xs">Relatório</TabsTrigger>
+          <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
+        </TabsList>
+        <TabsContent value="dashboard">
       <div className="mb-6">
         <GamificationBar
           since={sinceISO}
@@ -804,6 +812,11 @@ export default function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+        <TabsContent value="templates">
+          <ReportTemplates />
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 }

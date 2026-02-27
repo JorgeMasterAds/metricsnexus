@@ -36,9 +36,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import NotificationBell from "@/components/NotificationBell";
 
 const mainNavItems = [
-  { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
-  { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
+  { icon: BarChart3, label: "Relatório", path: "/dashboard" },
   { icon: FileBarChart, label: "Relatório UTM", path: "/utm-report" },
+  { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
 ];
 
 const integrationSubItems = [
