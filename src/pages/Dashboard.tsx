@@ -752,7 +752,14 @@ export default function Dashboard() {
           goal={revenueGoal ?? 1000000}
           onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
         />
-        <div className="flex justify-end -mt-4 -mb-2">
+      </div>
+
+      <Tabs defaultValue="dashboard" className="w-full">
+        <div className="flex items-center justify-between mb-4">
+          <TabsList className="bg-muted/50">
+            <TabsTrigger value="dashboard" className="text-xs">Relatório</TabsTrigger>
+            <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
+          </TabsList>
           <ExportMenu
             data={buildFullExportData()}
             filename="dashboard-nexus"
@@ -771,13 +778,6 @@ export default function Dashboard() {
             size="default"
           />
         </div>
-      </div>
-
-      <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="bg-muted/50 mb-4">
-          <TabsTrigger value="dashboard" className="text-xs">Relatório</TabsTrigger>
-          <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
-        </TabsList>
         <TabsContent value="dashboard">
 
       <div id="dashboard-export-root">
