@@ -217,20 +217,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
         </Tooltip>
 
-        {/* Agente de IA */}
-        <Link
-          to="/ai-agents"
-          onClick={() => setMobileOpen(false)}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-            location.pathname === "/ai-agents"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-          )}
-        >
-          <Bot className={cn("h-4 w-4", location.pathname === "/ai-agents" && "text-primary")} />
-          Agente de IA
-        </Link>
+        {/* Agente de IA - temporarily hidden */}
 
         {/* CRM with submenu */}
         <div>
