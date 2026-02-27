@@ -202,9 +202,27 @@ export default function UtmReport() {
   const toggleGroup = (g: GroupKey) => {
     setActiveGroupsSet(prev => {
       const next = new Set(prev);
-      if (next.has(g)) next.delete(g); else next.add(g);
+      if (next.size === 1 && next.has(g)) {
+        // If only this one is active and clicked again, reset all
+        return new Set(FIXED_ORDER);
+      }
+      if (next.size === FIXED_ORDER.length || (next.size > 1 && !next.has(g))) {
+        // If all are active or multiple active and clicking a new one: activate only this one
+        return new Set([g]);
+      }
+      if (next.has(g)) {
+        // Already active in a subset, remove it
+        next.delete(g);
+      } else {
+        // Not active, add it to the current set
+        next.add(g);
+      }
       return next;
     });
+  };
+
+  const resetGroups = () => {
+    setActiveGroupsSet(new Set(FIXED_ORDER));
   };
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -245,8 +263,14 @@ export default function UtmReport() {
             <span className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider">Agrupamento</span>
             <UITooltip>
               <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[240px] text-xs">Selecione quais colunas agrupar na tabela. Clique para ativar/desativar.</TooltipContent>
+              <TooltipContent side="top" className="max-w-[240px] text-xs">Clique para ativar apenas aquele agrupamento. Clique em mais para combinar. Reset restaura todos.</TooltipContent>
             </UITooltip>
+            <button
+              onClick={resetGroups}
+              className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded border border-border/30 hover:border-border/60"
+            >
+              Reset
+            </button>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
             {GROUP_OPTIONS.map(opt => (

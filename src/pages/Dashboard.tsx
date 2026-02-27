@@ -745,12 +745,6 @@ export default function Dashboard() {
         </div>
       }
     >
-      <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="bg-muted/50 mb-4">
-          <TabsTrigger value="dashboard" className="text-xs">Relatório</TabsTrigger>
-          <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
-        </TabsList>
-        <TabsContent value="dashboard">
       <div className="mb-6">
         <GamificationBar
           since={sinceISO}
@@ -778,6 +772,13 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="bg-muted/50 mb-4">
+          <TabsTrigger value="dashboard" className="text-xs">Relatório</TabsTrigger>
+          <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
+        </TabsList>
+        <TabsContent value="dashboard">
 
       <div id="dashboard-export-root">
 
