@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -78,8 +78,30 @@ function RequireProject({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const location = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const knownAppRoutes = new Set([
+    "auth",
+    "reset-password",
+    "dashboard",
+    "smart-links",
+    "utm-report",
+    "webhook-logs",
+    "integrations",
+    "settings",
+    "resources",
+    "admin",
+    "support",
+    "novidades",
+    "crm",
+    "ai-agents",
+    "devices",
+  ]);
+
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+  const isPublicSlugRoute = pathSegments.length === 1 && !knownAppRoutes.has(pathSegments[0]);
 
   useEffect(() => {
     supabase.auth.onAuthStateChange((_event, session) => {
@@ -91,6 +113,15 @@ function AppRoutes() {
       setLoading(false);
     });
   }, []);
+
+  if (isPublicSlugRoute) {
+    return (
+      <Routes>
+        <Route path="/:slug" element={<PublicSmartLinkRedirect />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    );
+  }
 
   if (loading) {
     return (
