@@ -18,17 +18,18 @@ export default function PublicSmartLinkRedirect() {
 
   useEffect(() => {
     if (!redirectUrl) return;
+    // Redirect immediately — don't wait for anything
     window.location.replace(redirectUrl);
   }, [redirectUrl]);
 
+  // Minimal loading UI — user should barely see this
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="text-center space-y-3">
-        <p className="text-sm text-muted-foreground">Redirecionando...</p>
-        {!redirectUrl && (
-          <p className="text-xs text-destructive">Link inválido.</p>
-        )}
-      </div>
+    <main className="min-h-screen bg-background flex items-center justify-center">
+      {!redirectUrl ? (
+        <p className="text-xs text-destructive">Link inválido.</p>
+      ) : (
+        <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      )}
     </main>
   );
 }
