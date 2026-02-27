@@ -47,7 +47,7 @@ export default function WebhookManager() {
   const [editPlatformName, setEditPlatformName] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
-  const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  
 
   const { data: webhooks = [], isLoading } = useQuery({
     queryKey: ["webhooks", activeAccountId, activeProjectId],
@@ -139,8 +139,9 @@ export default function WebhookManager() {
     toast({ title: "Copiado!" });
   };
 
+  const PLATFORM_WEBHOOK_DOMAIN = "webhook.nexusmetrics.jmads.com.br";
   const getWebhookUrl = (token: string) =>
-    `https://${supabaseProjectId}.supabase.co/functions/v1/webhook/${token}`;
+    `https://${PLATFORM_WEBHOOK_DOMAIN}/${token}`;
 
   const getPlatformLabel = (wh: any) => {
     if (wh.platform === "other" && wh.platform_name) return wh.platform_name;

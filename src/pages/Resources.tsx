@@ -8,10 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 import { useState } from "react";
-import { Globe, Copy, Check, RefreshCw, Code, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Globe, Copy, Check, RefreshCw, Link2, Webhook, CheckCircle2 } from "lucide-react";
 
-const SUPABASE_PROJECT_ID = "fnpmuffrqrlofjvqytof";
-const REDIRECT_BASE = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/redirect`;
+const PLATFORM_SMARTLINK_DOMAIN = "smartlink.jmads.com.br";
+const PLATFORM_WEBHOOK_DOMAIN = "webhook.nexusmetrics.jmads.com.br";
 
 function CopyableValue({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -32,89 +32,57 @@ function CopyableValue({ value }: { value: string }) {
   );
 }
 
-function CopyBlock({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  const { toast } = useToast();
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    toast({ title: "Código copiado!" });
-    setTimeout(() => setCopied(false), 2000);
-  };
-  return (
-    <div className="relative">
-      <pre className="bg-muted/40 border border-border/30 rounded-lg p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap max-h-80 overflow-y-auto">{code}</pre>
-      <button onClick={handleCopy} className="absolute top-2 right-2 p-1.5 rounded-md bg-background/80 border border-border/50 hover:bg-accent transition-colors text-muted-foreground hover:text-foreground">
-        {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-      </button>
-    </div>
-  );
-}
-
 export default function Resources() {
   const { activeAccountId } = useAccount();
   const { activeProjectId } = useActiveProject();
   return (
     <DashboardLayout title="Recursos" subtitle="Gerencie domínios e recursos da plataforma">
-      <DomainsSection accountId={activeAccountId} projectId={activeProjectId} />
+      <div className="space-y-6">
+        <PlatformDomainsSection />
+        <DomainsSection accountId={activeAccountId} projectId={activeProjectId} />
+      </div>
     </DashboardLayout>
   );
 }
 
-function generateWorkerScript(accountId: string) {
-  return `// Cloudflare Worker — Nexus Metrics Smart Link Redirect
-// Cole este código no seu Cloudflare Worker
-// Rota: seudominio.com/* (catch-all)
+function PlatformDomainsSection() {
+  return (
+    <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+      <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4 text-success" />
+        Domínios da Plataforma
+      </h2>
+      <p className="text-xs text-muted-foreground mb-5">
+        Todos os seus Smart Links e Webhooks já utilizam domínios personalizados da plataforma. Não é necessária nenhuma configuração adicional.
+      </p>
 
-const REDIRECT_ENDPOINT = "${REDIRECT_BASE}";
-const ACCOUNT_ID = "${accountId}";
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-border/30 bg-secondary/30 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Link2 className="h-4 w-4 text-primary" />
+            <span className="text-xs font-semibold">Smart Links</span>
+            <Badge variant="outline" className="text-[10px] text-success border-success/30">Ativo</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">Seus links ficam no formato:</p>
+          <code className="text-xs font-mono bg-muted/50 px-2 py-1 rounded text-primary block break-all">
+            https://{PLATFORM_SMARTLINK_DOMAIN}/seu-slug
+          </code>
+        </div>
 
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    const slug = url.pathname.replace(/^\\/+/, "").split("/")[0];
-
-    if (!slug || slug === "favicon.ico" || slug === "robots.txt") {
-      return new Response("Not found", { status: 404 });
-    }
-
-    // Monta a URL da Edge Function com UTMs preservados
-    const params = new URLSearchParams(url.search);
-    params.set("slug", slug);
-    params.set("account_id", ACCOUNT_ID);
-    params.set("domain", url.hostname);
-
-    const redirectUrl = REDIRECT_ENDPOINT + "?" + params.toString();
-
-    // Chama a Edge Function e retorna o redirect
-    const response = await fetch(redirectUrl, {
-      method: "GET",
-      headers: {
-        "User-Agent": request.headers.get("User-Agent") || "",
-        "X-Forwarded-For": request.headers.get("CF-Connecting-IP") || "",
-        "X-Real-IP": request.headers.get("CF-Connecting-IP") || "",
-        "CF-IPCountry": request.headers.get("CF-IPCountry") || "",
-        "Referer": request.headers.get("Referer") || "",
-      },
-      redirect: "manual",
-    });
-
-    // Retorna o 302 da Edge Function direto ao cliente
-    if (response.status === 302 || response.status === 301) {
-      return new Response(null, {
-        status: response.status,
-        headers: {
-          "Location": response.headers.get("Location") || "",
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-        },
-      });
-    }
-
-    // Se não encontrou o link, retorna o erro
-    const body = await response.text();
-    return new Response(body, { status: response.status });
-  },
-};`;
+        <div className="rounded-lg border border-border/30 bg-secondary/30 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Webhook className="h-4 w-4 text-primary" />
+            <span className="text-xs font-semibold">Webhooks</span>
+            <Badge variant="outline" className="text-[10px] text-success border-success/30">Ativo</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">Suas URLs de webhook ficam no formato:</p>
+          <code className="text-xs font-mono bg-muted/50 px-2 py-1 rounded text-primary block break-all">
+            https://{PLATFORM_WEBHOOK_DOMAIN}/seu-token
+          </code>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function DomainsSection({ accountId, projectId }: { accountId?: string; projectId?: string }) {
@@ -123,7 +91,8 @@ function DomainsSection({ accountId, projectId }: { accountId?: string; projectI
   const [domain, setDomain] = useState("");
   const [adding, setAdding] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
-  const [showWorkerCode, setShowWorkerCode] = useState(false);
+
+  const SUPABASE_PROJECT_ID = "fnpmuffrqrlofjvqytof";
 
   const { data: domains = [] } = useQuery({
     queryKey: ["custom-domains", accountId, projectId],
@@ -178,137 +147,48 @@ function DomainsSection({ accountId, projectId }: { accountId?: string; projectI
     } finally { setVerifyingId(null); }
   };
 
-  const workerCode = accountId ? generateWorkerScript(accountId) : "";
-
   return (
-    <div className="space-y-6">
-      {/* Adicionar domínio */}
-      <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-        <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Globe className="h-4 w-4 text-primary" />Domínio Personalizado</h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Configure seu próprio domínio para os Smart Links. Seus links ficarão no formato: <code className="bg-muted px-1.5 py-0.5 rounded text-primary">https://seudominio.com/slug</code>
-        </p>
-        <div className="flex gap-3 mb-6">
-          <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="Ex: links.meusite.com.br" className="flex-1" />
-          <Button onClick={addDomain} disabled={adding || !domain.trim()} className="gradient-bg border-0 text-primary-foreground hover:opacity-90">
-            {adding ? "Adicionando..." : "Adicionar domínio"}
-          </Button>
-        </div>
+    <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+      <h2 className="text-sm font-semibold mb-2 flex items-center gap-2">
+        <Globe className="h-4 w-4 text-primary" />
+        Domínio Personalizado (opcional)
+      </h2>
+      <p className="text-xs text-muted-foreground mb-4">
+        Se preferir, você pode configurar seu próprio domínio para Smart Links. Caso contrário, o domínio padrão da plataforma (<code className="bg-muted px-1 py-0.5 rounded text-primary">{PLATFORM_SMARTLINK_DOMAIN}</code>) será utilizado automaticamente.
+      </p>
+      <div className="flex gap-3 mb-6">
+        <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="Ex: links.meusite.com.br" className="flex-1" />
+        <Button onClick={addDomain} disabled={adding || !domain.trim()} className="gradient-bg border-0 text-primary-foreground hover:opacity-90">
+          {adding ? "Adicionando..." : "Adicionar domínio"}
+        </Button>
+      </div>
 
-        {domains.length > 0 && (
-          <div className="space-y-3">
-            {domains.map((d: any) => (
-              <div key={d.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-secondary/50 border border-border/30">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium font-mono break-all">{d.domain}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="outline" className={`text-[10px] ${d.is_verified ? "text-success border-success/30" : "text-warning border-warning/30"}`}>
-                      {d.is_verified ? "Verificado" : "Pendente"}
-                    </Badge>
-                    {d.is_active && <Badge variant="outline" className="text-[10px] text-primary border-primary/30">Ativo</Badge>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {!d.is_verified && (
-                    <Button variant="outline" size="sm" className="text-xs" disabled={verifyingId === d.id} onClick={() => verifyDns(d.id)}>
-                      <RefreshCw className={`h-3.5 w-3.5 mr-1 ${verifyingId === d.id ? "animate-spin" : ""}`} />
-                      {verifyingId === d.id ? "Verificando..." : "Verificar DNS"}
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" className="text-xs" onClick={() => removeDomain(d.id)}>Remover</Button>
+      {domains.length > 0 && (
+        <div className="space-y-3">
+          {domains.map((d: any) => (
+            <div key={d.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-secondary/50 border border-border/30">
+              <div className="min-w-0">
+                <p className="text-sm font-medium font-mono break-all">{d.domain}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className={`text-[10px] ${d.is_verified ? "text-success border-success/30" : "text-warning border-warning/30"}`}>
+                    {d.is_verified ? "Verificado" : "Pendente"}
+                  </Badge>
+                  {d.is_active && <Badge variant="outline" className="text-[10px] text-primary border-primary/30">Ativo</Badge>}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Configuração com Cloudflare Workers */}
-      <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-        <h2 className="text-sm font-semibold mb-2 flex items-center gap-2">
-          <Code className="h-4 w-4 text-primary" />
-          Como configurar seu domínio (Cloudflare Workers)
-        </h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          A maneira mais simples e confiável de usar seu domínio personalizado. <strong>Gratuito</strong>, sem problemas de SSL, funciona com qualquer subdomínio.
-        </p>
-
-        {/* Aviso sobre CNAME */}
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20 mb-5">
-          <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground">
-            <strong className="text-foreground">Importante:</strong> Apontar CNAME diretamente para o Supabase <strong>não funciona</strong> por limitações de certificado SSL. Use o método abaixo (Cloudflare Workers) — é a solução definitiva.
-          </p>
+              <div className="flex items-center gap-2 shrink-0">
+                {!d.is_verified && (
+                  <Button variant="outline" size="sm" className="text-xs" disabled={verifyingId === d.id} onClick={() => verifyDns(d.id)}>
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${verifyingId === d.id ? "animate-spin" : ""}`} />
+                    {verifyingId === d.id ? "Verificando..." : "Verificar DNS"}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" className="text-xs" onClick={() => removeDomain(d.id)}>Remover</Button>
+              </div>
+            </div>
+          ))}
         </div>
-
-        {/* Passo a passo */}
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <span className="shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
-            <div>
-              <p className="text-sm font-medium">Acesse o painel do Cloudflare</p>
-              <p className="text-xs text-muted-foreground">
-                Vá em <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">dash.cloudflare.com</a> e selecione seu domínio. Se não usa Cloudflare, cadastre seu domínio gratuitamente.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <span className="shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold">2</span>
-            <div>
-              <p className="text-sm font-medium">Crie um Worker</p>
-              <p className="text-xs text-muted-foreground">
-                No menu lateral, clique em <strong>Workers & Pages → Criar</strong>. Dê um nome como "nexus-redirect" e clique em "Deploy". Depois clique em "Editar código".
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <span className="shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold">3</span>
-            <div className="w-full">
-              <p className="text-sm font-medium mb-2">Cole o código abaixo no Worker</p>
-              <Button variant="outline" size="sm" className="text-xs mb-3" onClick={() => setShowWorkerCode(!showWorkerCode)}>
-                <Code className="h-3.5 w-3.5 mr-1" />
-                {showWorkerCode ? "Ocultar código" : "Mostrar código do Worker"}
-              </Button>
-              {showWorkerCode && <CopyBlock code={workerCode} />}
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <span className="shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold">4</span>
-            <div>
-              <p className="text-sm font-medium">Configure a rota do Worker</p>
-              <p className="text-xs text-muted-foreground">
-                Vá na aba <strong>"Triggers" → "Custom Domains"</strong> e adicione seu subdomínio (ex: <code className="bg-muted px-1 py-0.5 rounded text-primary">links.seudominio.com.br</code>). O Cloudflare configura DNS e SSL automaticamente.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <span className="shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-success/20 text-success text-xs font-bold">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </span>
-            <div>
-              <p className="text-sm font-medium">Pronto!</p>
-              <p className="text-xs text-muted-foreground">
-                Seus links personalizados já estarão funcionando em segundos. Exemplo: <code className="bg-muted px-1 py-0.5 rounded text-primary">https://links.seudominio.com.br/meu-slug</code>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Teste de link */}
-      <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
-        <h2 className="text-sm font-semibold mb-3">Link direto (sem domínio personalizado)</h2>
-        <p className="text-xs text-muted-foreground mb-3">
-          Seus Smart Links também funcionam diretamente pela URL abaixo, sem precisar de domínio personalizado:
-        </p>
-        <div className="bg-muted/30 rounded-lg p-3">
-          <CopyableValue value={`${REDIRECT_BASE}?slug=SEU_SLUG&account_id=${accountId || "SEU_ACCOUNT_ID"}`} />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
