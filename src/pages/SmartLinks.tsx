@@ -232,12 +232,13 @@ export default function SmartLinks() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["smartlinks"] }),
   });
 
+  const PLATFORM_SMARTLINK_DOMAIN = "smartlink.jmads.com.br";
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const getRedirectUrl = (slug: string) => {
     if (customDomain) {
       return `https://${customDomain}/${slug}`;
     }
-    return `https://${supabaseProjectId}.supabase.co/functions/v1/redirect?slug=${slug}&account_id=${activeAccountId}`;
+    return `https://${PLATFORM_SMARTLINK_DOMAIN}/${slug}`;
   };
 
   const copyLink = (slug: string) => {
@@ -251,8 +252,7 @@ export default function SmartLinks() {
       return;
     }
     if (!customDomain) {
-      setShowDomainWarning(true);
-      return;
+      // Platform domain is always available, no warning needed
     }
     setEditingLink(null);
     setShowModal(true);
@@ -324,18 +324,7 @@ export default function SmartLinks() {
         </div>
       )}
 
-      {/* Domain alert banner */}
-      {!customDomain && !isLoading && (
-        <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 flex items-center gap-3">
-          <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
-          <span className="text-xs text-warning flex-1">
-            <strong>Recomendado:</strong> Configure um Domínio Personalizado antes de criar Smart Links para profissionalizar seus links.
-          </span>
-          <Button variant="outline" size="sm" className="text-xs shrink-0 h-7" onClick={() => navigate("/resources")}>
-            Configurar
-          </Button>
-        </div>
-      )}
+      {/* Custom domain is optional — platform domain is always available */}
 
       {atLimit && (
         <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 mb-4 text-xs text-warning">
