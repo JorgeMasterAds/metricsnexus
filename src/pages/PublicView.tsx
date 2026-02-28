@@ -52,12 +52,18 @@ function CustomTooltipContent({ active, payload, label }: any) {
   return (
     <div style={TOOLTIP_STYLE}>
       <p style={{ color: "#e0e0e0", marginBottom: 4, fontWeight: 500 }}>{label}</p>
-      {filtered.map((entry: any, i: number) => (
-        <p key={i} style={{ color: "#ffffff", fontSize: 12 }}>
-          <span style={{ color: entry.color || "#f5f5f5", marginRight: 6 }}>●</span>
-          {entry.name}: {typeof entry.value === "number" ? entry.value.toLocaleString("pt-BR") : entry.value}
-        </p>
-      ))}
+      {filtered.map((entry: any, i: number) => {
+        const isRevenue = entry.dataKey === "revenue" || entry.dataKey === "value" || (entry.name && (entry.name.toLowerCase().includes("receita") || entry.name.toLowerCase().includes("faturamento")));
+        const formattedValue = typeof entry.value === "number"
+          ? isRevenue ? fmt(entry.value) : entry.value.toLocaleString("pt-BR")
+          : entry.value;
+        return (
+          <p key={i} style={{ color: "#ffffff", fontSize: 12 }}>
+            <span style={{ color: entry.color || "#f5f5f5", marginRight: 6 }}>●</span>
+            {entry.name}: {formattedValue}
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -158,10 +164,6 @@ export default function PublicView() {
     );
   }
 
-  if (loading || !data) {
-    return <ChartLoader text="Carregando relatório público..." />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
@@ -169,7 +171,7 @@ export default function PublicView() {
           <div className="flex items-center gap-3">
             <Activity className="h-5 w-5 text-primary" />
             <div>
-              <h1 className="text-lg font-bold">{data.project_name}</h1>
+              <h1 className="text-lg font-bold">{data?.project_name || "Carregando..."}</h1>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Eye className="h-3 w-3" /> Visualização pública (somente leitura)
               </p>
@@ -180,23 +182,27 @@ export default function PublicView() {
       </header>
 
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 pt-4 pb-12">
-        <Tabs value={activePage} onValueChange={handlePageChange}>
-          <TabsList>
-            <TabsTrigger value="dashboard" className="gap-1.5">
-              <BarChart3 className="h-3.5 w-3.5" /> Relatório
-            </TabsTrigger>
-            <TabsTrigger value="utm" className="gap-1.5">
-              <FileBarChart className="h-3.5 w-3.5" /> Relatório UTM
-            </TabsTrigger>
-          </TabsList>
+        {loading || !data ? (
+          <ChartLoader text="Carregando relatório público..." />
+        ) : (
+          <Tabs value={activePage} onValueChange={handlePageChange}>
+            <TabsList>
+              <TabsTrigger value="dashboard" className="gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5" /> Relatório
+              </TabsTrigger>
+              <TabsTrigger value="utm" className="gap-1.5">
+                <FileBarChart className="h-3.5 w-3.5" /> Relatório UTM
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="dashboard" className="mt-6">
-            <DashboardPublicView data={data} dateRange={dateRange} />
-          </TabsContent>
-          <TabsContent value="utm" className="mt-6">
-            <UtmPublicView data={data} />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="dashboard" className="mt-6">
+              <DashboardPublicView data={data} dateRange={dateRange} />
+            </TabsContent>
+            <TabsContent value="utm" className="mt-6">
+              <UtmPublicView data={data} />
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   );
