@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
-import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft, FileCode, Plus, Copy, Trash2, ExternalLink, User, Mail, Phone, Check, Pencil } from "lucide-react";
+import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft, FileCode, Plus, Copy, Trash2, ExternalLink, User, Mail, Phone, Check, Pencil, RotateCcw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -565,6 +565,37 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
   const logs = data?.logs || [];
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / WH_PAGE_SIZE);
+  const queryClient = useQueryClient();
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  const RETRYABLE = new Set(["error", "ignored", "duplicate", "canceled", "chargedback"]);
+
+  const retryMutation = useMutation({
+    mutationFn: async (log: any) => {
+      setRetryingId(log.id);
+      const { data: wh } = await (supabase as any).from("webhooks").select("token").eq("id", log.webhook_id).single();
+      if (!wh?.token) throw new Error("Webhook não encontrado");
+      const res = await supabase.functions.invoke("webhook", {
+        body: log.raw_payload,
+        headers: { "x-webhook-token": wh.token },
+      });
+      if (res.error) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Webhook reprocessado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["wh-int-logs"] });
+    },
+    onError: (err: any) => {
+      toast.error("Erro ao reprocessar: " + err.message);
+    },
+    onSettled: () => setRetryingId(null),
+  });
+
+  const copyJson = (log: any) => {
+    navigator.clipboard.writeText(JSON.stringify(log.raw_payload, null, 2));
+    toast.success("JSON copiado!");
+  };
 
   return (
     <div className="space-y-4">
@@ -665,7 +696,23 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
                       <tr className="border-b border-border/10">
                         <td colSpan={8} className="px-4 py-3 bg-muted/30">
                           {log.ignore_reason && <div className="text-xs mb-2"><span className="text-muted-foreground">Motivo: </span><span className="text-foreground">{log.ignore_reason}</span></div>}
-                          <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-muted-foreground font-medium">Payload completo:</span>
+                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={(e) => { e.stopPropagation(); copyJson(log); }}>
+                              <Copy className="h-3 w-3" /> Copiar JSON
+                            </Button>
+                            {RETRYABLE.has(log.status) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs gap-1 text-primary"
+                                disabled={retryingId === log.id}
+                                onClick={(e) => { e.stopPropagation(); retryMutation.mutate(log); }}
+                              >
+                                <RotateCcw className={cn("h-3 w-3", retryingId === log.id && "animate-spin")} /> Reprocessar
+                              </Button>
+                            )}
+                          </div>
                           <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">{JSON.stringify(log.raw_payload, null, 2)}</pre>
                           {log.attributed_click_id && <div className="mt-2 text-xs"><span className="text-muted-foreground">Click ID: </span><span className="font-mono text-primary">{log.attributed_click_id}</span></div>}
                         </td>
