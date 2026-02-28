@@ -9,6 +9,7 @@ import LeadDetailPanel from "@/components/crm/LeadDetailPanel";
 import CreatePipelineModal from "@/components/crm/CreatePipelineModal";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useActiveProject } from "@/hooks/useActiveProject";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -28,7 +29,9 @@ export default function CRM() {
   const [showPipelineModal, setShowPipelineModal] = useState(false);
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
   const [deletingPipelineId, setDeletingPipelineId] = useState<string | null>(null);
-  const { leads, pipelines, stages, isLoading, deletePipeline } = useCRM();
+  const [autoCreated, setAutoCreated] = useState(false);
+  const { leads, pipelines, stages, isLoading, deletePipeline, createPipeline } = useCRM();
+  const { activeProject } = useActiveProject();
 
   useEffect(() => {
     if (!activePipelineId && pipelines.length > 0 && !isListView) {
@@ -36,14 +39,13 @@ export default function CRM() {
     }
   }, [pipelines, activePipelineId, isListView]);
 
-  // Only auto-prompt to create pipeline if user has zero pipelines and hasn't dismissed
-  const [autoPrompted, setAutoPrompted] = useState(false);
+  // Auto-create a pipeline with project name if none exists (no popup)
   useEffect(() => {
-    if (!isLoading && pipelines.length === 0 && !isListView && !autoPrompted) {
-      setAutoPrompted(true);
-      setShowPipelineModal(true);
+    if (!isLoading && pipelines.length === 0 && !isListView && !autoCreated && activeProject) {
+      setAutoCreated(true);
+      createPipeline.mutate({ name: activeProject.name || "Pipeline Principal" });
     }
-  }, [isLoading, pipelines.length, isListView, autoPrompted]);
+  }, [isLoading, pipelines.length, isListView, autoCreated, activeProject, createPipeline]);
 
   const pipelineStages = activePipelineId
     ? stages.filter((s: any) => s.pipeline_id === activePipelineId)
