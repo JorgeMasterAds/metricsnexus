@@ -355,13 +355,13 @@ export default function UtmReport() {
       {/* Snapshot export area — KPIs + table, no filters */}
       <div id="utm-export-root">
         {/* Summary KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {(() => {
             const prevSales = prevConversions.filter((c: any) => !c.is_order_bump).length;
             const prevOb = prevConversions.filter((c: any) => c.is_order_bump).length;
             const prevRev = prevConversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
             return (<>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
               <div className="flex items-center gap-1">
@@ -371,16 +371,16 @@ export default function UtmReport() {
                 </div>
               </div>
             </div>
-            <div className="text-xl font-bold flex-1 flex items-center">{totalSales + totalObSales}</div>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="text-xl font-bold flex-1 flex items-center justify-center">{totalSales + totalObSales}</div>
+            <div className="flex items-center justify-center gap-3 mt-1">
               <span className="text-[9px] text-muted-foreground">Vendas <span className="font-mono font-medium text-foreground/80">{totalSales}</span></span>
               <span className="text-[9px] text-muted-foreground">OB <span className="font-mono font-medium text-foreground/80">{totalObSales}</span></span>
             </div>
-            <div className={`text-[10px] font-normal mt-0.5 ${changeColor(pctChange(totalSales, prevSales))}`}>
+            <div className={`text-[10px] font-normal mt-0.5 text-center ${changeColor(pctChange(totalSales, prevSales))}`}>
               {fmtChange(pctChange(totalSales, prevSales))} vs {previousPeriodLabel}
             </div>
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
               <div className="flex items-center gap-1">
@@ -390,14 +390,16 @@ export default function UtmReport() {
                 </div>
               </div>
             </div>
-            <input
-              value={investmentInput}
-              onChange={handleInvestmentChange}
-              placeholder="R$ 0,00"
-              className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
-            />
+            <div className="flex-1 flex items-center justify-center">
+              <input
+                value={investmentInput}
+                onChange={handleInvestmentChange}
+                placeholder="R$ 0,00"
+                className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px] text-center"
+              />
+            </div>
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
               <div className="flex items-center gap-1">
@@ -407,8 +409,8 @@ export default function UtmReport() {
                 </div>
               </div>
             </div>
-            <div className="text-lg font-bold flex-1 flex items-center">{fmt(totalRevenue)}</div>
-            <div className={`text-[10px] font-normal mt-0.5 ${changeColor(pctChange(totalRevenue, prevRev))}`}>
+            <div className="text-lg font-bold flex-1 flex items-center justify-center">{fmt(totalRevenue)}</div>
+            <div className={`text-[10px] font-normal mt-0.5 text-center ${changeColor(pctChange(totalRevenue, prevRev))}`}>
               {fmtChange(pctChange(totalRevenue, prevRev))} vs {previousPeriodLabel}
             </div>
           </div>
@@ -416,7 +418,7 @@ export default function UtmReport() {
             const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
             const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
             return (
-              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
+              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
                   <div className="flex items-center gap-1">
@@ -426,7 +428,7 @@ export default function UtmReport() {
                     </div>
                   </div>
                 </div>
-                <div className="text-lg font-bold font-mono flex-1 flex items-center" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
+                <div className="text-lg font-bold font-mono flex-1 flex items-center justify-center" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
                   {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
                 </div>
               </div>
