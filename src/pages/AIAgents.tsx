@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import ChartLoaderInline from "@/components/ChartLoaderInline";
 import { useAIAgents } from "@/hooks/useAIAgents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,9 +80,7 @@ export default function AIAgents() {
       }
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
+        <ChartLoaderInline text="Carregando agentes..." />
       ) : agents.length === 0 ? (
         <div className="text-center py-20 space-y-4">
           <Bot className="h-16 w-16 text-muted-foreground/30 mx-auto" />
