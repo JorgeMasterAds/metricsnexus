@@ -116,10 +116,24 @@ function extractClickId(data: any): string | null {
   const sources = [data, data?.data, data?.data?.purchase, data?.data?.checkout];
   for (const src of sources) {
     if (!src) continue;
-    const candidates = [src.click_id, src.utm_term, src.sck];
+    // Only extract actual click_id or sck (which IS the click_id)
+    // Do NOT use utm_term here — utm_term is a separate fallback for attribution
+    const candidates = [src.click_id, src.sck];
     for (const c of candidates) {
       if (c && typeof c === 'string' && c.trim()) return c.trim();
     }
+  }
+  return null;
+}
+
+/** Extract utm_term separately for fallback attribution */
+function extractUtmTermForAttribution(data: any): string | null {
+  if (!data) return null;
+  const sources = [data, data?.data, data?.data?.purchase, data?.data?.checkout];
+  for (const src of sources) {
+    if (!src) continue;
+    const val = src.utm_term || src.utmTerm;
+    if (val && typeof val === 'string' && val.trim()) return val.trim();
   }
   return null;
 }
@@ -491,15 +505,63 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Attribute via click
+  // ── ATTRIBUTION: click_id (priority) → utm_term (fallback) ──
   let smartlinkId = null, variantId = null;
+  let attributedClickId = sale.clickId;
+  let isAttributed = false;
+
+  // Priority 1: Direct click_id match
   if (sale.clickId) {
-    const { data: click } = await supabase.from('clicks').select('smartlink_id, variant_id, account_id, project_id').eq('click_id', sale.clickId).maybeSingle();
+    const { data: click } = await supabase.from('clicks')
+      .select('smartlink_id, variant_id, account_id, project_id')
+      .eq('click_id', sale.clickId)
+      .maybeSingle();
     if (click) {
       smartlinkId = click.smartlink_id;
       variantId = click.variant_id;
       if (!projectId) projectId = click.project_id;
       if (!accountId) accountId = click.account_id;
+      isAttributed = true;
+    }
+  }
+
+  // Priority 2: Fallback via utm_term (when click_id is absent or not found)
+  if (!isAttributed) {
+    const utmTermFallback = extractUtmTermForAttribution(rawPayload);
+    if (utmTermFallback) {
+      // Look up click by utm_term value matching click_id in clicks table
+      // (the redirect function sets click_id as utm_term for platforms that strip custom params)
+      const { data: clickByTerm } = await supabase.from('clicks')
+        .select('click_id, smartlink_id, variant_id, account_id, project_id')
+        .eq('click_id', utmTermFallback)
+        .maybeSingle();
+      
+      if (clickByTerm) {
+        smartlinkId = clickByTerm.smartlink_id;
+        variantId = clickByTerm.variant_id;
+        attributedClickId = clickByTerm.click_id;
+        if (!projectId) projectId = clickByTerm.project_id;
+        if (!accountId) accountId = clickByTerm.account_id;
+        isAttributed = true;
+      } else if (accountId) {
+        // Fallback: try matching utm_term against the utm_term column in clicks
+        // (for cases where utm_term was set independently, find the most recent matching click)
+        const { data: clickByUtm } = await supabase.from('clicks')
+          .select('click_id, smartlink_id, variant_id, account_id, project_id')
+          .eq('account_id', accountId)
+          .eq('utm_term', utmTermFallback)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (clickByUtm) {
+          smartlinkId = clickByUtm.smartlink_id;
+          variantId = clickByUtm.variant_id;
+          attributedClickId = clickByUtm.click_id;
+          if (!projectId) projectId = clickByUtm.project_id;
+          isAttributed = true;
+        }
+      }
     }
   }
 
@@ -513,7 +575,7 @@ Deno.serve(async (req) => {
   const { data: convRow } = await supabase.from('conversions').insert({
     account_id: accountId,
     project_id: projectId,
-    click_id: sale.clickId,
+    click_id: attributedClickId || sale.clickId,
     smartlink_id: smartlinkId,
     variant_id: variantId,
     transaction_id: sale.transactionId,
@@ -593,8 +655,8 @@ Deno.serve(async (req) => {
     status: 'approved',
     event_type: sale.eventType,
     transaction_id: sale.transactionId,
-    attributed_click_id: sale.clickId,
-    is_attributed: !!sale.clickId,
+    attributed_click_id: attributedClickId || sale.clickId,
+    is_attributed: isAttributed,
     account_id: accountId,
     webhook_id: webhookId,
     project_id: projectId,
