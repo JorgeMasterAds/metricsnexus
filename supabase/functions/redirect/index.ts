@@ -166,16 +166,27 @@ Deno.serve(async (req) => {
   if (utmMedium) destinationUrl.searchParams.set('utm_medium', utmMedium);
   if (utmCampaign) destinationUrl.searchParams.set('utm_campaign', utmCampaign);
   if (utmContent) destinationUrl.searchParams.set('utm_content', utmContent);
+  if (utmTerm) destinationUrl.searchParams.set('utm_term', utmTerm);
   
-  // Always set click_id for attribution
-  destinationUrl.searchParams.set('utm_term', clickId);
+  // Always set click_id for attribution (separate params, preserve utm_term)
   destinationUrl.searchParams.set('click_id', clickId);
   destinationUrl.searchParams.set('sck', clickId);
+
+  const finalUrl = destinationUrl.toString();
+
+  // JSON mode: return URL for client-side redirect (eliminates extra hop)
+  const mode = url.searchParams.get('mode');
+  if (mode === 'json') {
+    return new Response(JSON.stringify({ url: finalUrl, click_id: clickId }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders },
+    });
+  }
 
   return new Response(null, {
     status: 302,
     headers: {
-      'Location': destinationUrl.toString(),
+      'Location': finalUrl,
       'Cache-Control': 'no-store, no-cache, must-revalidate',
       'Pragma': 'no-cache',
       ...corsHeaders,
