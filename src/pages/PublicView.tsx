@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   Activity, BarChart3, FileBarChart, Eye, ShoppingCart, DollarSign, TrendingUp,
@@ -318,13 +318,97 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
     });
     const paymentData = Array.from(paymentMap.entries()).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.receita - a.receita);
 
-    // SmartLink stats
+    // SmartLink stats + comparação por período
+    const currentByLink = new Map<string, { views: number; sales: number; revenue: number }>();
+    const prevByLink = new Map<string, { views: number; sales: number; revenue: number }>();
+    const currentByVariant = new Map<string, { views: number; sales: number; revenue: number }>();
+    const prevByVariant = new Map<string, { views: number; sales: number; revenue: number }>();
+
+    clicks.forEach((c: any) => {
+      if (c.smartlink_id) {
+        const entry = currentByLink.get(c.smartlink_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += 1;
+        currentByLink.set(c.smartlink_id, entry);
+      }
+      if (c.variant_id) {
+        const entry = currentByVariant.get(c.variant_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += 1;
+        currentByVariant.set(c.variant_id, entry);
+      }
+    });
+
+    conversions.forEach((c: any) => {
+      if (c.smartlink_id) {
+        const entry = currentByLink.get(c.smartlink_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.sales += 1;
+        entry.revenue += Number(c.amount);
+        currentByLink.set(c.smartlink_id, entry);
+      }
+      if (c.variant_id) {
+        const entry = currentByVariant.get(c.variant_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.sales += 1;
+        entry.revenue += Number(c.amount);
+        currentByVariant.set(c.variant_id, entry);
+      }
+    });
+
+    prevClicks.forEach((c: any) => {
+      if (c.smartlink_id) {
+        const entry = prevByLink.get(c.smartlink_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += 1;
+        prevByLink.set(c.smartlink_id, entry);
+      }
+      if (c.variant_id) {
+        const entry = prevByVariant.get(c.variant_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += 1;
+        prevByVariant.set(c.variant_id, entry);
+      }
+    });
+
+    prevConversions.forEach((c: any) => {
+      if (c.smartlink_id) {
+        const entry = prevByLink.get(c.smartlink_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.sales += 1;
+        entry.revenue += Number(c.amount);
+        prevByLink.set(c.smartlink_id, entry);
+      }
+      if (c.variant_id) {
+        const entry = prevByVariant.get(c.variant_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.sales += 1;
+        entry.revenue += Number(c.amount);
+        prevByVariant.set(c.variant_id, entry);
+      }
+    });
+
     const linkStats = smartLinks.map((link: any) => {
-      const lv = clicks.filter((c: any) => c.smartlink_id === link.id).length;
-      const lConvs = conversions.filter((c: any) => c.smartlink_id === link.id);
-      const lc = lConvs.length;
-      const lr = lConvs.reduce((s: number, c: any) => s + Number(c.amount), 0);
-      return { ...link, views: lv, sales: lc, revenue: lr, rate: lv > 0 ? (lc / lv) * 100 : 0 };
+      const curr = currentByLink.get(link.id) || { views: 0, sales: 0, revenue: 0 };
+      const prev = prevByLink.get(link.id) || { views: 0, sales: 0, revenue: 0 };
+      const variants = (link.smartlink_variants || []).map((v: any) => {
+        const vCurr = currentByVariant.get(v.id) || { views: 0, sales: 0, revenue: 0 };
+        const vPrev = prevByVariant.get(v.id) || { views: 0, sales: 0, revenue: 0 };
+        return {
+          ...v,
+          views: vCurr.views,
+          sales: vCurr.sales,
+          revenue: vCurr.revenue,
+          rate: vCurr.views > 0 ? (vCurr.sales / vCurr.views) * 100 : 0,
+          prevViews: vPrev.views,
+          prevSales: vPrev.sales,
+          prevRevenue: vPrev.revenue,
+        };
+      });
+
+      return {
+        ...link,
+        views: curr.views,
+        sales: curr.sales,
+        revenue: curr.revenue,
+        rate: curr.views > 0 ? (curr.sales / curr.views) * 100 : 0,
+        prevViews: prev.views,
+        prevSales: prev.sales,
+        prevRevenue: prev.revenue,
+        variants,
+      };
     });
 
     return {
@@ -342,6 +426,11 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
       linkStats,
     };
   }, [conversions, clicks, smartLinks, dateRange, prevConversions, prevClicks]);
+
+  const pctChange = useCallback((curr: number, prev: number) => {
+    if (prev === 0) return curr > 0 ? 100 : 0;
+    return ((curr - prev) / prev) * 100;
+  }, []);
 
   const fmtChange = (val: number, isAbsolute = false) => {
     const sign = val > 0 ? "+" : "";
@@ -451,16 +540,39 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
               </tr></thead>
               <tbody>
                 {computed.linkStats.map((link: any) => {
-                  const variants = link.smartlink_variants || [];
+                  const prevRate = link.prevViews > 0 ? (link.prevSales / link.prevViews) * 100 : 0;
+                  const viewsChange = pctChange(link.views, link.prevViews);
+                  const salesChange = pctChange(link.sales, link.prevSales);
+                  const revenueChange = pctChange(link.revenue, link.prevRevenue);
                   return (
-                    <> 
-                      <tr key={link.id} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
+                    <Fragment key={link.id}>
+                      <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors align-top">
                         <td className="px-5 py-3 font-medium text-xs">{link.name}</td>
                         <td className="px-5 py-3 text-xs text-muted-foreground font-mono">/{link.slug}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
-                        <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{link.rate.toFixed(2)}%</td>
+                        <td className="text-right px-5 py-3 font-mono text-xs">
+                          {link.views.toLocaleString("pt-BR")}
+                          <div className={`text-[10px] ${changeType(viewsChange) === "positive" ? "text-success" : changeType(viewsChange) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>
+                            {fmtChange(viewsChange)}
+                          </div>
+                        </td>
+                        <td className="text-right px-5 py-3 font-mono text-xs">
+                          {link.sales.toLocaleString("pt-BR")}
+                          <div className={`text-[10px] ${changeType(salesChange) === "positive" ? "text-success" : changeType(salesChange) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>
+                            {fmtChange(salesChange)}
+                          </div>
+                        </td>
+                        <td className="text-right px-5 py-3 font-mono text-xs">
+                          {fmt(link.revenue)}
+                          <div className={`text-[10px] ${changeType(revenueChange) === "positive" ? "text-success" : changeType(revenueChange) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>
+                            {fmtChange(revenueChange)}
+                          </div>
+                        </td>
+                        <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">
+                          {link.rate.toFixed(2)}%
+                          <div className={`text-[10px] ${changeType(link.rate - prevRate) === "positive" ? "text-success" : changeType(link.rate - prevRate) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>
+                            {fmtChange(link.rate - prevRate, true)}
+                          </div>
+                        </td>
                         <td className="text-right px-5 py-3">
                           <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-primary" : "bg-muted-foreground"}`} />
@@ -468,20 +580,31 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
                           </span>
                         </td>
                       </tr>
-                      {variants.map((v: any) => {
-                        const vClicks = clicks.filter((c: any) => c.variant_id === v.id).length;
-                        const vConvs = conversions.filter((c: any) => c.variant_id === v.id);
-                        const vSales = vConvs.length;
-                        const vRevenue = vConvs.reduce((s: number, c: any) => s + Number(c.amount), 0);
-                        const vRate = vClicks > 0 ? ((vSales / vClicks) * 100).toFixed(2) : "0.00";
+                      {link.variants.map((v: any) => {
+                        const prevVRate = v.prevViews > 0 ? (v.prevSales / v.prevViews) * 100 : 0;
+                        const viewsChange = pctChange(v.views, v.prevViews);
+                        const salesChange = pctChange(v.sales, v.prevSales);
+                        const revenueChange = pctChange(v.revenue, v.prevRevenue);
                         return (
                           <tr key={v.id} className="border-b border-border/10 bg-muted/10">
                             <td className="px-5 py-2 text-xs text-muted-foreground pl-10">↳ {v.name}</td>
                             <td className="px-5 py-2 text-xs text-muted-foreground font-mono truncate max-w-[140px]" title={v.url}>{v.url}</td>
-                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vClicks.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vSales.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{fmt(vRevenue)}</td>
-                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vRate}%</td>
+                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">
+                              {v.views.toLocaleString("pt-BR")}
+                              <div className={`text-[9px] ${changeType(viewsChange) === "positive" ? "text-success" : changeType(viewsChange) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>{fmtChange(viewsChange)}</div>
+                            </td>
+                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">
+                              {v.sales.toLocaleString("pt-BR")}
+                              <div className={`text-[9px] ${changeType(salesChange) === "positive" ? "text-success" : changeType(salesChange) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>{fmtChange(salesChange)}</div>
+                            </td>
+                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">
+                              {fmt(v.revenue)}
+                              <div className={`text-[9px] ${changeType(revenueChange) === "positive" ? "text-success" : changeType(revenueChange) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>{fmtChange(revenueChange)}</div>
+                            </td>
+                            <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">
+                              {v.rate.toFixed(2)}%
+                              <div className={`text-[9px] ${changeType(v.rate - prevVRate) === "positive" ? "text-success" : changeType(v.rate - prevVRate) === "negative" ? "text-destructive" : "text-muted-foreground"}`}>{fmtChange(v.rate - prevVRate, true)}</div>
+                            </td>
                             <td className="text-right px-5 py-2">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${v.is_active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                                 {v.is_active ? "Ativa" : "Inativa"}
@@ -490,7 +613,7 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
                           </tr>
                         );
                       })}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

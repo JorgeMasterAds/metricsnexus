@@ -141,14 +141,15 @@ export default function SharedViewManager() {
       ) : (
         <div className="space-y-2">
           {tokens.map((t: any) => {
-            const isExpired = !t.is_permanent && t.expires_at && new Date(t.expires_at) < new Date();
+            const isPermanentToken = Boolean(t.is_permanent) || !t.expires_at;
+            const isExpired = !isPermanentToken && new Date(t.expires_at) < new Date();
             return (
               <div key={t.id} className="flex items-center gap-2 p-2 border rounded-lg text-xs">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{t.label}</p>
                   <p className="text-muted-foreground truncate">{getPublicUrl(t.token)}</p>
                   <p className="text-muted-foreground">
-                    {t.is_permanent ? "Permanente" : isExpired ? "⚠️ Expirado" : `Expira: ${format(new Date(t.expires_at), "dd/MM/yyyy HH:mm")}`}
+                    {isPermanentToken ? "Permanente" : isExpired ? "⚠️ Expirado" : `Expira: ${format(new Date(t.expires_at), "dd/MM/yyyy HH:mm")}`}
                   </p>
                 </div>
                 <Switch
