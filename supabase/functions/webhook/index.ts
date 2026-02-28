@@ -364,6 +364,15 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ── NORMALIZE: Cakto can send data as array — use first item ──
+  if (Array.isArray((rawPayload as any).data)) {
+    const dataArr = (rawPayload as any).data;
+    if (dataArr.length > 0) {
+      (rawPayload as any).data = dataArr[0];
+      console.log(`[WEBHOOK] Normalized data[] (${dataArr.length} items) → object`);
+    }
+  }
+
   const detectedPlatform = detectPlatform(rawPayload);
   const platform = webhookPlatform || detectedPlatform;
 
