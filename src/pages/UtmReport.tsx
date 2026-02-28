@@ -89,7 +89,7 @@ export default function UtmReport() {
   const { data: conversions = [] } = useQuery({
     queryKey: ["utm-conversions-full", since, until, activeAccountId, activeProjectId],
     queryFn: async () => {
-      let q = (supabase as any).from("conversions").select("id, amount, fees, net_amount, click_id, status, product_name, utm_source, utm_medium, utm_campaign, utm_content, utm_term, payment_method, created_at").eq("status", "approved").gte("created_at", since).lte("created_at", until);
+      let q = (supabase as any).from("conversions").select("id, amount, fees, net_amount, click_id, status, product_name, is_order_bump, utm_source, utm_medium, utm_campaign, utm_content, utm_term, payment_method, created_at").eq("status", "approved").gte("created_at", since).lte("created_at", until);
       if (activeAccountId) q = q.eq("account_id", activeAccountId);
       if (activeProjectId) q = q.eq("project_id", activeProjectId);
       const { data } = await q;
@@ -117,7 +117,7 @@ export default function UtmReport() {
     };
   }, [clicks, conversions]);
 
-  const { displayRows, totalSales, totalRevenue } = useMemo(() => {
+  const { displayRows, totalSales, totalObSales, totalRevenue } = useMemo(() => {
     const testPattern = /teste|test/i;
     const isTestValue = (val: any) => typeof val === "string" && testPattern.test(val);
 
@@ -158,10 +158,10 @@ export default function UtmReport() {
     filtered.forEach((c: any) => {
       const key = makeKey(c);
       const entry = groups.get(key) || {
-        views: 0, sales: 0, revenue: 0, _conversionIds: [] as string[], _isTest: false,
+        views: 0, sales: 0, obSales: 0, revenue: 0, _conversionIds: [] as string[], _isTest: false,
         ...Object.fromEntries(activeGroups.map(g => [g, c[g] || "(não informado)"])),
       };
-      entry.sales++;
+      if (c.is_order_bump) entry.obSales++; else entry.sales++;
       entry.revenue += Number(c.amount);
       entry._conversionIds.push(c.id);
       // Check if any field contains test-related text
@@ -186,11 +186,13 @@ export default function UtmReport() {
       return sortDir === "asc" ? aV - bV : bV - aV;
     });
 
-    const tSales = filtered.length;
+    const tSales = filtered.filter((c: any) => !c.is_order_bump).length;
+    const tObSales = filtered.filter((c: any) => c.is_order_bump).length;
     const tRevenue = filtered.reduce((s: number, c: any) => s + Number(c.amount), 0);
     return {
       displayRows: rows,
       totalSales: tSales,
+      totalObSales: tObSales,
       totalRevenue: tRevenue,
     };
   }, [clicks, conversions, sortKey, sortDir, fSource, fMedium, fCampaign, fContent, fTerm, fProduct, fPayment, activeGroups, excludedIds]);
@@ -321,18 +323,30 @@ export default function UtmReport() {
       {/* Snapshot export area — KPIs + table, no filters */}
       <div id="utm-export-root">
         {/* Summary KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
               <div className="flex items-center gap-1">
-                <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Total de vendas aprovadas no período.</TooltipContent></UITooltip>
+                <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Total de vendas do produto principal no período.</TooltipContent></UITooltip>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <FileBarChart className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
             </div>
             <div className="text-lg font-bold">{totalSales}</div>
+          </div>
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas OB</span>
+              <div className="flex items-center gap-1">
+                <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Total de vendas de Order Bump no período.</TooltipContent></UITooltip>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <FileBarChart className="h-3.5 w-3.5 text-primary" />
+                </div>
+              </div>
+            </div>
+            <div className="text-lg font-bold text-muted-foreground">{totalObSales}</div>
           </div>
           <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
             <div className="flex items-center justify-between mb-2">
@@ -400,12 +414,13 @@ export default function UtmReport() {
                       return <SortHeader key={g} label={label} sortKey={g} current={sortKey} dir={sortDir} onClick={toggleSort} />;
                     })}
                     <SortHeader label="Vendas" sortKey="sales" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
+                    <th className="px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase text-right whitespace-nowrap">OB</th>
                     <SortHeader label="Receita" sortKey="revenue" current={sortKey} dir={sortDir} onClick={toggleSort} align="right" />
                     <th className="px-2 py-3 w-10"></th>
                   </tr></thead>
                   <tbody>
                     {paginatedRows.length === 0 ? (
-                      <tr><td colSpan={activeGroups.length + 3} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
+                      <tr><td colSpan={activeGroups.length + 4} className="px-5 py-12 text-center text-muted-foreground text-sm">Nenhum dado no período</td></tr>
                     ) : (
                       <>
                         {paginatedRows.map((r: any, i: number) => {
@@ -420,7 +435,7 @@ export default function UtmReport() {
                                 );
                               })}
                               <td className="text-right px-2 sm:px-4 py-2 sm:py-3 font-mono text-xs tabular-nums">{r.sales.toLocaleString("pt-BR")}</td>
-                              <td className="text-right px-2 sm:px-4 py-2 sm:py-3 font-mono text-xs tabular-nums font-medium">{fmt(r.revenue)}</td>
+                              <td className="text-right px-2 sm:px-4 py-2 sm:py-3 font-mono text-xs tabular-nums text-muted-foreground">{(r.obSales || 0).toLocaleString("pt-BR")}</td>
                               <td className="px-2 py-3 text-center">
                                 {r._isTest && (
                                   <button
@@ -440,6 +455,7 @@ export default function UtmReport() {
                             <td key={g} className="px-4 py-3 text-xs uppercase tracking-wider">{gi === 0 ? "Total" : ""}</td>
                           ))}
                           <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{totalSales.toLocaleString("pt-BR")}</td>
+                          <td className="text-right px-4 py-3 font-mono text-xs tabular-nums text-muted-foreground">{totalObSales.toLocaleString("pt-BR")}</td>
                           <td className="text-right px-4 py-3 font-mono text-xs tabular-nums">{fmt(totalRevenue)}</td>
                           <td></td>
                         </tr>
