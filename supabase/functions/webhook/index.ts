@@ -146,8 +146,11 @@ function normalizeSale(payload: any): NormalizedSale | null {
 
   // ── CAKTO / Generic format: data.amount, data.product, data.customer ──
   if (data.amount !== undefined || data.baseAmount !== undefined) {
-    const amount = parseAmount(data.amount);
-    const baseAmount = parseAmount(data.baseAmount || data.amount);
+    const rawAmount = parseAmount(data.amount);
+    const offerPrice = parseAmount(data.offer?.price);
+    // Use offer.price (real product price) when available, otherwise fall back to amount
+    const amount = offerPrice > 0 ? offerPrice : rawAmount;
+    const baseAmount = offerPrice > 0 ? offerPrice : parseAmount(data.baseAmount || data.amount);
     const fees = parseAmount(data.fees || 0);
     const discount = parseAmount(data.discount || 0);
     const netAmount = amount - fees;
