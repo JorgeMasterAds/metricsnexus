@@ -107,7 +107,7 @@ export default function SmartLinks() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("conversions")
-        .select("smartlink_id, product_name, amount, is_order_bump")
+        .select("smartlink_id, variant_id, product_name, amount, is_order_bump")
         .eq("status", "approved")
         .gte("created_at", sinceDate + "T00:00:00")
         .lte("created_at", untilDate + "T23:59:59")
@@ -140,6 +140,7 @@ export default function SmartLinks() {
 
     const productsByLink = new Map<string, Map<string, { vendas: number; receita: number }>>();
     const obByLink = new Map<string, { mainSales: number; obSales: number }>();
+    const obByVariant = new Map<string, { mainSales: number; obSales: number }>();
     linkProducts.forEach((c: any) => {
       if (!c.smartlink_id) return;
       const name = c.product_name || "Produto desconhecido";
@@ -154,9 +155,16 @@ export default function SmartLinks() {
       const ob = obByLink.get(c.smartlink_id) || { mainSales: 0, obSales: 0 };
       if (c.is_order_bump) ob.obSales++; else ob.mainSales++;
       obByLink.set(c.smartlink_id, ob);
+
+      // Track main vs OB per variant
+      if (c.variant_id) {
+        const vob = obByVariant.get(c.variant_id) || { mainSales: 0, obSales: 0 };
+        if (c.is_order_bump) vob.obSales++; else vob.mainSales++;
+        obByVariant.set(c.variant_id, vob);
+      }
     });
 
-    return { byLink, byVariant, productsByLink, obByLink };
+    return { byLink, byVariant, productsByLink, obByLink, obByVariant };
   }, [metrics, linkProducts]);
 
   const toggleActive = useMutation({
@@ -516,15 +524,17 @@ export default function SmartLinks() {
                             <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">URL destino</th>
                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Peso</th>
                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Views</th>
-                            <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Vendas</th>
-                            <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Taxa</th>
-                            <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Receita</th>
-                            <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
+                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Vendas</th>
+                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">OB</th>
+                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Taxa</th>
+                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Receita</th>
+                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(link.smartlink_variants || []).map((v: any) => {
                             const vData = metricsMap.byVariant.get(v.id) || { views: 0, sales: 0, revenue: 0 };
+                            const vOb = metricsMap.obByVariant.get(v.id) || { mainSales: 0, obSales: 0 };
                             const vRate = vData.views > 0 ? ((vData.sales / vData.views) * 100).toFixed(2) : "0.00";
                             return (
                               <tr key={v.id} className="border-b border-border/10 hover:bg-accent/10 transition-colors">
@@ -532,7 +542,8 @@ export default function SmartLinks() {
                                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[200px]">{v.url}</td>
                                 <td className="text-right px-4 py-3 font-mono text-xs">{v.weight}%</td>
                                 <td className="text-right px-4 py-3 font-mono text-xs">{vData.views}</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">{vData.sales}</td>
+                                <td className="text-right px-4 py-3 font-mono text-xs">{vOb.mainSales}</td>
+                                <td className="text-right px-4 py-3 font-mono text-xs text-muted-foreground">{vOb.obSales}</td>
                                 <td className="text-right px-4 py-3 font-mono text-xs text-success">{vRate}%</td>
                                 <td className="text-right px-4 py-3 font-mono text-xs">R$ {vData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                                 <td className="text-right px-4 py-3">
