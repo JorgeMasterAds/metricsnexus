@@ -325,11 +325,11 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
     <div className="space-y-6">
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <MetricCard label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} />
-        <MetricCard label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} />
-        <MetricCard label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} />
-        <MetricCard label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} />
-        <MetricCard label="Ticket Médio" value={fmt(computed.avgTicket)} icon={TrendingUp} />
+        <MetricCard label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} change={`${computed.totalViews} cliques registrados`} changeType="neutral" />
+        <MetricCard label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} change={`${computed.totalSales} conversões aprovadas`} changeType="neutral" />
+        <MetricCard label="Taxa Conv." value={`${computed.convRate.toFixed(2).replace(".", ",")}%`} icon={Percent} change={`${computed.totalSales} de ${computed.totalViews} views`} changeType={computed.convRate >= 1 ? "positive" : "neutral"} />
+        <MetricCard label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} change={`${computed.totalSales} vendas no período`} changeType={computed.totalRevenue > 0 ? "positive" : "neutral"} />
+        <MetricCard label="Ticket Médio" value={fmt(computed.avgTicket)} icon={TrendingUp} change={`Receita ÷ ${computed.totalSales} vendas`} changeType="neutral" />
       </div>
 
       {/* Daily chart */}
@@ -691,19 +691,12 @@ function UtmPublicView({ data }: { data: any }) {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
-          <div className="text-lg font-bold mt-1">{totalSales}</div>
-        </div>
-        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
-          <div className="text-lg font-bold mt-1">{fmt(totalRevenue)}</div>
-        </div>
-        <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Agrupamentos</span>
-          <div className="text-lg font-bold mt-1">{displayRows.length}</div>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <MetricCard label="Vendas" value={totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} change={`${totalSales} conversões aprovadas`} changeType="neutral" />
+        <MetricCard label="Faturamento" value={fmt(totalRevenue)} icon={DollarSign} change={totalSales > 0 ? `${totalSales} vendas no período` : "Sem vendas"} changeType={totalRevenue > 0 ? "positive" : "neutral"} />
+        <MetricCard label="Ticket Médio" value={totalSales > 0 ? fmt(totalRevenue / totalSales) : "R$ 0,00"} icon={TrendingUp} change={totalSales > 0 ? `Receita ÷ ${totalSales} vendas` : "—"} changeType="neutral" />
+        <MetricCard label="Agrupamentos" value={displayRows.length.toLocaleString("pt-BR")} icon={Layers} change={`${activeGroups.length} colunas ativas`} changeType="neutral" />
+        <MetricCard label="Linhas" value={displayRows.length.toLocaleString("pt-BR")} icon={FileBarChart} change={`Página ${currentPage} de ${totalPages}`} changeType="neutral" />
       </div>
 
       {/* Table */}
