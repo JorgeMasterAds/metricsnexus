@@ -15,6 +15,8 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get("token");
     const dateFrom = url.searchParams.get("from");
     const dateTo = url.searchParams.get("to");
+    const prevFrom = url.searchParams.get("prev_from");
+    const prevTo = url.searchParams.get("prev_to");
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Token required" }), {
@@ -93,18 +95,51 @@ Deno.serve(async (req) => {
       clicksQuery = clicksQuery.lte("created_at", dateTo);
     }
 
-    const [convResult, clicksResult, smartlinksResult] = await Promise.all([
+    // Previous period queries for comparison
+    const queries: Promise<any>[] = [
       convQuery.order("created_at", { ascending: false }).limit(1000),
       clicksQuery.limit(1000),
       smartlinksQuery,
-    ]);
+    ];
 
-    return new Response(JSON.stringify({
+    // Add previous period queries if provided
+    if (prevFrom && prevTo) {
+      let prevConvQuery = supabase
+        .from("conversions")
+        .select("id, amount")
+        .eq("account_id", account_id)
+        .eq("project_id", project_id)
+        .eq("status", "approved")
+        .gte("created_at", prevFrom)
+        .lte("created_at", prevTo);
+
+      let prevClicksQuery = supabase
+        .from("clicks")
+        .select("id")
+        .eq("account_id", account_id)
+        .eq("project_id", project_id)
+        .gte("created_at", prevFrom)
+        .lte("created_at", prevTo);
+
+      queries.push(prevConvQuery.limit(1000), prevClicksQuery.limit(1000));
+    }
+
+    const results = await Promise.all(queries);
+    const [convResult, clicksResult, smartlinksResult] = results;
+
+    const response: any = {
       project_name: project?.name || "Projeto",
       conversions: convResult.data || [],
       clicks: clicksResult.data || [],
       smartlinks: smartlinksResult.data || [],
-    }), {
+    };
+
+    if (prevFrom && prevTo && results.length >= 5) {
+      response.prev_conversions = results[3].data || [];
+      response.prev_clicks = results[4].data || [];
+    }
+
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

@@ -130,10 +130,17 @@ export default function PublicView() {
     setLoading(true);
     setError(null);
 
+    // Calculate previous period for comparison
+    const periodMs = dateRange.to.getTime() - dateRange.from.getTime();
+    const prevTo = new Date(dateRange.from.getTime() - 1); // 1ms before current from
+    const prevFrom = new Date(prevTo.getTime() - periodMs);
+
     const url = new URL(`${supabaseUrl}/functions/v1/public-view`);
     url.searchParams.set("token", token);
     url.searchParams.set("from", dateRange.from.toISOString());
     url.searchParams.set("to", dateRange.to.toISOString());
+    url.searchParams.set("prev_from", prevFrom.toISOString());
+    url.searchParams.set("prev_to", prevTo.toISOString());
 
     fetch(url.toString())
       .then((r) => r.json())
@@ -214,6 +221,8 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
   const conversions = data.conversions || [];
   const clicks = data.clicks || [];
   const smartLinks = data.smartlinks || [];
+  const prevConversions = data.prev_conversions || [];
+  const prevClicks = data.prev_clicks || [];
 
   const computed = useMemo(() => {
     const tv = clicks.length;
@@ -221,6 +230,26 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
     const tr = conversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
     const cr = tv > 0 ? (ts / tv) * 100 : 0;
     const at = ts > 0 ? tr / ts : 0;
+
+    // Previous period
+    const prevTv = prevClicks.length;
+    const prevTs = prevConversions.length;
+    const prevTr = prevConversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const prevCr = prevTv > 0 ? (prevTs / prevTv) * 100 : 0;
+    const prevAt = prevTs > 0 ? prevTr / prevTs : 0;
+
+    const pctChange = (curr: number, prev: number) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return ((curr - prev) / prev) * 100;
+    };
+
+    const comparison = {
+      views: pctChange(tv, prevTv),
+      sales: pctChange(ts, prevTs),
+      revenue: pctChange(tr, prevTr),
+      convRate: cr - prevCr, // absolute diff for rates
+      ticket: pctChange(at, prevAt),
+    };
 
     // Daily chart
     const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)) + 1;
@@ -294,6 +323,7 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
 
     return {
       totalViews: tv, totalSales: ts, totalRevenue: tr, convRate: cr, avgTicket: at,
+      comparison,
       chartData, productData, pieData,
       mainProductsCount: mainProducts.length, orderBumpsCount: orderBumps.length,
       mainRevenue, obRevenue,
@@ -305,7 +335,18 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
       paymentData,
       linkStats,
     };
-  }, [conversions, clicks, smartLinks, dateRange]);
+  }, [conversions, clicks, smartLinks, dateRange, prevConversions, prevClicks]);
+
+  const fmtChange = (val: number, isAbsolute = false) => {
+    const sign = val > 0 ? "+" : "";
+    const formatted = isAbsolute
+      ? `${sign}${val.toFixed(2).replace(".", ",")}pp`
+      : `${sign}${val.toFixed(1).replace(".", ",")}%`;
+    return formatted;
+  };
+
+  const changeType = (val: number): "positive" | "negative" | "neutral" =>
+    val > 0 ? "positive" : val < 0 ? "negative" : "neutral";
 
   const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, index }: any) => {
     const RADIAN = Math.PI / 180;
@@ -321,15 +362,35 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
     );
   };
 
+  const renderRevenueLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    if (!value) return null;
+    return (
+      <text x={x + width / 2} y={y - 6} fill="hsl(30, 90%, 65%)" textAnchor="middle" fontSize={10} fontWeight={600}>
+        {`R$${Math.round(value)}`}
+      </text>
+    );
+  };
+
+  const renderSalesLabel = (props: any) => {
+    const { x, y, value } = props;
+    if (!value) return null;
+    return (
+      <text x={x} y={y - 6} fill="hsl(150, 60%, 55%)" textAnchor="middle" fontSize={10} fontWeight={500}>
+        {value}
+      </text>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <MetricCard label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} change={`${computed.totalViews} cliques registrados`} changeType="neutral" />
-        <MetricCard label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} change={`${computed.totalSales} conversões aprovadas`} changeType="neutral" />
-        <MetricCard label="Taxa Conv." value={`${computed.convRate.toFixed(2).replace(".", ",")}%`} icon={Percent} change={`${computed.totalSales} de ${computed.totalViews} views`} changeType={computed.convRate >= 1 ? "positive" : "neutral"} />
-        <MetricCard label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} change={`${computed.totalSales} vendas no período`} changeType={computed.totalRevenue > 0 ? "positive" : "neutral"} />
-        <MetricCard label="Ticket Médio" value={fmt(computed.avgTicket)} icon={TrendingUp} change={`Receita ÷ ${computed.totalSales} vendas`} changeType="neutral" />
+        <MetricCard label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} change={`${fmtChange(computed.comparison.views)} vs anterior`} changeType={changeType(computed.comparison.views)} />
+        <MetricCard label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} change={`${fmtChange(computed.comparison.sales)} vs anterior`} changeType={changeType(computed.comparison.sales)} />
+        <MetricCard label="Taxa Conv." value={`${computed.convRate.toFixed(2).replace(".", ",")}%`} icon={Percent} change={`${fmtChange(computed.comparison.convRate, true)} vs anterior`} changeType={changeType(computed.comparison.convRate)} />
+        <MetricCard label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} change={`${fmtChange(computed.comparison.revenue)} vs anterior`} changeType={changeType(computed.comparison.revenue)} />
+        <MetricCard label="Ticket Médio" value={fmt(computed.avgTicket)} icon={TrendingUp} change={`${fmtChange(computed.comparison.ticket)} vs anterior`} changeType={changeType(computed.comparison.ticket)} />
       </div>
 
       {/* Daily chart */}
@@ -338,8 +399,8 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
           <TrendingUp className="h-4 w-4 text-primary" /> Vendas Diárias
         </h3>
         {computed.chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={computed.chartData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={300}>
+            <ComposedChart data={computed.chartData} margin={{ top: 25, right: 10, left: -15, bottom: 0 }}>
               <defs>
                 <linearGradient id="pv-colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0} /></linearGradient>
                 <linearGradient id="pv-colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0} /></linearGradient>
@@ -350,9 +411,13 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
               <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
               <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltipContent />} />
-              <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="url(#pv-colorRevenue)" radius={[3, 3, 0, 0]} />
+              <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="url(#pv-colorRevenue)" radius={[3, 3, 0, 0]}>
+                <LabelList dataKey="revenue" content={renderRevenueLabel} />
+              </Bar>
               <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(0, 85%, 55%)" fillOpacity={1} fill="url(#pv-colorViews)" strokeWidth={2} />
-              <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(150, 60%, 45%)" fillOpacity={1} fill="url(#pv-colorConv)" strokeWidth={2} />
+              <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(150, 60%, 45%)" fillOpacity={1} fill="url(#pv-colorConv)" strokeWidth={2}>
+                <LabelList dataKey="sales" content={renderSalesLabel} />
+              </Area>
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
@@ -528,6 +593,8 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
 function UtmPublicView({ data }: { data: any }) {
   const conversions = data.conversions || [];
   const clicks = data.clicks || [];
+  const prevConversions = data.prev_conversions || [];
+  const prevClicks = data.prev_clicks || [];
 
   const FIXED_ORDER: GroupKey[] = ["date", "utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "product_name", "payment_method"];
   const [activeGroupsSet, setActiveGroupsSet] = useState<Set<GroupKey>>(new Set(FIXED_ORDER));
@@ -691,13 +758,30 @@ function UtmPublicView({ data }: { data: any }) {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <MetricCard label="Vendas" value={totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} change={`${totalSales} conversões aprovadas`} changeType="neutral" />
-        <MetricCard label="Faturamento" value={fmt(totalRevenue)} icon={DollarSign} change={totalSales > 0 ? `${totalSales} vendas no período` : "Sem vendas"} changeType={totalRevenue > 0 ? "positive" : "neutral"} />
-        <MetricCard label="Ticket Médio" value={totalSales > 0 ? fmt(totalRevenue / totalSales) : "R$ 0,00"} icon={TrendingUp} change={totalSales > 0 ? `Receita ÷ ${totalSales} vendas` : "—"} changeType="neutral" />
-        <MetricCard label="Agrupamentos" value={displayRows.length.toLocaleString("pt-BR")} icon={Layers} change={`${activeGroups.length} colunas ativas`} changeType="neutral" />
-        <MetricCard label="Linhas" value={displayRows.length.toLocaleString("pt-BR")} icon={FileBarChart} change={`Página ${currentPage} de ${totalPages}`} changeType="neutral" />
-      </div>
+      {(() => {
+        const prevTs = prevConversions.length;
+        const prevTr = prevConversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
+        const prevAt = prevTs > 0 ? prevTr / prevTs : 0;
+        const pct = (curr: number, prev: number) => {
+          if (prev === 0) return curr > 0 ? 100 : 0;
+          return ((curr - prev) / prev) * 100;
+        };
+        const fmtC = (val: number) => `${val > 0 ? "+" : ""}${val.toFixed(1).replace(".", ",")}%`;
+        const cType = (v: number): "positive" | "negative" | "neutral" => v > 0 ? "positive" : v < 0 ? "negative" : "neutral";
+        const salesChange = pct(totalSales, prevTs);
+        const revChange = pct(totalRevenue, prevTr);
+        const ticketCurr = totalSales > 0 ? totalRevenue / totalSales : 0;
+        const ticketChange = pct(ticketCurr, prevAt);
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <MetricCard label="Vendas" value={totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} change={`${fmtC(salesChange)} vs anterior`} changeType={cType(salesChange)} />
+            <MetricCard label="Faturamento" value={fmt(totalRevenue)} icon={DollarSign} change={`${fmtC(revChange)} vs anterior`} changeType={cType(revChange)} />
+            <MetricCard label="Ticket Médio" value={totalSales > 0 ? fmt(ticketCurr) : "R$ 0,00"} icon={TrendingUp} change={`${fmtC(ticketChange)} vs anterior`} changeType={cType(ticketChange)} />
+            <MetricCard label="Agrupamentos" value={displayRows.length.toLocaleString("pt-BR")} icon={Layers} change={`${activeGroups.length} colunas ativas`} changeType="neutral" />
+            <MetricCard label="Linhas" value={displayRows.length.toLocaleString("pt-BR")} icon={FileBarChart} change={`Página ${currentPage} de ${totalPages}`} changeType="neutral" />
+          </div>
+        );
+      })()}
 
       {/* Table */}
       <div className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
