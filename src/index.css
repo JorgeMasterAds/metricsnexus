@@ -152,6 +152,13 @@
   100% { background-position: -200% 0; }
 }
 
+@keyframes rocketUp {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  50% { transform: translateY(-18px) scale(1.2); opacity: 1; }
+  80% { transform: translateY(-40px) scale(0.9); opacity: 0.3; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 @keyframes progress-slide {
   0% { background-position: 0% 0; }
   100% { background-position: 200% 0; }
