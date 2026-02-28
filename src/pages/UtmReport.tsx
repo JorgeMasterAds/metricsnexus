@@ -9,6 +9,7 @@ import { FileBarChart, ChevronLeft, ChevronRight, DollarSign, HelpCircle, Pencil
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ExportMenu from "@/components/ExportMenu";
+import ShareReportButton from "@/components/ShareReportButton";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 import { useInvestment } from "@/hooks/useInvestment";
@@ -293,25 +294,28 @@ export default function UtmReport() {
       {/* Export */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <span className="text-xs text-muted-foreground">{displayRows.length} agrupamento(s)</span>
-        <ExportMenu
-          data={displayRows
-            .filter((r: any) => !r._isTest)
-            .map((r: any) => {
-              const row: any = {};
-              activeGroups.forEach(g => { row[g] = r[g]; });
-              row.vendas = r.sales;
-              row.receita = fmt(r.revenue);
-              return row;
-            })}
-          filename="utm-report"
-          title="Relatório UTM — Nexus Metrics"
-          snapshotSelector="#utm-export-root"
-          periodLabel={`Período: ${periodLabel}`}
-          kpis={[
-            { label: "Vendas", value: String(totalSales) },
-            { label: "Faturamento", value: fmt(totalRevenue) },
-          ]}
-        />
+        <div className="flex items-center gap-2">
+          <ExportMenu
+            data={displayRows
+              .filter((r: any) => !r._isTest)
+              .map((r: any) => {
+                const row: any = {};
+                activeGroups.forEach(g => { row[g] = r[g]; });
+                row.vendas = r.sales;
+                row.receita = fmt(r.revenue);
+                return row;
+              })}
+            filename="utm-report"
+            title="Relatório UTM — Nexus Metrics"
+            snapshotSelector="#utm-export-root"
+            periodLabel={`Período: ${periodLabel}`}
+            kpis={[
+              { label: "Vendas", value: String(totalSales) },
+              { label: "Faturamento", value: fmt(totalRevenue) },
+            ]}
+          />
+          <ShareReportButton />
+        </div>
       </div>
 
       {/* Snapshot export area — KPIs + table, no filters */}
