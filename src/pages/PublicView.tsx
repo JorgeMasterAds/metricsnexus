@@ -125,14 +125,21 @@ export default function PublicView() {
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
+  // Apply saved theme for public view
+  useEffect(() => {
+    const saved = localStorage.getItem("app-theme") || "dark";
+    const root = document.documentElement;
+    root.classList.remove("theme-dark", "theme-light", "theme-colorful");
+    root.classList.add(`theme-${saved}`);
+  }, []);
+
   useEffect(() => {
     if (!token) return;
     setLoading(true);
     setError(null);
 
-    // Calculate previous period for comparison
     const periodMs = dateRange.to.getTime() - dateRange.from.getTime();
-    const prevTo = new Date(dateRange.from.getTime() - 1); // 1ms before current from
+    const prevTo = new Date(dateRange.from.getTime() - 1);
     const prevFrom = new Date(prevTo.getTime() - periodMs);
 
     const url = new URL(`${supabaseUrl}/functions/v1/public-view`);
@@ -170,7 +177,6 @@ export default function PublicView() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
@@ -406,7 +412,7 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
                 <linearGradient id="pv-colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0} /></linearGradient>
                 <linearGradient id="pv-colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(30, 90%, 60%)" stopOpacity={0.9} /><stop offset="100%" stopColor="hsl(30, 60%, 35%)" stopOpacity={0.4} /></linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
               <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
               <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
               <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
@@ -538,13 +544,13 @@ function DashboardPublicView({ data, dateRange }: { data: any; dateRange: DateRa
             <Layers className="h-4 w-4 text-primary" /> Produtos vs Order Bumps
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
-                <Pie data={computed.pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={95} paddingAngle={4} dataKey="value" nameKey="name" label={renderPieLabel} labelLine={false}>
-                  {computed.pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(240, 5%, 12%)" strokeWidth={2} />)}
+                <Pie data={computed.pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={115} paddingAngle={4} dataKey="value" nameKey="name" label={renderPieLabel} labelLine={false}>
+                  {computed.pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(var(--card))" strokeWidth={2} />)}
                 </Pie>
                 <Tooltip content={<CustomPieTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 13, paddingTop: 12 }} formatter={(value) => <span style={{ color: "hsl(0, 0%, 80%)" }}>{value}</span>} />
+                <Legend wrapperStyle={{ fontSize: 13, paddingTop: 12 }} formatter={(value) => <span className="text-foreground/80">{value}</span>} />
               </PieChart>
             </ResponsiveContainer>
             <div className="flex flex-col justify-center space-y-3">

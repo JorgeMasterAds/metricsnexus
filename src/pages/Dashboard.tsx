@@ -513,7 +513,7 @@ export default function Dashboard() {
                     <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0} /></linearGradient>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(30, 90%, 60%)" stopOpacity={0.9} /><stop offset="100%" stopColor="hsl(30, 60%, 35%)" stopOpacity={0.4} /></linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
@@ -586,14 +586,14 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 {computed.pieData.some(d => d.value > 0) ? (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <ResponsiveContainer width="100%" height={320}>
+                       <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                       <Pie
                         data={computed.pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={50}
-                        outerRadius={95}
+                        innerRadius={60}
+                        outerRadius={115}
                         paddingAngle={4}
                         dataKey="value"
                         nameKey="name"
@@ -601,13 +601,13 @@ export default function Dashboard() {
                         labelLine={false}
                       >
                         {computed.pieData.map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(240, 5%, 12%)" strokeWidth={2} />
+                          <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(var(--card))" strokeWidth={2} />
                         ))}
                       </Pie>
                       <Tooltip content={<CustomPieTooltip />} />
                       <Legend
                         wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
-                        formatter={(value) => <span style={{ color: "hsl(0, 0%, 80%)" }}>{value}</span>}
+                        formatter={(value) => <span className="text-foreground/80">{value}</span>}
                       />
                     </PieChart>
                   </ResponsiveContainer>
