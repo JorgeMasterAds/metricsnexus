@@ -3,13 +3,15 @@ import ChartLoaderInline from "@/components/ChartLoaderInline";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Download, ChevronLeft, Filter } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, ChevronLeft, Filter, Copy, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import ProductTour, { TOURS } from "@/components/ProductTour";
 import { Button } from "@/components/ui/button";
 import { exportToCsv } from "@/lib/csv";
 import { useAccount } from "@/hooks/useAccount";
+import { toast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Select,
   SelectContent,
@@ -103,6 +105,34 @@ export default function WebhookLogs() {
   const logs = data?.logs || [];
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const queryClient = useQueryClient();
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  const retryMutation = useMutation({
+    mutationFn: async (log: any) => {
+      setRetryingId(log.id);
+      const { data: wh } = await (supabase as any)
+        .from("webhooks")
+        .select("token")
+        .eq("id", log.webhook_id)
+        .single();
+      if (!wh?.token) throw new Error("Webhook não encontrado");
+      const res = await supabase.functions.invoke("webhook", {
+        body: log.raw_payload,
+        headers: { "x-webhook-token": wh.token },
+      });
+      if (res.error) throw res.error;
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({ title: "Webhook reprocessado com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["webhook-logs"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao reprocessar", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => setRetryingId(null),
+  });
 
   return (
     <DashboardLayout
@@ -212,6 +242,8 @@ export default function WebhookLogs() {
                       onToggle={() => setExpanded(expanded === log.id ? null : log.id)}
                       projectName={projectMap.get(log.project_id) || "—"}
                       webhookName={webhookMap.get(log.webhook_id) || "—"}
+                      onRetry={(l) => retryMutation.mutate(l)}
+                      isRetrying={retryingId === log.id}
                     />
                   ))}
                 </tbody>
@@ -240,9 +272,18 @@ export default function WebhookLogs() {
   );
 }
 
-function LogRow({ log, expanded, onToggle, projectName, webhookName }: {
+const RETRYABLE_STATUSES = new Set(["error", "ignored", "duplicate", "canceled", "chargedback"]);
+
+function LogRow({ log, expanded, onToggle, projectName, webhookName, onRetry, isRetrying }: {
   log: any; expanded: boolean; onToggle: () => void; projectName: string; webhookName: string;
+  onRetry: (log: any) => void; isRetrying: boolean;
 }) {
+  const copyJson = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(JSON.stringify(log.raw_payload, null, 2));
+    toast({ title: "JSON copiado!" });
+  };
+
   return (
     <>
       <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors cursor-pointer" onClick={onToggle}>
@@ -279,7 +320,23 @@ function LogRow({ log, expanded, onToggle, projectName, webhookName }: {
                 <span className="text-foreground">{log.ignore_reason}</span>
               </div>
             )}
-            <div className="text-xs text-muted-foreground mb-1 font-medium">Payload completo:</div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-muted-foreground font-medium">Payload completo:</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={copyJson}>
+                <Copy className="h-3 w-3" /> Copiar JSON
+              </Button>
+              {RETRYABLE_STATUSES.has(log.status) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs gap-1 text-primary"
+                  disabled={isRetrying}
+                  onClick={(e) => { e.stopPropagation(); onRetry(log); }}
+                >
+                  <RotateCcw className={cn("h-3 w-3", isRetrying && "animate-spin")} /> Reprocessar
+                </Button>
+              )}
+            </div>
             <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto max-h-[300px] whitespace-pre-wrap break-all">
               {JSON.stringify(log.raw_payload, null, 2)}
             </pre>
