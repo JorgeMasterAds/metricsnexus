@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download, AlertTriangle, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download, AlertTriangle, Clock, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -232,6 +232,38 @@ export default function SmartLinks() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["smartlinks"] }),
   });
 
+  const clearViews = useMutation({
+    mutationFn: async (smartlinkId: string) => {
+      const { error } = await (supabase as any)
+        .from("clicks")
+        .delete()
+        .eq("smartlink_id", smartlinkId)
+        .eq("account_id", activeAccountId);
+      if (error) throw error;
+      // Also clear daily_metrics views for this smartlink
+      const { error: dmError } = await (supabase as any)
+        .from("daily_metrics")
+        .delete()
+        .eq("smartlink_id", smartlinkId)
+        .eq("account_id", activeAccountId);
+      if (dmError) throw dmError;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["smartlinks"] });
+      qc.invalidateQueries({ queryKey: ["sl-daily-metrics"] });
+      toast({ title: "Views zerados com sucesso" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao limpar views", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleClearViews = (link: any) => {
+    if (confirm(`⚠️ Atenção!\n\nVocê está prestes a limpar TODOS os views (cliques) do Smart Link "${link.name}".\n\nEssa ação é IRREVERSÍVEL e não tem como recuperar os dados.\n\nDeseja continuar?`)) {
+      clearViews.mutate(link.id);
+    }
+  };
+
   const PLATFORM_SMARTLINK_DOMAIN = "smartlink.jmads.com.br";
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const getRedirectUrl = (slug: string) => {
@@ -406,6 +438,11 @@ export default function SmartLinks() {
                     {canEdit && (
                       <button onClick={() => { setEditingLink(link); setShowModal(true); }} className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground" title="Editar">
                         <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => handleClearViews(link)} className="p-1.5 rounded hover:bg-warning/20 transition-colors text-muted-foreground hover:text-warning" title="Limpar views">
+                        <RotateCcw className="h-3.5 w-3.5" />
                       </button>
                     )}
                     {(canDelete || isMember) && (
