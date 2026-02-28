@@ -495,6 +495,16 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
     </>
   );
 
+  const RefreshButton = useCallback(() => (
+    <button
+      onClick={() => { void queryClient.invalidateQueries(); }}
+      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+      title="Atualizar dados"
+    >
+      <RefreshCw className="h-4 w-4" />
+    </button>
+  ), [queryClient]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="flex flex-1">
@@ -534,13 +544,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                       {actions}
                     </div>
                   )}
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-                    title="Atualizar página"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
+                  <RefreshButton />
                   {showPreviewBar && <AdminRolePreviewBar />}
                   <NotificationBell />
                 </div>
