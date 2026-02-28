@@ -21,6 +21,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import SharedViewManager from "@/components/SharedViewManager";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -620,6 +621,10 @@ export default function Settings() {
               </div>
             </div>
           )}
+          {/* Shared View Links */}
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-6">
+            <SharedViewManager />
+          </div>
         </div>
       )}
 

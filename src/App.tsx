@@ -9,6 +9,7 @@ import type { Session } from "@supabase/supabase-js";
 import { AccountProvider, useAccount } from "@/hooks/useAccount";
 import { I18nProvider } from "@/lib/i18n";
 import ChartLoader from "@/components/ChartLoader";
+import { RolePreviewProvider } from "@/hooks/useRolePreview";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -33,6 +34,7 @@ import Devices from "./pages/Devices";
 import Surveys from "./pages/Surveys";
 import PublicSurvey from "./pages/PublicSurvey";
 import EmbedSurvey from "./pages/EmbedSurvey";
+import PublicView from "./pages/PublicView";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30000, retry: 1 } },
@@ -94,6 +96,8 @@ function AppRoutes() {
     "devices",
     "surveys",
     "s",
+    "view",
+    "embed",
   ]);
 
   const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -126,7 +130,9 @@ function AppRoutes() {
   const Protected = ({ children }: { children: React.ReactNode }) =>
     session ? (
       <AccountProvider>
-        <RequireAccount>{children}</RequireAccount>
+        <RolePreviewProvider>
+          <RequireAccount>{children}</RequireAccount>
+        </RolePreviewProvider>
       </AccountProvider>
     ) : (
       <Navigate to="/auth" replace />
@@ -153,6 +159,7 @@ function AppRoutes() {
       <Route path="/surveys" element={<Protected><Surveys /></Protected>} />
       <Route path="/s/:slug" element={<PublicSurvey />} />
       <Route path="/embed/s/:slug" element={<EmbedSurvey />} />
+      <Route path="/view/:token" element={<PublicView />} />
       <Route path="/" element={<Navigate to={session ? "/home" : "/auth"} replace />} />
       <Route path="/:slug" element={<PublicSmartLinkRedirect />} />
       <Route path="*" element={<NotFound />} />

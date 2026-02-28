@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.survey-public]
 verify_jwt = false
+
+[functions.public-view]
+verify_jwt = false

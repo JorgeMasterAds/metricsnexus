@@ -1972,6 +1972,60 @@ export type Database = {
           },
         ]
       }
+      shared_view_tokens: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          is_permanent: boolean
+          label: string
+          project_id: string
+          token: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_permanent?: boolean
+          label?: string
+          project_id: string
+          token?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_permanent?: boolean
+          label?: string
+          project_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_view_tokens_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_view_tokens_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smartlink_variants: {
         Row: {
           account_id: string
