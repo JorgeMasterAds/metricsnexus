@@ -198,8 +198,9 @@ export default function SmartLinks() {
       }
     });
 
-    // Build prev metrics map for comparison
+    // Build prev metrics maps for comparison
     const prevByLink = new Map<string, { views: number; sales: number; revenue: number }>();
+    const prevByVariant = new Map<string, { views: number; sales: number; revenue: number }>();
     prevMetrics.forEach((m: any) => {
       if (m.smartlink_id) {
         const entry = prevByLink.get(m.smartlink_id) || { views: 0, sales: 0, revenue: 0 };
@@ -208,9 +209,16 @@ export default function SmartLinks() {
         entry.revenue += Number(m.revenue);
         prevByLink.set(m.smartlink_id, entry);
       }
+      if (m.variant_id) {
+        const entry = prevByVariant.get(m.variant_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += Number(m.views);
+        entry.sales += Number(m.conversions);
+        entry.revenue += Number(m.revenue);
+        prevByVariant.set(m.variant_id, entry);
+      }
     });
 
-    return { byLink, byVariant, productsByLink, obByLink, obByVariant, prevByLink };
+    return { byLink, byVariant, productsByLink, obByLink, obByVariant, prevByLink, prevByVariant };
   }, [metrics, linkProducts, prevMetrics]);
 
   const toggleActive = useMutation({
@@ -588,6 +596,7 @@ export default function SmartLinks() {
                         <tbody>
                           {(link.smartlink_variants || []).map((v: any) => {
                             const vData = metricsMap.byVariant.get(v.id) || { views: 0, sales: 0, revenue: 0 };
+                            const vPrev = metricsMap.prevByVariant.get(v.id) || { views: 0, sales: 0, revenue: 0 };
                             const vOb = metricsMap.obByVariant.get(v.id) || { mainSales: 0, obSales: 0 };
                             const vRate = vData.views > 0 ? ((vData.sales / vData.views) * 100).toFixed(2) : "0.00";
                             return (
@@ -595,11 +604,20 @@ export default function SmartLinks() {
                                 <td className="px-5 py-3 font-medium text-xs">{v.name}</td>
                                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[200px]">{v.url}</td>
                                 <td className="text-center px-4 py-3 font-mono text-xs">{v.weight}%</td>
-                                <td className="text-center px-4 py-3 font-mono text-xs">{vData.views}</td>
-                                <td className="text-center px-4 py-3 font-mono text-xs">{vOb.mainSales}</td>
+                                <td className="text-center px-4 py-3 font-mono text-xs">
+                                  {vData.views}
+                                  <div className={`text-[9px] ${changeColor(pctChange(vData.views, vPrev.views))}`}>{fmtPct(pctChange(vData.views, vPrev.views))}</div>
+                                </td>
+                                <td className="text-center px-4 py-3 font-mono text-xs">
+                                  {vOb.mainSales}
+                                  <div className={`text-[9px] ${changeColor(pctChange(vOb.mainSales, vPrev.sales))}`}>{fmtPct(pctChange(vOb.mainSales, vPrev.sales))}</div>
+                                </td>
                                 <td className="text-center px-4 py-3 font-mono text-xs text-muted-foreground">{vOb.obSales}</td>
                                 <td className="text-center px-4 py-3 font-mono text-xs text-success">{vRate}%</td>
-                                <td className="text-center px-4 py-3 font-mono text-xs">R$ {vData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                                <td className="text-center px-4 py-3 font-mono text-xs">
+                                  R$ {vData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                  <div className={`text-[9px] ${changeColor(pctChange(vData.revenue, vPrev.revenue))}`}>{fmtPct(pctChange(vData.revenue, vPrev.revenue))}</div>
+                                </td>
                                 <td className="text-center px-4 py-3">
                                   <button
                                     onClick={() => toggleVariant.mutate({ id: v.id, is_active: !v.is_active, smartLinkId: link.id })}
