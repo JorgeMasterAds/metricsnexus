@@ -39,6 +39,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "@/hooks/useAccount";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import NotificationBell from "@/components/NotificationBell";
+import AdminRolePreviewBar from "@/components/AdminRolePreviewBar";
+import { useRolePreview } from "@/hooks/useRolePreview";
+import { useProjectRole } from "@/hooks/useProjectRole";
 
 const mainNavItems = [
   { icon: Home, label: "Dashboard", path: "/home" },
@@ -77,8 +80,12 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
   const [integrationsOpen, setIntegrationsOpen] = useState(location.pathname === "/integrations");
   const [crmOpen, setCrmOpen] = useState(location.pathname === "/crm");
-  
+
   const { activeAccountId } = useAccount();
+  const { previewRole, isPreviewActive } = useRolePreview();
+  const { role: realRole } = useProjectRole();
+
+  // Determine effective role for sidebar visibility (showPreviewBar computed after isSuperAdmin query below)
 
   const { data: userProfile } = useQuery({
     queryKey: ["sidebar-user-profile"],
@@ -104,6 +111,10 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
     },
   });
 
+  const effectiveRole = isPreviewActive ? previewRole : realRole;
+  const isViewerMode = effectiveRole === "viewer";
+  const showPreviewBar = !!isSuperAdmin;
+
   const handleLogout = async () => {
     localStorage.removeItem("activeAccountId");
     localStorage.removeItem("activeProjectId");
@@ -128,7 +139,10 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       </div>
 
       <nav className="flex-1 space-y-1">
-        {mainNavItems.map((item) => {
+        {(isViewerMode
+          ? mainNavItems.filter((i) => i.path === "/dashboard" || i.path === "/utm-report")
+          : mainNavItems
+        ).map((item) => {
           const active = location.pathname === item.path;
           return (
             <Link
@@ -148,6 +162,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           );
         })}
 
+        {!isViewerMode && (<>
         {/* Integrações with submenu */}
         <div>
           <div className="flex items-center">
@@ -430,6 +445,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           <HelpCircle className={cn("h-4 w-4", location.pathname === "/support" && "text-primary")} />
           Suporte
         </Link>
+        </>)}
       </nav>
 
       <div className="border-t border-sidebar-border pt-4 mt-4 space-y-3">
@@ -464,7 +480,9 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   );
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className={cn("min-h-screen bg-background flex flex-col", showPreviewBar && "pt-10")}>
+      {showPreviewBar && <AdminRolePreviewBar />}
+      <div className="flex flex-1">
       <aside className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-sidebar p-4 sticky top-0 h-screen overflow-y-auto">
         <SidebarContent />
       </aside>
@@ -526,6 +544,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 }
