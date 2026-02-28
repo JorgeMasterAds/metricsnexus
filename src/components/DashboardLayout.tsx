@@ -473,9 +473,9 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                   >
                     <Menu className="h-5 w-5" />
                   </button>
-                  <div className="min-w-0">
-                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight truncate">{title}</h1>
-                    {subtitle && <p className="text-xs text-muted-foreground hidden sm:block mt-0.5">{subtitle}</p>}
+                   <div className="min-w-0">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight truncate">{title}</h1>
+                    {subtitle && <p className="text-sm text-muted-foreground hidden sm:block mt-1">{subtitle}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

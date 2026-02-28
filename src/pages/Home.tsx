@@ -396,8 +396,8 @@ export default function Home() {
 
   return (
     <DashboardLayout
-      title=""
-      subtitle=""
+      title={`Boas-vindas, ${firstName}`}
+      subtitle="Visão geral do seu projeto"
       actions={
         <div className="flex items-center gap-2">
           {editMode && (
@@ -412,12 +412,6 @@ export default function Home() {
         </div>
       }
     >
-      {/* Large welcome heading */}
-      <div className="mb-10">
-        <p className="text-xl text-muted-foreground font-medium">Boas-vindas,</p>
-        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">{firstName}</h1>
-        <p className="text-base text-muted-foreground mt-2">Visão geral do seu projeto</p>
-      </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
