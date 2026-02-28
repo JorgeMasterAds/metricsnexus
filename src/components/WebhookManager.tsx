@@ -56,6 +56,7 @@ export default function WebhookManager() {
         .from("webhooks")
         .select("*, webhook_products(product_id, products:product_id(id, name, external_id))")
         .eq("account_id", activeAccountId)
+        .neq("platform", "form")
         .order("created_at", { ascending: false });
       if (activeProjectId) q = q.eq("project_id", activeProjectId);
       const { data, error } = await q;
@@ -302,7 +303,6 @@ export default function WebhookManager() {
                   <p className="text-[10px] text-muted-foreground mt-2">
                     Criado em {new Date(wh.created_at).toLocaleDateString("pt-BR")}
                   </p>
-                  <WebhookFormBuilder webhookId={wh.id} webhookToken={wh.token} />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Switch checked={wh.is_active} onCheckedChange={() => toggleWebhook(wh.id, wh.is_active)} />

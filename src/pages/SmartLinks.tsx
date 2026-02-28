@@ -463,7 +463,7 @@ export default function SmartLinks() {
                     {canEdit && (
                       <button
                         onClick={() => handleClearViews(link)}
-                        className="absolute top-1.5 right-1.5 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-warning/20 transition-all text-muted-foreground hover:text-warning"
+                        className="absolute top-1.5 right-1.5 p-1 rounded hover:bg-warning/20 transition-all text-muted-foreground hover:text-warning"
                         title="Limpar views"
                       >
                         <Eraser className="h-3 w-3" />

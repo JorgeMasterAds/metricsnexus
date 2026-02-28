@@ -6,7 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
 export default function Novidades() {
-  const { data: announcements = [] } = useQuery({
+  const { data: announcements = [], isLoading } = useQuery({
     queryKey: ["novidades-page"],
     queryFn: async () => {
       const { data } = await (supabase as any)
@@ -42,7 +42,24 @@ export default function Novidades() {
   return (
     <DashboardLayout title="Novidades" subtitle="Atualizações e melhorias da plataforma">
       <div className="w-full space-y-6">
-        {announcements.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="rounded-xl bg-card border border-border/50 card-shadow p-6 animate-pulse">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-8 w-8 rounded-full bg-muted" />
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-24 bg-muted rounded" />
+                    <div className="h-2 w-16 bg-muted rounded" />
+                  </div>
+                </div>
+                <div className="h-4 w-3/4 bg-muted rounded mb-2" />
+                <div className="h-3 w-full bg-muted rounded" />
+                <div className="h-3 w-2/3 bg-muted rounded mt-1" />
+              </div>
+            ))}
+          </div>
+        ) : announcements.length === 0 ? (
           <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center">
             <Sparkles className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">Nenhuma novidade publicada ainda.</p>
