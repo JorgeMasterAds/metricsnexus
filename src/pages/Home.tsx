@@ -30,6 +30,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const SECTION_IDS = ["revenue-goal", "metrics", "limits", "sales-chart", "products"];
+// Enforce revenue-goal always first
+
 
 const TOOLTIP_STYLE = {
   backgroundColor: "hsl(240, 6%, 10%)",
@@ -411,10 +413,10 @@ export default function Home() {
       }
     >
       {/* Large welcome heading */}
-      <div className="mb-8">
-        <p className="text-lg text-muted-foreground font-medium">Boas-vindas,</p>
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">{firstName}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Visão geral do seu projeto</p>
+      <div className="mb-10">
+        <p className="text-xl text-muted-foreground font-medium">Boas-vindas,</p>
+        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">{firstName}</h1>
+        <p className="text-base text-muted-foreground mt-2">Visão geral do seu projeto</p>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -469,7 +471,7 @@ function UsageItem({ label, used, max, icon: Icon }: { label: string; used: numb
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
       <Progress value={pct} className="h-1.5" />
-      <p className={`text-xs font-mono font-medium ${color}`}>{used} / {max}</p>
+      <p className="text-xs font-mono font-medium text-muted-foreground">{used} / {max}</p>
     </div>
   );
 }
