@@ -10,6 +10,29 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // ── Authentication ──
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token);
+    if (userError || !userData.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { agent_id, trigger_data } = await req.json();
     if (!agent_id) throw new Error("agent_id is required");
 
@@ -29,6 +52,15 @@ serve(async (req) => {
 
     if (agentErr || !agent) throw new Error("Agent not found");
     if (!agent.is_active) throw new Error("Agent is inactive");
+
+    // ── Authorization: verify user belongs to the agent's account ──
+    const { data: accountIds } = await supabase.rpc("get_user_account_ids", { _user_id: userData.user.id });
+    if (!accountIds || !accountIds.includes(agent.account_id)) {
+      return new Response(JSON.stringify({ error: "Access denied" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Rate limit check
     const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
@@ -53,7 +85,7 @@ serve(async (req) => {
       });
     }
 
-    // Get API key
+    // Get API key (server-side only, never returned to client)
     const aiConfig = agent.ai_config || {};
     let apiKey = "";
     let provider = "";
@@ -142,7 +174,6 @@ serve(async (req) => {
     for (const action of (agent.actions || [])) {
       try {
         if (action.type === "send_whatsapp") {
-          // Get device filtered by project_id
           let deviceQuery = supabase
             .from("whatsapp_devices")
             .select("*")

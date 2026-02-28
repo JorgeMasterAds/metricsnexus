@@ -257,6 +257,28 @@ Deno.serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
+  // ── JSON COMPLEXITY VALIDATION ──
+  function validateJsonComplexity(obj: unknown, depth = 0, totalKeys = { count: 0 }): boolean {
+    if (depth > 10) return false;
+    if (totalKeys.count > 200) return false;
+    if (typeof obj === 'object' && obj !== null) {
+      const keys = Object.keys(obj);
+      if (keys.length > 50) return false;
+      totalKeys.count += keys.length;
+      for (const key of keys) {
+        if (!validateJsonComplexity((obj as Record<string, unknown>)[key], depth + 1, totalKeys)) return false;
+      }
+    }
+    return true;
+  }
+
+  if (!validateJsonComplexity(rawPayload)) {
+    return new Response(JSON.stringify({ error: 'Payload too complex' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   // ── TOKEN-BASED ROUTING ──
   const url = new URL(req.url);
   const pathParts = url.pathname.split('/').filter(Boolean);
