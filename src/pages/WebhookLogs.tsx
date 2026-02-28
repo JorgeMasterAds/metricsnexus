@@ -117,12 +117,17 @@ export default function WebhookLogs() {
         .eq("id", log.webhook_id)
         .single();
       if (!wh?.token) throw new Error("Webhook não encontrado");
-      const res = await supabase.functions.invoke("webhook", {
-        body: log.raw_payload,
-        headers: { "x-webhook-token": wh.token },
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/webhook/${wh.token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(log.raw_payload),
       });
-      if (res.error) throw res.error;
-      return res.data;
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+      return res.json();
     },
     onSuccess: () => {
       toast({ title: "Webhook reprocessado com sucesso!" });
