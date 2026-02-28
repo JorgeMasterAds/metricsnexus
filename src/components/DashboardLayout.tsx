@@ -1,4 +1,5 @@
 import { ReactNode, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -80,6 +81,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === "/settings");
   const [integrationsOpen, setIntegrationsOpen] = useState(location.pathname === "/integrations");
   const [crmOpen, setCrmOpen] = useState(location.pathname === "/crm");
+  const [rocketVisible, setRocketVisible] = useState(false);
 
   const { activeAccountId } = useAccount();
   const { previewRole, isPreviewActive } = useRolePreview();
@@ -497,7 +499,11 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
 
   const RefreshButton = useCallback(() => (
     <button
-      onClick={() => { void queryClient.invalidateQueries(); }}
+      onClick={() => {
+        void queryClient.invalidateQueries();
+        setRocketVisible(true);
+        setTimeout(() => setRocketVisible(false), 1400);
+      }}
       className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
       title="Atualizar dados"
     >
@@ -565,6 +571,43 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
         </div>
       </main>
       </div>
+
+      {/* Rocket refresh animation overlay */}
+      <AnimatePresence>
+        {rocketVisible && (
+          <motion.div
+            className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="text-6xl"
+              initial={{ y: 80, opacity: 0, scale: 0.6 }}
+              animate={{ y: -300, opacity: [0, 1, 1, 0], scale: [0.6, 1.3, 1.1, 0.8] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+            >
+              🚀
+            </motion.div>
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute rounded-full"
+                style={{
+                  width: 6 - i * 0.5,
+                  height: 6 - i * 0.5,
+                  background: `hsl(${30 + i * 5}, 90%, ${60 + i * 5}%)`,
+                }}
+                initial={{ y: 80 + i * 15, opacity: 0, x: (i % 2 === 0 ? -1 : 1) * (5 + i * 3) }}
+                animate={{ y: -200 + i * 30, opacity: [0, 0.8, 0], scale: [0.5, 1, 0.3] }}
+                transition={{ duration: 1, delay: i * 0.06, ease: "easeOut" }}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -349,6 +349,9 @@ export default function Home() {
                   <Tooltip content={<CustomTooltipContent />} />
                   <Bar yAxisId="right" dataKey="receita" name="Faturamento (R$)" fill="url(#homeColorRevenue)" radius={[3, 3, 0, 0]} />
                   <Area yAxisId="left" type="monotone" dataKey="vendas" name="Vendas" stroke="hsl(0, 85%, 55%)" fillOpacity={1} fill="url(#homeColorViews)" strokeWidth={2} />
+                  <Line yAxisId="right" dataKey="receita" stroke="none" dot={false} activeDot={false}>
+                    <LabelList dataKey="receita" position="top" style={{ fontSize: 9, fill: "hsl(30, 80%, 65%)" }} formatter={(v: number) => v > 0 ? `R$${(v/1000 >= 10 ? (v/1000).toFixed(1)+'k' : v.toLocaleString("pt-BR", {maximumFractionDigits:0}))}` : ""} />
+                  </Line>
                   <Line yAxisId="left" dataKey="vendas" stroke="none" dot={false} activeDot={false}>
                     <LabelList dataKey="vendas" position="top" style={{ fontSize: 9, fill: "hsl(0, 85%, 65%)" }} formatter={(v: number) => v > 0 ? v : ""} />
                   </Line>
