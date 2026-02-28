@@ -13,7 +13,6 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
-    const page = url.searchParams.get("page") || "dashboard"; // "dashboard" or "utm"
     const dateFrom = url.searchParams.get("from");
     const dateTo = url.searchParams.get("to");
 
@@ -63,64 +62,49 @@ Deno.serve(async (req) => {
       .eq("id", project_id)
       .maybeSingle();
 
-    if (page === "dashboard") {
-      // Get conversions data
-      let query = supabase
-        .from("conversions")
-        .select("id, amount, status, product_name, payment_method, created_at, utm_source, utm_medium, utm_campaign, project_id")
-        .eq("account_id", account_id)
-        .eq("project_id", project_id);
+    // Fetch all data in parallel
+    let convQuery = supabase
+      .from("conversions")
+      .select("id, amount, fees, net_amount, status, product_name, is_order_bump, payment_method, utm_source, utm_medium, utm_campaign, utm_content, utm_term, created_at, click_id, smartlink_id, variant_id, paid_at")
+      .eq("account_id", account_id)
+      .eq("project_id", project_id)
+      .eq("status", "approved");
 
-      if (dateFrom) query = query.gte("created_at", dateFrom);
-      if (dateTo) query = query.lte("created_at", dateTo);
+    let clicksQuery = supabase
+      .from("clicks")
+      .select("id, created_at, smartlink_id, variant_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, click_id")
+      .eq("account_id", account_id)
+      .eq("project_id", project_id);
 
-      const { data: conversions } = await query.order("created_at", { ascending: false }).limit(1000);
+    let smartlinksQuery = supabase
+      .from("smartlinks")
+      .select("id, name, slug, is_active, created_at, smartlink_variants(id, name, url, weight, is_active)")
+      .eq("account_id", account_id)
+      .eq("project_id", project_id)
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-      // Get clicks
-      let clicksQuery = supabase
-        .from("clicks")
-        .select("id, created_at, device_type, country, smartlink_id")
-        .eq("account_id", account_id)
-        .eq("project_id", project_id);
-
-      if (dateFrom) clicksQuery = clicksQuery.gte("created_at", dateFrom);
-      if (dateTo) clicksQuery = clicksQuery.lte("created_at", dateTo);
-
-      const { data: clicks } = await clicksQuery.limit(1000);
-
-      return new Response(JSON.stringify({
-        project_name: project?.name || "Projeto",
-        page: "dashboard",
-        conversions: conversions || [],
-        clicks: clicks || [],
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (dateFrom) {
+      convQuery = convQuery.gte("created_at", dateFrom);
+      clicksQuery = clicksQuery.gte("created_at", dateFrom);
+    }
+    if (dateTo) {
+      convQuery = convQuery.lte("created_at", dateTo);
+      clicksQuery = clicksQuery.lte("created_at", dateTo);
     }
 
-    if (page === "utm") {
-      let query = supabase
-        .from("conversions")
-        .select("id, amount, status, product_name, payment_method, created_at, utm_source, utm_medium, utm_campaign, utm_content, utm_term, project_id")
-        .eq("account_id", account_id)
-        .eq("project_id", project_id);
+    const [convResult, clicksResult, smartlinksResult] = await Promise.all([
+      convQuery.order("created_at", { ascending: false }).limit(1000),
+      clicksQuery.limit(1000),
+      smartlinksQuery,
+    ]);
 
-      if (dateFrom) query = query.gte("created_at", dateFrom);
-      if (dateTo) query = query.lte("created_at", dateTo);
-
-      const { data: conversions } = await query.order("created_at", { ascending: false }).limit(1000);
-
-      return new Response(JSON.stringify({
-        project_name: project?.name || "Projeto",
-        page: "utm",
-        conversions: conversions || [],
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ error: "Invalid page" }), {
-      status: 400,
+    return new Response(JSON.stringify({
+      project_name: project?.name || "Projeto",
+      conversions: convResult.data || [],
+      clicks: clicksResult.data || [],
+      smartlinks: smartlinksResult.data || [],
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
