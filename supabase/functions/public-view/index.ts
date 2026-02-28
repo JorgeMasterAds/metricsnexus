@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
     if (prevFrom && prevTo) {
       let prevConvQuery = supabase
         .from("conversions")
-        .select("id, amount")
+        .select("id, amount, smartlink_id, variant_id")
         .eq("account_id", account_id)
         .eq("project_id", project_id)
         .eq("status", "approved")
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
 
       let prevClicksQuery = supabase
         .from("clicks")
-        .select("id")
+        .select("id, smartlink_id, variant_id")
         .eq("account_id", account_id)
         .eq("project_id", project_id)
         .gte("created_at", prevFrom)
