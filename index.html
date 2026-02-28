@@ -92,9 +92,14 @@
           });
       })();
     </script>
-    <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Security headers via meta tags (CSP)
+      // Only load the full React app if this is NOT a smartlink redirect
+      if (!window.__SMARTLINK_FAST_REDIRECT) {
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = '/src/main.tsx';
+        document.body.appendChild(s);
+      }
     </script>
   </body>
 </html>
