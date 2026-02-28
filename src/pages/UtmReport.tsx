@@ -361,7 +361,7 @@ export default function UtmReport() {
             const prevOb = prevConversions.filter((c: any) => c.is_order_bump).length;
             const prevRev = prevConversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
             return (<>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
               <div className="flex items-center gap-1">
@@ -380,7 +380,7 @@ export default function UtmReport() {
               {fmtChange(pctChange(totalSales, prevSales))} vs {previousPeriodLabel}
             </div>
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
               <div className="flex items-center gap-1">
@@ -399,7 +399,7 @@ export default function UtmReport() {
               />
             </div>
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
               <div className="flex items-center gap-1">
@@ -418,7 +418,7 @@ export default function UtmReport() {
             const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
             const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
             return (
-              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
+              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col relative">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
                   <div className="flex items-center gap-1">
