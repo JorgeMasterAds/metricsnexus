@@ -1,5 +1,6 @@
 import { ReactNode, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import rocketImg from "@/assets/rocket.png";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -582,15 +583,15 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <motion.div
-              className="text-6xl"
-              initial={{ y: 80, opacity: 0, scale: 0.6 }}
-              animate={{ y: -300, opacity: [0, 1, 1, 0], scale: [0.6, 1.3, 1.1, 0.8] }}
+            <motion.img
+              src={rocketImg}
+              alt="Rocket"
+              className="w-16 h-auto drop-shadow-[0_0_15px_rgba(255,41,36,0.5)]"
+              initial={{ y: 80, opacity: 0, scale: 0.4, rotate: 0 }}
+              animate={{ y: -300, opacity: [0, 1, 1, 0], scale: [0.4, 1, 0.9, 0.6], rotate: [0, -5, 5, 0] }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1.2, ease: "easeOut" }}
-            >
-              🚀
-            </motion.div>
+            />
             {[...Array(6)].map((_, i) => (
               <motion.div
                 key={i}
