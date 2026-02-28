@@ -355,15 +355,15 @@ export default function Home() {
       case "metrics":
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
-              <div className="flex items-center justify-between mb-2">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col items-center text-center">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <ShoppingCart className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="text-xl font-bold flex-1 flex items-center">{computed.totalSales.toLocaleString("pt-BR")}</div>
-              <div className="flex items-center gap-3 mt-1">
+              <div className="text-xl font-bold flex-1 flex items-center justify-center">{computed.totalSales.toLocaleString("pt-BR")}</div>
+              <div className="flex items-center justify-center gap-3 mt-1">
                 <span className="text-[9px] text-muted-foreground">Vendas <span className="font-mono font-medium text-foreground/80">{computed.mainCount}</span></span>
                 <span className="text-[9px] text-muted-foreground">OB <span className="font-mono font-medium text-foreground/80">{computed.obCount}</span></span>
               </div>
@@ -371,26 +371,26 @@ export default function Home() {
                 {fmtChange(computed.comparison.sales)} vs {previousPeriodLabel}
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
-              <div className="flex items-center justify-between mb-2">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col items-center text-center">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <DollarSign className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="text-lg font-bold flex-1 flex items-center">{fmt(computed.totalRevenue)}</div>
+              <div className="text-lg font-bold flex-1 flex items-center justify-center">{fmt(computed.totalRevenue)}</div>
               <div className={`text-[10px] font-normal mt-0.5 ${changeColor(computed.comparison.revenue)}`}>
                 {fmtChange(computed.comparison.revenue)} vs {previousPeriodLabel}
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
-              <div className="flex items-center justify-between mb-2">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col items-center text-center">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Ticket Médio</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <Ticket className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="text-lg font-bold flex-1 flex items-center">{fmt(computed.avgTicket)}</div>
+              <div className="text-lg font-bold flex-1 flex items-center justify-center">{fmt(computed.avgTicket)}</div>
               <div className={`text-[10px] font-normal mt-0.5 ${changeColor(computed.comparison.ticket)}`}>
                 {fmtChange(computed.comparison.ticket)} vs {previousPeriodLabel}
               </div>
