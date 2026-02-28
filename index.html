@@ -94,13 +94,10 @@
           });
       })();
     </script>
-    <script>
+    <script type="module">
       // Only load the full React app if this is NOT a smartlink redirect
       if (!window.__SMARTLINK_FAST_REDIRECT) {
-        var s = document.createElement('script');
-        s.type = 'module';
-        s.src = '/src/main.tsx';
-        document.body.appendChild(s);
+        import('/src/main.tsx');
       }
     </script>
   </body>
