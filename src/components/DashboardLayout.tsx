@@ -240,7 +240,23 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
         </Tooltip>
 
-        {/* Agente de IA - temporarily hidden */}
+        {/* Agente de IA - visible for super admins */}
+        {isSuperAdmin && (
+          <Link
+            to="/ai-agents"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+              location.pathname === "/ai-agents"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <Bot className={cn("h-4 w-4", location.pathname === "/ai-agents" && "text-primary")} />
+            Agente de IA
+            <span className="ml-auto text-[9px] bg-muted/50 px-1.5 py-0.5 rounded">beta</span>
+          </Link>
+        )}
 
         {/* CRM with submenu */}
         <div>
@@ -415,8 +431,8 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           Novidades
         </Link>
 
-        {/* Admin - only for super admins */}
-        {isSuperAdmin && (
+        {/* Admin - only for super admins in real mode */}
+        {isSuperAdmin && !isPreviewActive && (
           <Link
             to="/admin"
             onClick={() => setMobileOpen(false)}
