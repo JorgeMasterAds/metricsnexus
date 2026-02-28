@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-token, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-token, x-reprocess-log-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const sanitizeString = (val: unknown, maxLen = 500): string | null => {
@@ -240,6 +240,17 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
+  // Reprocess mode: update existing log instead of creating new one
+  const reprocessLogId = req.headers.get('x-reprocess-log-id');
+
+  async function upsertLog(logData: Record<string, unknown>) {
+    if (reprocessLogId) {
+      await supabase.from('webhook_logs').update(logData).eq('id', reprocessLogId);
+    } else {
+      await supabase.from('webhook_logs').insert(logData);
+    }
+  }
+
   const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
   if (contentLength > 102400) {
     return new Response(JSON.stringify({ error: 'Payload too large' }), {
@@ -312,7 +323,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!webhook) {
-      await supabase.from('webhook_logs').insert({
+      await upsertLog({
         platform: 'unknown',
         raw_payload: rawPayload,
         status: 'error',
@@ -389,7 +400,7 @@ Deno.serve(async (req) => {
       webhook_id: webhookId,
       project_id: projectId,
     };
-    await supabase.from('webhook_logs').insert(logEntry);
+    await upsertLog(logEntry);
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -409,7 +420,7 @@ Deno.serve(async (req) => {
       raw_payload: rawPayload,
     });
 
-    await supabase.from('webhook_logs').insert({
+    await upsertLog({
       platform,
       raw_payload: rawPayload,
       status: sale.status,
@@ -430,7 +441,7 @@ Deno.serve(async (req) => {
 
   // Not approved? Ignore
   if (sale.status !== 'approved') {
-    await supabase.from('webhook_logs').insert({
+    await upsertLog({
       platform,
       raw_payload: rawPayload,
       status: 'ignored',
@@ -447,7 +458,7 @@ Deno.serve(async (req) => {
   }
 
   if (!sale.transactionId) {
-    await supabase.from('webhook_logs').insert({
+    await upsertLog({
       platform,
       raw_payload: rawPayload,
       status: 'error',
@@ -474,7 +485,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!matchedProduct) {
-      await supabase.from('webhook_logs').insert({
+      await upsertLog({
         platform,
         raw_payload: rawPayload,
         status: 'ignored',
@@ -495,7 +506,7 @@ Deno.serve(async (req) => {
   // Deduplication
   const { data: existing } = await supabase.from('conversions').select('id').eq('transaction_id', sale.transactionId).maybeSingle();
   if (existing) {
-    await supabase.from('webhook_logs').insert({
+    await upsertLog({
       platform,
       raw_payload: rawPayload,
       status: 'duplicate',
@@ -658,7 +669,7 @@ Deno.serve(async (req) => {
   });
 
   // Log
-  await supabase.from('webhook_logs').insert({
+  await upsertLog({
     platform,
     raw_payload: rawPayload,
     status: 'approved',

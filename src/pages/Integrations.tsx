@@ -578,7 +578,7 @@ function WebhookLogsTab({ accountId }: { accountId?: string }) {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const res = await fetch(`${supabaseUrl}/functions/v1/webhook/${wh.token}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-reprocess-log-id": log.id },
         body: JSON.stringify(log.raw_payload),
       });
       if (!res.ok) {
