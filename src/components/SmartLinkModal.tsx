@@ -153,10 +153,10 @@ export default function SmartLinkModal({ link, accountId, projectId, onClose, on
           <div>
             <div className="flex items-center justify-between mb-3">
               <Label>Variantes</Label>
-              <div className="flex gap-2">
-                <button onClick={equalizeWeights} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Equalizar pesos
-                </button>
+              <div className="flex gap-2 items-center">
+                <Button variant="outline" size="sm" onClick={equalizeWeights} className="h-7 px-2 text-xs">
+                  Dividir %
+                </Button>
                 <span className={`text-xs font-mono ${totalWeight === 100 ? "text-success" : "text-destructive"}`}>
                   Total: {totalWeight}%
                 </span>

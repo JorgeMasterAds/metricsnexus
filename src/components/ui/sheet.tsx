@@ -52,16 +52,26 @@ interface SheetContentProps
     VariantProps<typeof sheetVariants> {}
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, ...props }, ref) => (
+  ({ side = "right", className, children, onPointerDownOutside, onFocusOutside, onInteractOutside, onEscapeKeyDown, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
         ref={ref}
         onPointerDownOutside={(e) => {
           if (!document.hasFocus()) e.preventDefault();
+          onPointerDownOutside?.(e);
         }}
         onFocusOutside={(e) => {
-          e.preventDefault();
+          if (!document.hasFocus()) e.preventDefault();
+          onFocusOutside?.(e);
+        }}
+        onInteractOutside={(e) => {
+          if (!document.hasFocus()) e.preventDefault();
+          onInteractOutside?.(e);
+        }}
+        onEscapeKeyDown={(e) => {
+          if (!document.hasFocus()) e.preventDefault();
+          onEscapeKeyDown?.(e);
         }}
         className={cn(sheetVariants({ side }), className)}
         {...props}
