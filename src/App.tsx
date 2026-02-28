@@ -32,6 +32,7 @@ import AIAgents from "./pages/AIAgents";
 import Devices from "./pages/Devices";
 import Surveys from "./pages/Surveys";
 import PublicSurvey from "./pages/PublicSurvey";
+import EmbedSurvey from "./pages/EmbedSurvey";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30000, retry: 1 } },
@@ -151,6 +152,7 @@ function AppRoutes() {
       <Route path="/devices" element={<Protected><Devices /></Protected>} />
       <Route path="/surveys" element={<Protected><Surveys /></Protected>} />
       <Route path="/s/:slug" element={<PublicSurvey />} />
+      <Route path="/embed/s/:slug" element={<EmbedSurvey />} />
       <Route path="/" element={<Navigate to={session ? "/home" : "/auth"} replace />} />
       <Route path="/:slug" element={<PublicSmartLinkRedirect />} />
       <Route path="*" element={<NotFound />} />

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Plus, Trash2, GripVertical, Copy, Eye, Settings2,
   Type, AlignLeft, ListChecks, CheckSquare, ChevronDown, Gauge, Star,
-  Save, ExternalLink, BarChart3, Thermometer
+  Save, ExternalLink, BarChart3, Thermometer, Code2
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { useSurveyDetail, useSurveys, SurveyQuestion } from "@/hooks/useSurveys";
@@ -275,6 +275,17 @@ export default function SurveyEditor({ surveyId, onBack }: Props) {
                 </div>
               </div>
             )}
+
+            {/* Embed Code */}
+            <div className="rounded-xl bg-card border border-border/50 p-6 space-y-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Code2 className="h-4 w-4" /> Incorporar em outro site (Embed)
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Cole o código abaixo em qualquer site para exibir esta pesquisa dentro de um iframe. Ideal para páginas de obrigado, landing pages, etc.
+              </p>
+              <EmbedCodeBlock slug={survey.slug} title={survey.title} />
+            </div>
           </div>
         </TabsContent>
 
@@ -527,6 +538,64 @@ function TemperatureIndicator({ score }: { score: number }) {
             }`}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Embed Code Block ──
+function EmbedCodeBlock({ slug, title }: { slug: string; title: string }) {
+  const [copied, setCopied] = useState(false);
+  const embedUrl = `${window.location.origin}/embed/s/${slug}`;
+
+  const iframeCode = `<!-- Nexus Metrics - ${title} -->
+<iframe
+  src="${embedUrl}"
+  width="100%"
+  height="600"
+  frameborder="0"
+  style="border:none;border-radius:12px;max-width:700px;margin:0 auto;display:block;"
+  allow="clipboard-write"
+></iframe>
+<script>
+window.addEventListener("message",function(e){
+  if(e.data&&e.data.type==="nexus-survey-resize"){
+    var f=document.querySelector('iframe[src*="${slug}"]');
+    if(f)f.style.height=e.data.height+"px";
+  }
+});
+</script>`;
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(iframeCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <pre className="p-3 rounded-lg bg-muted/50 text-[11px] text-muted-foreground overflow-x-auto max-h-[200px] whitespace-pre-wrap font-mono">
+          {iframeCode}
+        </pre>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="absolute top-2 right-2 h-7 text-[10px]"
+          onClick={copyCode}
+        >
+          {copied ? "Copiado ✓" : "Copiar código"}
+        </Button>
+      </div>
+      <div className="text-[11px] text-muted-foreground space-y-1">
+        <p>• O iframe redimensiona automaticamente conforme o conteúdo</p>
+        <p>• Adicione <code className="text-primary">?bg=transparent</code> na URL para fundo transparente</p>
+        <p>• Adicione <code className="text-primary">?hideHeader=1</code> para ocultar título/descrição</p>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" className="text-xs" onClick={() => window.open(embedUrl, "_blank")}>
+          <ExternalLink className="h-3 w-3 mr-1" /> Abrir embed
+        </Button>
       </div>
     </div>
   );
