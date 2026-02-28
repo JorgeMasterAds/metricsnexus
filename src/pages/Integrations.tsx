@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
-import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft, FileCode, Plus, Copy, Trash2, ExternalLink, User, Mail, Phone, Check } from "lucide-react";
+import { Webhook, ScrollText, Filter, Download, ChevronDown, ChevronRight, ChevronLeft, FileCode, Plus, Copy, Trash2, ExternalLink, User, Mail, Phone, Check, Pencil } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +85,8 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
   const [saving, setSaving] = useState(false);
   const [showEmbed, setShowEmbed] = useState<string | null>(null);
   const [deleteFormId, setDeleteFormId] = useState<string | null>(null);
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [editingFormId, setEditingFormId] = useState<string | null>(null);
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
@@ -149,7 +151,6 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
 
   const deleteForm = async () => {
     if (!deleteFormId) return;
-    // Also delete the internal webhook
     const form = forms.find((f: any) => f.id === deleteFormId);
     if (form?.webhook_id) {
       await (supabase as any).from("webhooks").delete().eq("id", form.webhook_id);
@@ -158,6 +159,28 @@ function FormsTab({ accountId, projectId }: { accountId?: string; projectId?: st
     qc.invalidateQueries({ queryKey: ["webhook-forms"] });
     toast.success("Formulário excluído");
     setDeleteFormId(null);
+  };
+
+  const saveEditForm = async () => {
+    if (!editingFormId || !formName.trim()) return;
+    setSaving(true);
+    try {
+      const { error } = await (supabase as any).from("webhook_forms").update({
+        name: formName.trim(),
+        redirect_type: isCheckout ? "checkout" : "url",
+        redirect_url: redirectUrl.trim() || null,
+      }).eq("id", editingFormId);
+      if (error) throw error;
+      toast.success("Formulário atualizado!");
+      setEditFormOpen(false);
+      setEditingFormId(null);
+      resetWizard();
+      qc.invalidateQueries({ queryKey: ["webhook-forms"] });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getFormEndpoint = (formId: string) => {
@@ -359,6 +382,18 @@ ${fields.phone ? `  <div style="margin-bottom:12px;">
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setFormName(form.name);
+                      setRedirectUrl(form.redirect_url || "");
+                      setIsCheckout(form.redirect_type === "checkout");
+                      setEditingFormId(form.id);
+                      setEditFormOpen(true);
+                    }}
+                    title="Editar formulário"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
                     onClick={() => setShowEmbed(showEmbed === form.id ? null : form.id)}>
                     <ExternalLink className="h-3 w-3" /> {showEmbed === form.id ? "Fechar" : "Código"}
@@ -394,6 +429,31 @@ ${fields.phone ? `  <div style="margin-bottom:12px;">
           ))}
         </div>
       )}
+
+      {/* Edit Form Dialog */}
+      <Dialog open={editFormOpen} onOpenChange={(v) => { if (!v) { setEditFormOpen(false); setEditingFormId(null); resetWizard(); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle className="text-sm">Editar formulário</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nome do formulário</Label>
+              <Input value={formName} onChange={(e) => setFormName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">URL de redirecionamento</Label>
+              <Input value={redirectUrl} onChange={(e) => setRedirectUrl(e.target.value)} placeholder="https://..." />
+            </div>
+            <div className="flex items-center gap-3">
+              <Checkbox checked={isCheckout} onCheckedChange={(v) => setIsCheckout(!!v)} />
+              <span className="text-xs">Link é um checkout (adicionar UTMs automaticamente)</span>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setEditFormOpen(false); resetWizard(); }}>Cancelar</Button>
+              <Button size="sm" onClick={saveEditForm} disabled={saving || !formName.trim()}>{saving ? "Salvando..." : "Salvar"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteFormId} onOpenChange={(v) => !v && setDeleteFormId(null)}>
         <AlertDialogContent>

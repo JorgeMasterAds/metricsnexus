@@ -14,6 +14,7 @@ import ResetPassword from "./pages/ResetPassword";
 import CreateProjectScreen from "./components/CreateProjectScreen";
 import { ProjectProvider, useProject } from "./hooks/useProject";
 import Dashboard from "./pages/Dashboard";
+import Home from "./pages/Home";
 import SmartLinks from "./pages/SmartLinks";
 import WebhookLogs from "./pages/WebhookLogs";
 import Settings from "./pages/Settings";
@@ -86,6 +87,7 @@ function AppRoutes() {
     "auth",
     "reset-password",
     "dashboard",
+    "home",
     "smart-links",
     "utm-report",
     "webhook-logs",
@@ -143,7 +145,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/auth" element={session ? <Navigate to="/dashboard" replace /> : <Auth />} />
+      <Route path="/auth" element={session ? <Navigate to="/home" replace /> : <Auth />} />
+      <Route path="/home" element={<Protected><Home /></Protected>} />
       <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
       <Route path="/smart-links" element={<Protected><SmartLinks /></Protected>} />
       <Route path="/utm-report" element={<Protected><UtmReport /></Protected>} />
@@ -157,7 +160,7 @@ function AppRoutes() {
       <Route path="/crm" element={<Protected><CRM /></Protected>} />
       <Route path="/ai-agents" element={<Protected><AIAgents /></Protected>} />
       <Route path="/devices" element={<Protected><Devices /></Protected>} />
-      <Route path="/" element={<Navigate to={session ? "/dashboard" : "/auth"} replace />} />
+      <Route path="/" element={<Navigate to={session ? "/home" : "/auth"} replace />} />
       <Route path="/:slug" element={<PublicSmartLinkRedirect />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

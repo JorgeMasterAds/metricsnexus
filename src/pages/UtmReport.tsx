@@ -455,7 +455,7 @@ export default function UtmReport() {
         const totalPages = Math.max(1, Math.ceil(displayRows.length / perPage));
         const currentPage = Math.min(page, totalPages);
         return (
-          <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+          <div className="flex items-center justify-end mt-4 flex-wrap gap-3">
             <div className="flex items-center gap-1.5">
               <Label className="text-[10px] text-muted-foreground">Por página:</Label>
               <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}>
@@ -466,17 +466,15 @@ export default function UtmReport() {
                 </SelectContent>
               </Select>
             </div>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</span>
-                <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</span>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         );
       })()}

@@ -26,6 +26,9 @@ import {
   Sparkles,
   Bot,
   Smartphone,
+  Home,
+  Gift,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +39,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import NotificationBell from "@/components/NotificationBell";
 
 const mainNavItems = [
+  { icon: Home, label: "Dashboard", path: "/home" },
   { icon: BarChart3, label: "Relatório", path: "/dashboard" },
   { icon: FileBarChart, label: "Relatório UTM", path: "/utm-report" },
   { icon: GitBranch, label: "Smart Links", path: "/smart-links" },
@@ -52,6 +56,8 @@ const settingsSubItems = [
   { icon: FolderOpen, label: "Projetos", path: "/settings?tab=projects" },
   { icon: Users, label: "Equipe", path: "/settings?tab=team" },
   { icon: CreditCard, label: "Assinatura", path: "/settings?tab=subscription" },
+  { icon: Gift, label: "Indicações", path: "/settings?tab=referrals" },
+  { icon: Key, label: "APIs", path: "/settings?tab=apis" },
 ];
 
 interface DashboardLayoutProps {
