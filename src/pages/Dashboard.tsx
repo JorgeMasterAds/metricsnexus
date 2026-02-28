@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const SECTION_IDS = ["metrics", "traffic-chart", "smartlinks", "products", "order-bumps", "mini-charts"];
 
@@ -162,6 +163,36 @@ function CustomPieTooltip({ active, payload }: any) {
   );
 }
 
+// Helper functions
+const pctChange = (curr: number, prev: number) => {
+  if (prev === 0) return curr > 0 ? 100 : 0;
+  return ((curr - prev) / prev) * 100;
+};
+
+const fmtChange = (val: number, isAbsolute = false) => {
+  const sign = val > 0 ? "+" : "";
+  return isAbsolute
+    ? `${sign}${val.toFixed(2).replace(".", ",")}pp`
+    : `${sign}${val.toFixed(1).replace(".", ",")}%`;
+};
+
+const changeType = (val: number): "positive" | "negative" | "neutral" =>
+  val > 0 ? "positive" : val < 0 ? "negative" : "neutral";
+
+function ComparisonBadge({ value, isAbsolute = false }: { value: number; isAbsolute?: boolean }) {
+  const type = changeType(value);
+  return (
+    <span className={cn(
+      "text-[10px] font-normal",
+      type === "positive" && "text-success",
+      type === "negative" && "text-destructive",
+      type === "neutral" && "text-muted-foreground",
+    )}>
+      {fmtChange(value, isAbsolute)}
+    </span>
+  );
+}
+
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [debouncedRange, setDebouncedRange] = useState<DateRange>(dateRange);
@@ -186,13 +217,15 @@ export default function Dashboard() {
   const untilISO = debouncedRange.to.toISOString();
   const sinceDate = debouncedRange.from.toISOString().slice(0, 10);
   const untilDate = debouncedRange.to.toISOString().slice(0, 10);
+  
+  // Calculate period days correctly (inclusive of both endpoints)
   const periodMs = debouncedRange.to.getTime() - debouncedRange.from.getTime();
+  const periodDays = Math.max(1, Math.round(periodMs / 86400000));
   const prevUntil = new Date(debouncedRange.from.getTime() - 1);
   const prevSince = new Date(prevUntil.getTime() - periodMs);
   const prevSinceISO = prevSince.toISOString();
   const prevUntilISO = prevUntil.toISOString();
-  const periodDays = Math.max(1, Math.round(periodMs / 86400000) + 1);
-  const previousPeriodLabel = `${periodDays} dia${periodDays > 1 ? "s" : ""}`;
+  const previousPeriodLabel = `${periodDays} dia${periodDays > 1 ? "s" : ""} anteriores`;
 
   const periodKey = `${sinceISO}__${untilISO}`;
   const { investmentInput, handleInvestmentChange, investmentValue } = useInvestment(periodKey);
@@ -243,7 +276,7 @@ export default function Dashboard() {
       const { data } = await q;
       return data || [];
     },
-    staleTime: 300000, // 5 min cache
+    staleTime: 300000,
     enabled: !!activeAccountId,
   });
 
@@ -271,7 +304,7 @@ export default function Dashboard() {
     queryFn: async () => {
       let q = (supabase as any)
         .from("conversions")
-        .select("id, amount")
+        .select("id, amount, product_name, is_order_bump")
         .eq("status", "approved")
         .gte("created_at", prevSinceISO)
         .lte("created_at", prevUntilISO)
@@ -335,10 +368,19 @@ export default function Dashboard() {
     const prevCr = prevTv > 0 ? (prevTs / prevTv) * 100 : 0;
     const prevAt = prevTs > 0 ? prevTr / prevTs : 0;
 
-    const pctChange = (curr: number, prev: number) => {
-      if (prev === 0) return curr > 0 ? 100 : 0;
-      return ((curr - prev) / prev) * 100;
-    };
+    // Previous period product-level data
+    const prevProdMap = new Map<string, { vendas: number; receita: number }>();
+    prevConversions.forEach((c: any) => {
+      const name = c.product_name || "Produto desconhecido";
+      const e = prevProdMap.get(name) || { vendas: 0, receita: 0 };
+      e.vendas++; e.receita += Number(c.amount);
+      prevProdMap.set(name, e);
+    });
+
+    const prevMainCount = prevConversions.filter((c: any) => !c.is_order_bump).length;
+    const prevObCount = prevConversions.filter((c: any) => c.is_order_bump).length;
+    const prevMainRevenue = prevConversions.filter((c: any) => !c.is_order_bump).reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const prevObRevenue = prevConversions.filter((c: any) => c.is_order_bump).reduce((s: number, c: any) => s + Number(c.amount), 0);
 
     const comparison = {
       views: pctChange(tv, prevTv),
@@ -408,7 +450,15 @@ export default function Dashboard() {
       prodMap.set(name, e);
     });
     const productData = Array.from(prodMap.entries())
-      .map(([name, v]) => ({ name, vendas: v.vendas, receita: v.receita, ticket: v.vendas > 0 ? v.receita / v.vendas : 0, percentual: tr > 0 ? (v.receita / tr) * 100 : 0, isOrderBump: v.isOrderBump }))
+      .map(([name, v]) => {
+        const prev = prevProdMap.get(name);
+        return {
+          name, vendas: v.vendas, receita: v.receita, ticket: v.vendas > 0 ? v.receita / v.vendas : 0,
+          percentual: tr > 0 ? (v.receita / tr) * 100 : 0, isOrderBump: v.isOrderBump,
+          vendasChange: prev ? pctChange(v.vendas, prev.vendas) : (v.vendas > 0 ? 100 : 0),
+          receitaChange: prev ? pctChange(v.receita, prev.receita) : (v.receita > 0 ? 100 : 0),
+        };
+      })
       .sort((a, b) => b.receita - a.receita);
 
     const mainProducts = conversions.filter((c: any) => !c.is_order_bump);
@@ -443,6 +493,7 @@ export default function Dashboard() {
       linkStats, pieData,
       mainProductsCount: mainProducts.length, orderBumpsCount: orderBumps.length,
       mainRevenue, obRevenue,
+      prevMainCount, prevObCount, prevMainRevenue, prevObRevenue,
     };
   }, [clicks, conversions, smartLinks, dateRange, prevClicks, prevConversions]);
 
@@ -456,14 +507,6 @@ export default function Dashboard() {
   };
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const fmtChange = (val: number, isAbsolute = false) => {
-    const sign = val > 0 ? "+" : "";
-    return isAbsolute
-      ? `${sign}${val.toFixed(2).replace(".", ",")}pp`
-      : `${sign}${val.toFixed(1).replace(".", ",")}%`;
-  };
-  const changeType = (val: number): "positive" | "negative" | "neutral" =>
-    val > 0 ? "positive" : val < 0 ? "negative" : "neutral";
 
   const PIE_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))"];
 
@@ -484,48 +527,30 @@ export default function Dashboard() {
   const buildFullExportData = () => {
     const rows: Record<string, any>[] = [];
     const roas = investmentValue > 0 ? computed.totalRevenue / investmentValue : 0;
-
-    // Section: KPIs Summary
-    rows.push({
-      seção: "Resumo",
-      métrica: "Total Views", valor: computed.totalViews.toLocaleString("pt-BR"),
-    });
+    rows.push({ seção: "Resumo", métrica: "Total Views", valor: computed.totalViews.toLocaleString("pt-BR") });
     rows.push({ seção: "Resumo", métrica: "Vendas", valor: computed.totalSales.toLocaleString("pt-BR") });
     rows.push({ seção: "Resumo", métrica: "Taxa Conv.", valor: computed.convRate.toFixed(2) + "%" });
     rows.push({ seção: "Resumo", métrica: "Investimento", valor: investmentValue > 0 ? fmt(investmentValue) : "—" });
     rows.push({ seção: "Resumo", métrica: "Faturamento", valor: fmt(computed.totalRevenue) });
     rows.push({ seção: "Resumo", métrica: "ROAS", valor: investmentValue > 0 ? roas.toFixed(2) + "x" : "—" });
     rows.push({ seção: "Resumo", métrica: "Ticket Médio", valor: fmt(computed.avgTicket) });
-
-    // Section: Daily traffic data
     computed.chartData.forEach((d: any) => {
       rows.push({ seção: "Tráfego Diário", data: d.date, views: d.views, vendas: d.sales, receita: fmt(d.revenue) });
     });
-
-    // Section: Products
     computed.productData.forEach((p: any) => {
       rows.push({ seção: "Produtos", produto: p.name, vendas: p.vendas, receita: fmt(p.receita), ticket_medio: fmt(p.ticket), percentual: p.percentual.toFixed(1) + "%", tipo: p.isOrderBump ? "Order Bump" : "Principal" });
     });
-
-    // Section: Order Bumps summary
     rows.push({ seção: "Order Bumps", categoria: "Produto Principal", vendas: computed.mainProductsCount, receita: fmt(computed.mainRevenue) });
     rows.push({ seção: "Order Bumps", categoria: "Order Bump", vendas: computed.orderBumpsCount, receita: fmt(computed.obRevenue) });
-
-    // Section: SmartLinks
     computed.linkStats.forEach((l: any) => {
       rows.push({ seção: "Smart Links", nome: l.name, slug: l.slug, views: l.views, vendas: l.sales, receita: fmt(l.revenue), taxa: l.rate.toFixed(2) + "%", status: l.is_active ? "Ativo" : "Pausado" });
     });
-
-    // Section: UTM Sources
     computed.sourceData.forEach((s: any) => { rows.push({ seção: "Receita por Origem", nome: s.name, receita: fmt(s.value) }); });
     computed.campaignData.forEach((s: any) => { rows.push({ seção: "Receita por Campanha", nome: s.name, receita: fmt(s.value) }); });
     computed.mediumData.forEach((s: any) => { rows.push({ seção: "Receita por Medium", nome: s.name, receita: fmt(s.value) }); });
     computed.contentData.forEach((s: any) => { rows.push({ seção: "Receita por Content", nome: s.name, receita: fmt(s.value) }); });
     computed.productChartData.forEach((s: any) => { rows.push({ seção: "Receita por Produto", nome: s.name, receita: fmt(s.value) }); });
-
-    // Section: Payment methods
     computed.paymentData.forEach((p: any) => { rows.push({ seção: "Meios de Pagamento", nome: p.name, vendas: p.vendas, receita: fmt(p.receita) }); });
-
     return rows;
   };
 
@@ -544,30 +569,31 @@ export default function Dashboard() {
               value={computed.totalViews.toLocaleString("pt-BR")}
               icon={Eye}
               tooltipKey="total_views"
-              change={`${fmtChange(computed.comparison.views)} vs ${previousPeriodLabel} anteriores`}
+              change={`${fmtChange(computed.comparison.views)} vs ${previousPeriodLabel}`}
               changeType={changeType(computed.comparison.views)}
             />
 
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+            {/* Sales card with Total prominent */}
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <ShoppingCart className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-1.5 text-center mb-1.5">
-                <div><p className="text-[9px] text-muted-foreground uppercase">Vendas</p><p className="text-sm font-bold tabular-nums">{computed.mainProductsCount.toLocaleString("pt-BR")}</p></div>
-                <div><p className="text-[9px] text-muted-foreground uppercase">OB</p><p className="text-sm font-bold tabular-nums">{computed.orderBumpsCount.toLocaleString("pt-BR")}</p></div>
-                <div><p className="text-[9px] text-muted-foreground uppercase">Total</p><p className="text-sm font-bold tabular-nums">{computed.totalSales.toLocaleString("pt-BR")}</p></div>
+              <div className="text-xl font-bold flex-1 flex items-center">{computed.totalSales.toLocaleString("pt-BR")}</div>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-[9px] text-muted-foreground">Vendas <span className="font-mono font-medium text-foreground/80">{computed.mainProductsCount}</span></span>
+                <span className="text-[9px] text-muted-foreground">OB <span className="font-mono font-medium text-foreground/80">{computed.orderBumpsCount}</span></span>
               </div>
-              <div className={changeType(computed.comparison.sales) === "positive" ? "text-xs font-medium text-success" : changeType(computed.comparison.sales) === "negative" ? "text-xs font-medium text-destructive" : "text-xs font-medium text-muted-foreground"}>
-                {fmtChange(computed.comparison.sales)} vs {previousPeriodLabel} anteriores
+              <div className={cn("text-[10px] font-normal mt-0.5", changeType(computed.comparison.sales) === "positive" ? "text-success" : changeType(computed.comparison.sales) === "negative" ? "text-destructive" : "text-muted-foreground")}>
+                {fmtChange(computed.comparison.sales)} vs {previousPeriodLabel}
               </div>
             </div>
 
-            <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" change={`${fmtChange(computed.comparison.convRate, true)} vs período anterior`} changeType={changeType(computed.comparison.convRate)} />
-            {/* Investment card - matching MetricCard style exactly */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+            <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" change={`${fmtChange(computed.comparison.convRate, true)} vs ${previousPeriodLabel}`} changeType={changeType(computed.comparison.convRate)} />
+            {/* Investment card */}
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
@@ -581,20 +607,20 @@ export default function Dashboard() {
                 className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
               />
             </div>
-            <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" change={`${fmtChange(computed.comparison.revenue)} vs ${previousPeriodLabel} anteriores`} changeType={changeType(computed.comparison.revenue)} />
-            {/* ROAS card - matching MetricCard style */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+            <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" change={`${fmtChange(computed.comparison.revenue)} vs ${previousPeriodLabel}`} changeType={changeType(computed.comparison.revenue)} />
+            {/* ROAS card */}
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <TrendingUp className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="text-lg font-bold font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
+              <div className="text-lg font-bold font-mono flex-1 flex items-center" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
                 {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
               </div>
             </div>
-            <MetricWithTooltip label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} tooltipKey="avg_ticket" change={`${fmtChange(computed.comparison.ticket)} vs ${previousPeriodLabel} anteriores`} changeType={changeType(computed.comparison.ticket)} />
+            <MetricWithTooltip label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} tooltipKey="avg_ticket" change={`${fmtChange(computed.comparison.ticket)} vs ${previousPeriodLabel}`} changeType={changeType(computed.comparison.ticket)} />
           </div>
         );
       }
@@ -619,7 +645,6 @@ export default function Dashboard() {
                   <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="url(#colorRevenue)" radius={[3, 3, 0, 0]} />
                   <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(var(--chart-1))" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
                   <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(var(--chart-3))" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
-                  {/* Labels rendered last so they appear on top */}
                   <Line yAxisId="right" dataKey="revenue" stroke="none" dot={false} activeDot={false}>
                     <LabelList dataKey="revenue" position="top" style={{ fontSize: 9, fill: "hsl(var(--chart-5))" }} formatter={(v: number) => v > 0 ? `R$${(v/100 >= 10 ? (v/1000).toFixed(1)+'k' : v.toLocaleString("pt-BR", {maximumFractionDigits:0}))}` : ""} />
                   </Line>
@@ -660,8 +685,14 @@ export default function Dashboard() {
                   {computed.productData.map((p: any, i: number) => (
                     <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
                       <td className="px-5 py-3 font-medium text-xs">{p.name}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs">{p.vendas}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.receita)}</td>
+                      <td className="text-right px-5 py-3 text-xs">
+                        <span className="font-mono">{p.vendas}</span>
+                        <span className="ml-1.5"><ComparisonBadge value={p.vendasChange} /></span>
+                      </td>
+                      <td className="text-right px-5 py-3 text-xs">
+                        <span className="font-mono">{fmt(p.receita)}</span>
+                        <span className="ml-1.5"><ComparisonBadge value={p.receitaChange} /></span>
+                      </td>
                       <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.ticket)}</td>
                       <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{p.percentual.toFixed(1)}%</td>
                       <td className="px-5 py-3">
@@ -679,24 +710,22 @@ export default function Dashboard() {
 
       case "order-bumps":
         return (
-          <div className="rounded-xl bg-card border border-border/50 p-5 mb-6 card-shadow">
+          <div className="rounded-xl bg-card border border-border/50 card-shadow p-5 mb-6">
             <ChartHeader title="Produtos vs Order Bumps" icon={<Layers className="h-4 w-4 text-primary" />} tooltipKey="order-bumps" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                {computed.pieData.some(d => d.value > 0) ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              <div className="flex justify-center">
+                {computed.totalSales > 0 ? (
                   <ResponsiveContainer width="100%" height={320}>
-                       <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                    <PieChart>
                       <Pie
                         data={computed.pieData}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
                         outerRadius={115}
-                        paddingAngle={4}
                         dataKey="value"
-                        nameKey="name"
-                        label={renderPieLabel}
                         labelLine={false}
+                        label={renderPieLabel}
                       >
                         {computed.pieData.map((_, i) => (
                           <Cell key={i} fill={PIE_COLORS[i]} stroke="hsl(var(--card))" strokeWidth={2} />
@@ -714,19 +743,31 @@ export default function Dashboard() {
               <div className="flex flex-col justify-center space-y-3">
                 <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
                   <p className="text-[11px] text-muted-foreground">Vendas Principais</p>
-                  <p className="text-lg font-bold">{computed.mainProductsCount}</p>
+                  <p className="text-lg font-bold">
+                    {computed.mainProductsCount}
+                    <span className="ml-2"><ComparisonBadge value={pctChange(computed.mainProductsCount, computed.prevMainCount)} /></span>
+                  </p>
                 </div>
                 <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
                   <p className="text-[11px] text-muted-foreground">Vendas Order Bumps</p>
-                  <p className="text-lg font-bold">{computed.orderBumpsCount}</p>
+                  <p className="text-lg font-bold">
+                    {computed.orderBumpsCount}
+                    <span className="ml-2"><ComparisonBadge value={pctChange(computed.orderBumpsCount, computed.prevObCount)} /></span>
+                  </p>
                 </div>
                 <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
                   <p className="text-[11px] text-muted-foreground">Receita Principais</p>
-                  <p className="text-lg font-bold">{fmt(computed.mainRevenue)}</p>
+                  <p className="text-lg font-bold">
+                    {fmt(computed.mainRevenue)}
+                    <span className="ml-2"><ComparisonBadge value={pctChange(computed.mainRevenue, computed.prevMainRevenue)} /></span>
+                  </p>
                 </div>
                 <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
                   <p className="text-[11px] text-muted-foreground">Receita Order Bumps</p>
-                  <p className="text-lg font-bold">{fmt(computed.obRevenue)}</p>
+                  <p className="text-lg font-bold">
+                    {fmt(computed.obRevenue)}
+                    <span className="ml-2"><ComparisonBadge value={pctChange(computed.obRevenue, computed.prevObRevenue)} /></span>
+                  </p>
                 </div>
                 <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
                   <p className="text-[11px] text-muted-foreground">Influência OB na Receita</p>
@@ -831,8 +872,6 @@ export default function Dashboard() {
             {computed.paymentData.length > 0 && <MiniBarChart title="Meios de Pagamento" icon={<CreditCard className="h-4 w-4 text-primary" />} tooltipKey="payment" data={computed.paymentData.map(p => ({ name: p.name, value: p.receita }))} paletteIdx={5} fmt={fmt} />}
           </div>
         );
-
-
 
       default: return null;
     }
