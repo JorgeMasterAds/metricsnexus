@@ -73,6 +73,25 @@ export default function UtmReport() {
   const periodKey = `${since}__${until}`;
   const { investmentInput, handleInvestmentChange, investmentValue } = useInvestment(periodKey);
 
+  // Period comparison
+  const periodMs = dateRange.to.getTime() - dateRange.from.getTime();
+  const periodDays = Math.max(1, Math.round(periodMs / 86400000));
+  const prevUntil = new Date(dateRange.from.getTime() - 1);
+  const prevSince = new Date(prevUntil.getTime() - periodMs);
+  const prevSinceISO = prevSince.toISOString();
+  const prevUntilISO = prevUntil.toISOString();
+  const previousPeriodLabel = `${periodDays} dia${periodDays > 1 ? "s" : ""} anteriores`;
+
+  const pctChange = (curr: number, prev: number) => {
+    if (prev === 0) return curr > 0 ? 100 : 0;
+    return ((curr - prev) / prev) * 100;
+  };
+  const fmtChange = (val: number) => {
+    const sign = val > 0 ? "+" : "";
+    return `${sign}${val.toFixed(1).replace(".", ",")}%`;
+  };
+  const changeColor = (val: number) => val > 0 ? "text-success" : val < 0 ? "text-destructive" : "text-muted-foreground";
+
   const { data: clicks = [] } = useQuery({
     queryKey: ["utm-clicks", since, until, activeAccountId, activeProjectId],
     queryFn: async () => {
@@ -90,6 +109,19 @@ export default function UtmReport() {
     queryKey: ["utm-conversions-full", since, until, activeAccountId, activeProjectId],
     queryFn: async () => {
       let q = (supabase as any).from("conversions").select("id, amount, fees, net_amount, click_id, status, product_name, is_order_bump, utm_source, utm_medium, utm_campaign, utm_content, utm_term, payment_method, created_at").eq("status", "approved").gte("created_at", since).lte("created_at", until);
+      if (activeAccountId) q = q.eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 60000,
+    enabled: !!activeAccountId,
+  });
+
+  const { data: prevConversions = [] } = useQuery({
+    queryKey: ["utm-conversions-prev", prevSinceISO, prevUntilISO, activeAccountId, activeProjectId],
+    queryFn: async () => {
+      let q = (supabase as any).from("conversions").select("id, amount, is_order_bump").eq("status", "approved").gte("created_at", prevSinceISO).lte("created_at", prevUntilISO);
       if (activeAccountId) q = q.eq("account_id", activeAccountId);
       if (activeProjectId) q = q.eq("project_id", activeProjectId);
       const { data } = await q;
@@ -324,7 +356,12 @@ export default function UtmReport() {
       <div id="utm-export-root">
         {/* Summary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+          {(() => {
+            const prevSales = prevConversions.filter((c: any) => !c.is_order_bump).length;
+            const prevOb = prevConversions.filter((c: any) => c.is_order_bump).length;
+            const prevRev = prevConversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
+            return (<>
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
               <div className="flex items-center gap-1">
@@ -334,21 +371,16 @@ export default function UtmReport() {
                 </div>
               </div>
             </div>
-            <div className="text-lg font-bold">{totalSales}</div>
-          </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas OB</span>
-              <div className="flex items-center gap-1">
-                <UITooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground/40 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-[200px] text-xs">Total de vendas de Order Bump no período.</TooltipContent></UITooltip>
-                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
-                  <FileBarChart className="h-3.5 w-3.5 text-primary" />
-                </div>
-              </div>
+            <div className="text-xl font-bold flex-1 flex items-center">{totalSales + totalObSales}</div>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-[9px] text-muted-foreground">Vendas <span className="font-mono font-medium text-foreground/80">{totalSales}</span></span>
+              <span className="text-[9px] text-muted-foreground">OB <span className="font-mono font-medium text-foreground/80">{totalObSales}</span></span>
             </div>
-            <div className="text-lg font-bold text-muted-foreground">{totalObSales}</div>
+            <div className={`text-[10px] font-normal mt-0.5 ${changeColor(pctChange(totalSales, prevSales))}`}>
+              {fmtChange(pctChange(totalSales, prevSales))} vs {previousPeriodLabel}
+            </div>
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
               <div className="flex items-center gap-1">
@@ -365,7 +397,7 @@ export default function UtmReport() {
               className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
             />
           </div>
-          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+          <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
               <div className="flex items-center gap-1">
@@ -375,13 +407,16 @@ export default function UtmReport() {
                 </div>
               </div>
             </div>
-            <div className="text-lg font-bold">{fmt(totalRevenue)}</div>
+            <div className="text-lg font-bold flex-1 flex items-center">{fmt(totalRevenue)}</div>
+            <div className={`text-[10px] font-normal mt-0.5 ${changeColor(pctChange(totalRevenue, prevRev))}`}>
+              {fmtChange(pctChange(totalRevenue, prevRev))} vs {previousPeriodLabel}
+            </div>
           </div>
           {(() => {
             const roas = investmentValue > 0 ? totalRevenue / investmentValue : 0;
             const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
             return (
-              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+              <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
                   <div className="flex items-center gap-1">
@@ -391,11 +426,13 @@ export default function UtmReport() {
                     </div>
                   </div>
                 </div>
-                <div className="text-lg font-bold font-mono" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
+                <div className="text-lg font-bold font-mono flex-1 flex items-center" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
                   {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
                 </div>
               </div>
             );
+          })()}
+          </>);
           })()}
         </div>
       {(() => {

@@ -11,7 +11,7 @@ interface MetricCardProps {
 
 export default function MetricCard({ label, value, change, changeType = "neutral", icon: Icon }: MetricCardProps) {
   return (
-    <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
+    <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
         {Icon && (
@@ -20,10 +20,10 @@ export default function MetricCard({ label, value, change, changeType = "neutral
           </div>
         )}
       </div>
-      <div className="text-lg font-bold">{value}</div>
+      <div className="text-lg font-bold flex-1 flex items-center">{value}</div>
       {change && (
         <div className={cn(
-          "text-xs mt-1 font-medium",
+          "text-[10px] mt-1 font-normal leading-tight",
           changeType === "positive" && "text-success",
           changeType === "negative" && "text-destructive",
           changeType === "neutral" && "text-muted-foreground"
