@@ -504,7 +504,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       onClick={() => {
         void queryClient.invalidateQueries();
         setRocketVisible(true);
-        setTimeout(() => setRocketVisible(false), 1400);
+        setTimeout(() => setRocketVisible(false), 1700);
       }}
       className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
       title="Atualizar dados"
@@ -580,52 +580,51 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
         {rocketVisible && (
           <motion.div
             className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center"
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.2 }}
           >
-            {/* Glow backdrop */}
             <motion.div
-              className="absolute w-24 h-24 rounded-full"
-              style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.3), transparent 70%)" }}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: [0, 3, 4], opacity: [0, 0.6, 0] }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
+              className="absolute w-48 h-48 rounded-full"
+              style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.32), transparent 68%)" }}
+              initial={{ scale: 0.4, opacity: 0.85 }}
+              animate={{ scale: [0.4, 1.1, 1.9], opacity: [0.85, 0.45, 0] }}
+              transition={{ duration: 1.55, ease: "easeOut" }}
             />
-            {/* Rocket image */}
+
             <motion.img
               src={rocketImg}
               alt="Rocket"
-              className="w-12 h-12 object-contain"
-              style={{ filter: "drop-shadow(0 0 20px hsl(var(--primary) / 0.7)) drop-shadow(0 0 40px hsl(var(--primary) / 0.4))" }}
-              initial={{ y: 60, opacity: 0, scale: 0.3, rotate: -10 }}
+              className="w-28 h-28 object-contain"
+              style={{ filter: "drop-shadow(0 0 24px hsl(var(--primary) / 0.9)) drop-shadow(0 0 50px hsl(var(--primary) / 0.45))" }}
+              initial={{ y: 12, opacity: 1, scale: 1.05, rotate: -6 }}
               animate={{
-                y: [60, 0, -80, -250],
-                opacity: [0, 1, 1, 0],
-                scale: [0.3, 1.1, 1, 0.7],
-                rotate: [-10, 0, 5, 0],
+                y: [12, -30, -120, -320],
+                opacity: [1, 1, 0.95, 0],
+                scale: [1.05, 1.2, 1.05, 0.75],
+                rotate: [-6, -2, 4, 0],
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94], times: [0, 0.25, 0.6, 1] }}
+              transition={{ duration: 1.45, ease: [0.22, 0.61, 0.36, 1], times: [0, 0.28, 0.62, 1] }}
             />
-            {/* Trail particles */}
-            {[...Array(8)].map((_, i) => (
+
+            {[...Array(10)].map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute rounded-full"
                 style={{
-                  width: 4 + Math.random() * 4,
-                  height: 4 + Math.random() * 4,
-                  background: `hsl(var(--primary) / ${0.6 - i * 0.05})`,
+                  width: 5 + (i % 3),
+                  height: 5 + (i % 3),
+                  background: `hsl(var(--primary) / ${0.62 - i * 0.045})`,
                 }}
-                initial={{ y: 80, opacity: 0, x: (i % 2 === 0 ? -1 : 1) * (3 + i * 4) }}
+                initial={{ y: 85, opacity: 0.95, x: (i % 2 === 0 ? -1 : 1) * (5 + i * 4) }}
                 animate={{
-                  y: [80, 40 + i * 10, 100 + i * 15],
-                  opacity: [0, 0.7, 0],
-                  scale: [0.5, 1, 0.2],
+                  y: [85, 45 + i * 8, 118 + i * 13],
+                  opacity: [0.95, 0.7, 0],
+                  scale: [0.9, 1.2, 0.15],
                 }}
-                transition={{ duration: 0.9, delay: 0.15 + i * 0.05, ease: "easeOut" }}
+                transition={{ duration: 1.1, delay: 0.05 + i * 0.04, ease: "easeOut" }}
               />
             ))}
           </motion.div>

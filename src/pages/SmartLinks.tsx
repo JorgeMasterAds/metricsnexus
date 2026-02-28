@@ -471,7 +471,7 @@ export default function SmartLinks() {
                 </div>
 
                 {/* KPI cards for this SmartLink */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 px-5 pb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 px-5 pb-4">
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center relative group">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Views</div>
                     <div className="text-base font-bold mt-0.5 tabular-nums">{linkData.views.toLocaleString("pt-BR")}</div>
@@ -486,12 +486,12 @@ export default function SmartLinks() {
                     )}
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Vendas</div>
-                    <div className="text-base font-bold mt-0.5 tabular-nums">{obData.mainSales.toLocaleString("pt-BR")}</div>
-                  </div>
-                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Vendas OB</div>
-                    <div className="text-base font-bold mt-0.5 tabular-nums text-muted-foreground">{obData.obSales.toLocaleString("pt-BR")}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Vendas</div>
+                    <div className="grid grid-cols-3 gap-1 text-center">
+                      <div><p className="text-[9px] text-muted-foreground uppercase">Vendas</p><p className="text-sm font-bold tabular-nums">{obData.mainSales.toLocaleString("pt-BR")}</p></div>
+                      <div><p className="text-[9px] text-muted-foreground uppercase">OB</p><p className="text-sm font-bold tabular-nums">{obData.obSales.toLocaleString("pt-BR")}</p></div>
+                      <div><p className="text-[9px] text-muted-foreground uppercase">Total</p><p className="text-sm font-bold tabular-nums">{(obData.mainSales + obData.obSales).toLocaleString("pt-BR")}</p></div>
+                    </div>
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita</div>

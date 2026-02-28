@@ -9,7 +9,7 @@ import type { Session } from "@supabase/supabase-js";
 import { AccountProvider, useAccount } from "@/hooks/useAccount";
 import { I18nProvider } from "@/lib/i18n";
 import ChartLoader from "@/components/ChartLoader";
-import { RolePreviewProvider } from "@/hooks/useRolePreview";
+import { RolePreviewProvider, useRolePreview } from "@/hooks/useRolePreview";
 import { ThemeProvider } from "@/hooks/useTheme";
 
 import Auth from "./pages/Auth";
@@ -75,6 +75,8 @@ function RequireProject({ children }: { children: React.ReactNode }) {
 }
 
 function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
+  const { isPreviewActive } = useRolePreview();
+
   const { data: isSuperAdmin, isLoading } = useQuery({
     queryKey: ["require-super-admin"],
     queryFn: async () => {
@@ -86,7 +88,7 @@ function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
   });
 
   if (isLoading) return <ChartLoader text="Verificando acesso..." />;
-  if (!isSuperAdmin) return <Navigate to="/home" replace />;
+  if (!isSuperAdmin || isPreviewActive) return <Navigate to="/home" replace />;
   return <>{children}</>;
 }
 

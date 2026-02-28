@@ -38,35 +38,23 @@ import { useToast } from "@/hooks/use-toast";
 const SECTION_IDS = ["metrics", "traffic-chart", "smartlinks", "products", "order-bumps", "mini-charts"];
 
 const TOOLTIP_STYLE = {
-  backgroundColor: "hsl(240, 6%, 10%)",
-  border: "1px solid hsl(240, 4%, 22%)",
+  backgroundColor: "hsl(var(--popover))",
+  border: "1px solid hsl(var(--border))",
   borderRadius: 8,
   fontSize: 12,
-  color: "#f5f5f5",
+  color: "hsl(var(--foreground))",
   padding: "10px 14px",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+  boxShadow: "var(--shadow-card)",
 };
-const TICK_STYLE = { fontSize: 11, fill: "hsl(240, 5%, 55%)" };
-
-// Pure red palette only
-const RED_PALETTE = [
-  "hsl(0, 90%, 60%)",
-  "hsl(0, 80%, 48%)",
-  "hsl(0, 70%, 38%)",
-  "hsl(0, 60%, 28%)",
-  "hsl(0, 95%, 70%)",
-  "hsl(355, 85%, 55%)",
-  "hsl(5, 75%, 45%)",
-  "hsl(350, 70%, 40%)",
-];
+const TICK_STYLE = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
 
 const CHART_PALETTES = [
-  ["hsl(0, 90%, 60%)", "hsl(0, 80%, 48%)", "hsl(0, 70%, 38%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)", "hsl(355, 85%, 55%)", "hsl(5, 75%, 45%)", "hsl(350, 70%, 40%)"],
-  ["hsl(355, 85%, 55%)", "hsl(0, 90%, 60%)", "hsl(5, 75%, 45%)", "hsl(0, 70%, 38%)", "hsl(350, 70%, 40%)", "hsl(0, 80%, 48%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)"],
-  ["hsl(0, 70%, 38%)", "hsl(0, 95%, 70%)", "hsl(0, 80%, 48%)", "hsl(355, 85%, 55%)", "hsl(0, 60%, 28%)", "hsl(0, 90%, 60%)", "hsl(350, 70%, 40%)", "hsl(5, 75%, 45%)"],
-  ["hsl(5, 75%, 45%)", "hsl(350, 70%, 40%)", "hsl(0, 90%, 60%)", "hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)", "hsl(0, 70%, 38%)", "hsl(355, 85%, 55%)", "hsl(0, 80%, 48%)"],
-  ["hsl(0, 60%, 28%)", "hsl(0, 95%, 70%)", "hsl(355, 85%, 55%)", "hsl(0, 80%, 48%)", "hsl(5, 75%, 45%)", "hsl(0, 90%, 60%)", "hsl(0, 70%, 38%)", "hsl(350, 70%, 40%)"],
-  ["hsl(350, 70%, 40%)", "hsl(0, 80%, 48%)", "hsl(0, 95%, 70%)", "hsl(5, 75%, 45%)", "hsl(0, 70%, 38%)", "hsl(0, 60%, 28%)", "hsl(0, 90%, 60%)", "hsl(355, 85%, 55%)"],
+  ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(var(--primary))"],
+  ["hsl(var(--chart-2))", "hsl(var(--chart-1))", "hsl(var(--chart-4))", "hsl(var(--chart-3))", "hsl(var(--chart-5))", "hsl(var(--primary))"],
+  ["hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-5))", "hsl(var(--primary))"],
+  ["hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(var(--chart-2))", "hsl(var(--chart-1))", "hsl(var(--chart-3))", "hsl(var(--primary))"],
+  ["hsl(var(--chart-5))", "hsl(var(--chart-3))", "hsl(var(--chart-1))", "hsl(var(--chart-4))", "hsl(var(--chart-2))", "hsl(var(--primary))"],
+  ["hsl(var(--primary))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"],
 ];
 
 const CHART_TOOLTIPS: Record<string, string> = {
@@ -109,10 +97,24 @@ function ChartHeader({ title, icon, tooltipKey }: { title: string; icon: React.R
   );
 }
 
-function MetricWithTooltip({ label, value, icon: Icon, tooltipKey }: { label: string; value: string; icon: any; tooltipKey: string }) {
+function MetricWithTooltip({
+  label,
+  value,
+  icon: Icon,
+  tooltipKey,
+  change,
+  changeType,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  tooltipKey: string;
+  change?: string;
+  changeType?: "positive" | "negative" | "neutral";
+}) {
   return (
     <div className="relative">
-      <MetricCard label={label} value={value} icon={Icon} />
+      <MetricCard label={label} value={value} icon={Icon} change={change} changeType={changeType} />
       <UITooltip>
         <TooltipTrigger asChild>
           <button className="absolute top-2 right-2 text-muted-foreground hover:text-foreground">
@@ -184,6 +186,13 @@ export default function Dashboard() {
   const untilISO = debouncedRange.to.toISOString();
   const sinceDate = debouncedRange.from.toISOString().slice(0, 10);
   const untilDate = debouncedRange.to.toISOString().slice(0, 10);
+  const periodMs = debouncedRange.to.getTime() - debouncedRange.from.getTime();
+  const prevUntil = new Date(debouncedRange.from.getTime() - 1);
+  const prevSince = new Date(prevUntil.getTime() - periodMs);
+  const prevSinceISO = prevSince.toISOString();
+  const prevUntilISO = prevUntil.toISOString();
+  const periodDays = Math.max(1, Math.round(periodMs / 86400000) + 1);
+  const previousPeriodLabel = `${periodDays} dia${periodDays > 1 ? "s" : ""}`;
 
   const periodKey = `${sinceISO}__${untilISO}`;
   const { investmentInput, handleInvestmentChange, investmentValue } = useInvestment(periodKey);
@@ -257,6 +266,43 @@ export default function Dashboard() {
     enabled: !!activeAccountId,
   });
 
+  const { data: prevConversions = [] } = useQuery({
+    queryKey: ["dash-conversions-prev", prevSinceISO, prevUntilISO, activeAccountId, activeProjectId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("conversions")
+        .select("id, amount")
+        .eq("status", "approved")
+        .gte("created_at", prevSinceISO)
+        .lte("created_at", prevUntilISO)
+        .eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      q = q.limit(1000);
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 300000,
+    enabled: !!activeAccountId,
+  });
+
+  const { data: prevClicks = [] } = useQuery({
+    queryKey: ["dash-clicks-prev", prevSinceISO, prevUntilISO, activeAccountId, activeProjectId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("clicks")
+        .select("id")
+        .gte("created_at", prevSinceISO)
+        .lte("created_at", prevUntilISO)
+        .eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      q = q.limit(1000);
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 300000,
+    enabled: !!activeAccountId,
+  });
+
   const { data: smartLinks = [] } = useQuery({
     queryKey: ["dash-smartlinks", activeAccountId, activeProjectId],
     queryFn: async () => {
@@ -282,6 +328,25 @@ export default function Dashboard() {
     const totalNet = conversions.reduce((s: number, c: any) => s + Number(c.net_amount || c.amount || 0), 0);
     const cr = tv > 0 ? (ts / tv) * 100 : 0;
     const at = ts > 0 ? tr / ts : 0;
+
+    const prevTv = prevClicks.length;
+    const prevTs = prevConversions.length;
+    const prevTr = prevConversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const prevCr = prevTv > 0 ? (prevTs / prevTv) * 100 : 0;
+    const prevAt = prevTs > 0 ? prevTr / prevTs : 0;
+
+    const pctChange = (curr: number, prev: number) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return ((curr - prev) / prev) * 100;
+    };
+
+    const comparison = {
+      views: pctChange(tv, prevTv),
+      sales: pctChange(ts, prevTs),
+      revenue: pctChange(tr, prevTr),
+      convRate: cr - prevCr,
+      ticket: pctChange(at, prevAt),
+    };
 
     const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)) + 1;
     const dayMap = new Map<string, { views: number; sales: number; revenue: number }>();
@@ -368,6 +433,7 @@ export default function Dashboard() {
 
     return {
       totalViews: tv, totalSales: ts, totalRevenue: tr, totalFees, totalNet, convRate: cr, avgTicket: at,
+      comparison,
       chartData, salesChartData, paymentData, productData, feesData,
       sourceData: groupBy("utm_source"),
       campaignData: groupBy("utm_campaign"),
@@ -378,7 +444,7 @@ export default function Dashboard() {
       mainProductsCount: mainProducts.length, orderBumpsCount: orderBumps.length,
       mainRevenue, obRevenue,
     };
-  }, [clicks, conversions, smartLinks, dateRange]);
+  }, [clicks, conversions, smartLinks, dateRange, prevClicks, prevConversions]);
 
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -390,8 +456,16 @@ export default function Dashboard() {
   };
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtChange = (val: number, isAbsolute = false) => {
+    const sign = val > 0 ? "+" : "";
+    return isAbsolute
+      ? `${sign}${val.toFixed(2).replace(".", ",")}pp`
+      : `${sign}${val.toFixed(1).replace(".", ",")}%`;
+  };
+  const changeType = (val: number): "positive" | "negative" | "neutral" =>
+    val > 0 ? "positive" : val < 0 ? "negative" : "neutral";
 
-  const PIE_COLORS = ["hsl(0, 90%, 60%)", "hsl(0, 55%, 28%)"];
+  const PIE_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))"];
 
   const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, index }: any) => {
     const RADIAN = Math.PI / 180;
@@ -401,7 +475,7 @@ export default function Dashboard() {
     const pct = computed.pieData[index]?.percent ?? 0;
     if (pct < 5) return null;
     return (
-      <text x={x} y={y} fill="#ffffff" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={600}>
+      <text x={x} y={y} fill="hsl(var(--foreground))" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={600}>
         {pct.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
       </text>
     );
@@ -465,9 +539,33 @@ export default function Dashboard() {
         const roasColor = roas >= 3 ? "hsl(142, 71%, 45%)" : roas >= 1 ? "hsl(48, 96%, 53%)" : "hsl(0, 84%, 60%)";
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
-            <MetricWithTooltip label="Total Views" value={computed.totalViews.toLocaleString("pt-BR")} icon={Eye} tooltipKey="total_views" />
-            <MetricWithTooltip label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} tooltipKey="sales" />
-            <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" />
+            <MetricWithTooltip
+              label="Total Views"
+              value={computed.totalViews.toLocaleString("pt-BR")}
+              icon={Eye}
+              tooltipKey="total_views"
+              change={`${fmtChange(computed.comparison.views)} vs ${previousPeriodLabel} anteriores`}
+              changeType={changeType(computed.comparison.views)}
+            />
+
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <ShoppingCart className="h-3.5 w-3.5 text-primary" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-center mb-1.5">
+                <div><p className="text-[9px] text-muted-foreground uppercase">Vendas</p><p className="text-sm font-bold tabular-nums">{computed.mainProductsCount.toLocaleString("pt-BR")}</p></div>
+                <div><p className="text-[9px] text-muted-foreground uppercase">OB</p><p className="text-sm font-bold tabular-nums">{computed.orderBumpsCount.toLocaleString("pt-BR")}</p></div>
+                <div><p className="text-[9px] text-muted-foreground uppercase">Total</p><p className="text-sm font-bold tabular-nums">{computed.totalSales.toLocaleString("pt-BR")}</p></div>
+              </div>
+              <div className={changeType(computed.comparison.sales) === "positive" ? "text-xs font-medium text-success" : changeType(computed.comparison.sales) === "negative" ? "text-xs font-medium text-destructive" : "text-xs font-medium text-muted-foreground"}>
+                {fmtChange(computed.comparison.sales)} vs {previousPeriodLabel} anteriores
+              </div>
+            </div>
+
+            <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" change={`${fmtChange(computed.comparison.convRate, true)} vs período anterior`} changeType={changeType(computed.comparison.convRate)} />
             {/* Investment card - matching MetricCard style exactly */}
             <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow relative">
               <div className="flex items-center justify-between mb-2">
@@ -483,7 +581,7 @@ export default function Dashboard() {
                 className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
               />
             </div>
-            <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" />
+            <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" change={`${fmtChange(computed.comparison.revenue)} vs ${previousPeriodLabel} anteriores`} changeType={changeType(computed.comparison.revenue)} />
             {/* ROAS card - matching MetricCard style */}
             <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow">
               <div className="flex items-center justify-between mb-2">
@@ -496,7 +594,7 @@ export default function Dashboard() {
                 {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
               </div>
             </div>
-            <MetricWithTooltip label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} tooltipKey="avg_ticket" />
+            <MetricWithTooltip label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} tooltipKey="avg_ticket" change={`${fmtChange(computed.comparison.ticket)} vs ${previousPeriodLabel} anteriores`} changeType={changeType(computed.comparison.ticket)} />
           </div>
         );
       }
@@ -509,27 +607,27 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={computed.chartData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(0, 90%, 60%)" stopOpacity={0} /></linearGradient>
-                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(150, 60%, 45%)" stopOpacity={0} /></linearGradient>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(30, 90%, 60%)" stopOpacity={0.9} /><stop offset="100%" stopColor="hsl(30, 60%, 35%)" stopOpacity={0.4} /></linearGradient>
+                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(var(--chart-5))" stopOpacity={0.9} /><stop offset="100%" stopColor="hsl(var(--chart-5))" stopOpacity={0.35} /></linearGradient>
                   </defs>
-                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+                   <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.35} />
                   <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="left" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltipContent />} />
                   <Bar yAxisId="right" dataKey="revenue" name="Faturamento (R$)" fill="url(#colorRevenue)" radius={[3, 3, 0, 0]} />
-                  <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(0, 85%, 55%)" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
-                  <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(150, 60%, 45%)" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
+                  <Area yAxisId="left" type="monotone" dataKey="views" name="Views" stroke="hsl(var(--chart-1))" fillOpacity={1} fill="url(#colorViews)" strokeWidth={2} />
+                  <Area yAxisId="left" type="monotone" dataKey="sales" name="Vendas" stroke="hsl(var(--chart-3))" fillOpacity={1} fill="url(#colorConv)" strokeWidth={2} />
                   {/* Labels rendered last so they appear on top */}
                   <Line yAxisId="right" dataKey="revenue" stroke="none" dot={false} activeDot={false}>
-                    <LabelList dataKey="revenue" position="top" style={{ fontSize: 9, fill: "hsl(30, 80%, 65%)" }} formatter={(v: number) => v > 0 ? `R$${(v/100 >= 10 ? (v/1000).toFixed(1)+'k' : v.toLocaleString("pt-BR", {maximumFractionDigits:0}))}` : ""} />
+                    <LabelList dataKey="revenue" position="top" style={{ fontSize: 9, fill: "hsl(var(--chart-5))" }} formatter={(v: number) => v > 0 ? `R$${(v/100 >= 10 ? (v/1000).toFixed(1)+'k' : v.toLocaleString("pt-BR", {maximumFractionDigits:0}))}` : ""} />
                   </Line>
                   <Line yAxisId="left" dataKey="views" stroke="none" dot={false} activeDot={false}>
-                    <LabelList dataKey="views" position="top" style={{ fontSize: 9, fill: "hsl(0, 85%, 65%)" }} formatter={(v: number) => v > 0 ? v : ""} />
+                    <LabelList dataKey="views" position="top" style={{ fontSize: 9, fill: "hsl(var(--chart-1))" }} formatter={(v: number) => v > 0 ? v : ""} />
                   </Line>
                   <Line yAxisId="left" dataKey="sales" stroke="none" dot={false} activeDot={false}>
-                    <LabelList dataKey="sales" position="top" style={{ fontSize: 9, fill: "hsl(150, 60%, 55%)" }} formatter={(v: number) => v > 0 ? v : ""} />
+                    <LabelList dataKey="sales" position="top" style={{ fontSize: 9, fill: "hsl(var(--chart-3))" }} formatter={(v: number) => v > 0 ? v : ""} />
                   </Line>
                 </ComposedChart>
               </ResponsiveContainer>
@@ -846,13 +944,13 @@ function EmptyState({ text }: { text: string }) {
 function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { title: string; icon?: React.ReactNode; tooltipKey: string; data: { name: string; value: number }[]; paletteIdx: number; fmt: (v: number) => string }) {
   const palette = CHART_PALETTES[paletteIdx % CHART_PALETTES.length];
   const miniTooltipStyle = {
-    backgroundColor: "hsl(240, 6%, 10%)",
-    border: "1px solid hsl(240, 4%, 22%)",
+    backgroundColor: "hsl(var(--popover))",
+    border: "1px solid hsl(var(--border))",
     borderRadius: 8,
     fontSize: 12,
-    color: "#f5f5f5",
+    color: "hsl(var(--foreground))",
     padding: "10px 14px",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+    boxShadow: "var(--shadow-card)",
   };
 
   function MiniCustomTooltip({ active, payload, label }: any) {
@@ -889,9 +987,9 @@ function MiniBarChart({ title, icon, tooltipKey, data, paletteIdx, fmt }: { titl
               </linearGradient>
             ))}
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
-          <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={65} tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 16) + "…" : v} />
-          <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 55%)" }} axisLine={false} tickLine={false} />
+          <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.35} />
+          <XAxis dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={65} tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 16) + "…" : v} />
+          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
           <Tooltip content={<MiniCustomTooltip />} />
           <Bar dataKey="value" name="Receita" radius={[3, 3, 0, 0]}>
             {data.map((_, i) => <Cell key={i} fill={`url(#miniGrad-${paletteIdx}-${i})`} />)}
