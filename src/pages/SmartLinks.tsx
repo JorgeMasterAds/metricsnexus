@@ -139,6 +139,7 @@ export default function SmartLinks() {
     });
 
     const productsByLink = new Map<string, Map<string, { vendas: number; receita: number }>>();
+    const obByLink = new Map<string, { mainSales: number; obSales: number }>();
     linkProducts.forEach((c: any) => {
       if (!c.smartlink_id) return;
       const name = c.product_name || "Produto desconhecido";
@@ -148,9 +149,14 @@ export default function SmartLinks() {
       entry.vendas++;
       entry.receita += Number(c.amount);
       pMap.set(name, entry);
+
+      // Track main vs OB per link
+      const ob = obByLink.get(c.smartlink_id) || { mainSales: 0, obSales: 0 };
+      if (c.is_order_bump) ob.obSales++; else ob.mainSales++;
+      obByLink.set(c.smartlink_id, ob);
     });
 
-    return { byLink, byVariant, productsByLink };
+    return { byLink, byVariant, productsByLink, obByLink };
   }, [metrics, linkProducts]);
 
   const toggleActive = useMutation({
@@ -387,6 +393,7 @@ export default function SmartLinks() {
           {smartLinks.map((link: any) => {
             const isExpanded = !collapsedIds.has(link.id);
             const linkData = metricsMap.byLink.get(link.id) || { views: 0, sales: 0, revenue: 0 };
+            const obData = metricsMap.obByLink.get(link.id) || { mainSales: 0, obSales: 0 };
             const convRate = linkData.views > 0 ? ((linkData.sales / linkData.views) * 100).toFixed(2) : "0.00";
             const ticket = linkData.sales > 0 ? (linkData.revenue / linkData.sales).toFixed(2) : "0.00";
 
@@ -456,7 +463,7 @@ export default function SmartLinks() {
                 </div>
 
                 {/* KPI cards for this SmartLink */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-5 pb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 px-5 pb-4">
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center relative group">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Views</div>
                     <div className="text-base font-bold mt-0.5 tabular-nums">{linkData.views.toLocaleString("pt-BR")}</div>
@@ -472,7 +479,11 @@ export default function SmartLinks() {
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Vendas</div>
-                    <div className="text-base font-bold mt-0.5 tabular-nums">{linkData.sales.toLocaleString("pt-BR")}</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums">{obData.mainSales.toLocaleString("pt-BR")}</div>
+                  </div>
+                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Vendas OB</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums text-muted-foreground">{obData.obSales.toLocaleString("pt-BR")}</div>
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita</div>
