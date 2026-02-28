@@ -44,6 +44,7 @@ import NotificationBell from "@/components/NotificationBell";
 import AdminRolePreviewBar from "@/components/AdminRolePreviewBar";
 import { useRolePreview } from "@/hooks/useRolePreview";
 import { useProjectRole } from "@/hooks/useProjectRole";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const mainNavItems = [
   { icon: Home, label: "Dashboard", path: "/home" },
@@ -552,6 +553,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                     </div>
                   )}
                   <RefreshButton />
+                  <ThemeToggle />
                   {showPreviewBar && <AdminRolePreviewBar />}
                   <NotificationBell />
                 </div>

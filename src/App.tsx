@@ -10,6 +10,7 @@ import { AccountProvider, useAccount } from "@/hooks/useAccount";
 import { I18nProvider } from "@/lib/i18n";
 import ChartLoader from "@/components/ChartLoader";
 import { RolePreviewProvider } from "@/hooks/useRolePreview";
+import { ThemeProvider } from "@/hooks/useTheme";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -30,6 +31,7 @@ import PublicSmartLinkRedirect from "./pages/PublicSmartLinkRedirect";
 import Novidades from "./pages/Novidades";
 import CRM from "./pages/CRM";
 import AIAgents from "./pages/AIAgents";
+import { useQuery } from "@tanstack/react-query";
 import Devices from "./pages/Devices";
 import Surveys from "./pages/Surveys";
 import PublicSurvey from "./pages/PublicSurvey";
@@ -69,6 +71,22 @@ function RequireProject({ children }: { children: React.ReactNode }) {
     return <CreateProjectScreen />;
   }
 
+  return <>{children}</>;
+}
+
+function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
+  const { data: isSuperAdmin, isLoading } = useQuery({
+    queryKey: ["require-super-admin"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      const { data } = await (supabase as any).from("super_admins").select("id").eq("user_id", user.id).maybeSingle();
+      return !!data;
+    },
+  });
+
+  if (isLoading) return <ChartLoader text="Verificando acesso..." />;
+  if (!isSuperAdmin) return <Navigate to="/home" replace />;
   return <>{children}</>;
 }
 
@@ -154,7 +172,7 @@ function AppRoutes() {
       <Route path="/support" element={<Protected><Support /></Protected>} />
       <Route path="/novidades" element={<Protected><Novidades /></Protected>} />
       <Route path="/crm" element={<Protected><CRM /></Protected>} />
-      <Route path="/ai-agents" element={<Protected><AIAgents /></Protected>} />
+      <Route path="/ai-agents" element={<Protected><RequireSuperAdmin><AIAgents /></RequireSuperAdmin></Protected>} />
       <Route path="/devices" element={<Protected><Devices /></Protected>} />
       <Route path="/surveys" element={<Protected><Surveys /></Protected>} />
       <Route path="/s/:slug" element={<PublicSurvey />} />
@@ -168,17 +186,19 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <I18nProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </I18nProvider>
+  <ThemeProvider>
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </I18nProvider>
+  </ThemeProvider>
 );
 
 export default App;
