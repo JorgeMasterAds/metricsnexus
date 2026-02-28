@@ -1,24 +1,28 @@
 import { motion } from "framer-motion";
 
+const barHeights = [28, 45, 35, 55, 42, 65, 50];
+
 export default function ChartLoaderInline({ text }: { text?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
-      <motion.div
-        className="text-4xl"
-        initial={{ y: 30, opacity: 0 }}
-        animate={{
-          y: [30, -15, -8, -50],
-          opacity: [0, 1, 1, 0],
-          rotate: [0, -5, 5, 0],
-        }}
-        transition={{
-          duration: 1.6,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      >
-        🚀
-      </motion.div>
+      <div className="flex items-end gap-1 h-16">
+        {barHeights.map((maxH, i) => (
+          <motion.div
+            key={i}
+            className="w-2 rounded-t-sm bg-primary"
+            initial={{ height: 6 }}
+            animate={{
+              height: [6, maxH, maxH * 0.35, maxH * 1.05, 6],
+            }}
+            transition={{
+              duration: 1.8,
+              repeat: Infinity,
+              delay: i * 0.12,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+      </div>
       {text && (
         <motion.p
           className="text-xs text-muted-foreground"
