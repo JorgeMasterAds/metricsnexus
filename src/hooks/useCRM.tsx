@@ -310,10 +310,24 @@ export function useLeadDetail(leadId: string | null) {
     enabled: !!leadId,
   });
 
+  const surveyResponsesQuery = useQuery({
+    queryKey: ["crm-lead-surveys", leadId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("survey_responses")
+        .select("*, surveys(title, type, slug)")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!leadId,
+  });
+
   return {
     history: historyQuery.data || [],
     notes: notesQuery.data || [],
     purchases: purchasesQuery.data || [],
+    surveyResponses: surveyResponsesQuery.data || [],
     isLoading: historyQuery.isLoading,
   };
 }

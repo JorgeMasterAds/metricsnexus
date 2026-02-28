@@ -165,6 +165,50 @@ Deno.serve(async (req) => {
         if (aErr) throw aErr;
       }
 
+      // Correlate with existing lead by email or phone
+      if (respondent_email || body.respondent_phone) {
+        let leadId: string | null = null;
+
+        if (respondent_email) {
+          const { data: lead } = await supabase
+            .from("leads")
+            .select("id")
+            .eq("account_id", survey.account_id)
+            .eq("email", respondent_email)
+            .limit(1)
+            .single();
+          if (lead) leadId = lead.id;
+        }
+
+        if (!leadId && body.respondent_phone) {
+          const { data: lead } = await supabase
+            .from("leads")
+            .select("id")
+            .eq("account_id", survey.account_id)
+            .eq("phone", body.respondent_phone)
+            .limit(1)
+            .single();
+          if (lead) leadId = lead.id;
+        }
+
+        // Update response with lead_id
+        if (leadId) {
+          await supabase
+            .from("survey_responses")
+            .update({ lead_id: leadId })
+            .eq("id", response.id);
+
+          // Add to lead history
+          await supabase.from("lead_history").insert({
+            lead_id: leadId,
+            account_id: survey.account_id,
+            action: "survey_completed",
+            details: `Respondeu: ${survey.title}${qualification ? ` (${qualification})` : ""}`,
+            metadata: { survey_id, response_id: response.id, total_score: totalScore, max_possible_score: maxPossible, qualification },
+          });
+        }
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
