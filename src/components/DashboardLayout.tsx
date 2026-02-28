@@ -30,6 +30,7 @@ import {
   Gift,
   Key,
   RefreshCw,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -284,6 +285,21 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
             </div>
           )}
         </div>
+
+        {/* Pesquisas & Quiz */}
+        <Link
+          to="/surveys"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+            location.pathname === "/surveys"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <ClipboardList className={cn("h-4 w-4", location.pathname === "/surveys" && "text-primary")} />
+          Pesquisas & Quiz
+        </Link>
 
         {/* Recursos */}
         <Link

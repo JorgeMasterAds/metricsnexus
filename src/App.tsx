@@ -30,6 +30,8 @@ import Novidades from "./pages/Novidades";
 import CRM from "./pages/CRM";
 import AIAgents from "./pages/AIAgents";
 import Devices from "./pages/Devices";
+import Surveys from "./pages/Surveys";
+import PublicSurvey from "./pages/PublicSurvey";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30000, retry: 1 } },
@@ -89,6 +91,8 @@ function AppRoutes() {
     "crm",
     "ai-agents",
     "devices",
+    "surveys",
+    "s",
   ]);
 
   const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -145,6 +149,8 @@ function AppRoutes() {
       <Route path="/crm" element={<Protected><CRM /></Protected>} />
       <Route path="/ai-agents" element={<Protected><AIAgents /></Protected>} />
       <Route path="/devices" element={<Protected><Devices /></Protected>} />
+      <Route path="/surveys" element={<Protected><Surveys /></Protected>} />
+      <Route path="/s/:slug" element={<PublicSurvey />} />
       <Route path="/" element={<Navigate to={session ? "/home" : "/auth"} replace />} />
       <Route path="/:slug" element={<PublicSmartLinkRedirect />} />
       <Route path="*" element={<NotFound />} />
