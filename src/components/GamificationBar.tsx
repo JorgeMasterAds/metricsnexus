@@ -59,6 +59,15 @@ export default function GamificationBar({ since, until, goal, onEditGoal }: Prop
         <span>{percent.toFixed(1)}% atingido</span>
         <span className="truncate ml-2 text-right">Faltam {fmt(remaining)}</span>
       </div>
+      {percent >= 100 ? (
+        <p className="mt-3 text-sm font-semibold text-center text-primary">
+          🎉 Parabéns! Você bateu a meta de faturamento! Resultado incrível!
+        </p>
+      ) : (
+        <p className="mt-3 text-xs text-center text-muted-foreground italic">
+          💪 "O sucesso é a soma de pequenos esforços repetidos dia após dia."
+        </p>
+      )}
     </div>
   );
 }

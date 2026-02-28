@@ -1,6 +1,6 @@
 import { ReactNode, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import rocketImg from "@/assets/rocket.png";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -594,11 +594,9 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
               transition={{ duration: 1.5, ease: "easeOut" }}
             />
 
-            {/* Rocket */}
-            <motion.img
-              src={rocketImg}
-              alt="Rocket"
-              className="absolute left-1/2 -translate-x-1/2 w-28 h-28 object-contain"
+            {/* Rocket emoji */}
+            <motion.span
+              className="absolute left-1/2 -translate-x-1/2 text-7xl"
               style={{ filter: "drop-shadow(0 0 24px hsl(var(--primary) / 0.9)) drop-shadow(0 0 50px hsl(var(--primary) / 0.45))" }}
               initial={{ bottom: -120, opacity: 1, scale: 1.05, rotate: -6 }}
               animate={{
@@ -609,7 +607,9 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
               }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1.5, ease: [0.22, 0.61, 0.36, 1], times: [0, 0.35, 1] }}
-            />
+            >
+              🚀
+            </motion.span>
 
             {/* Particles trailing behind */}
             {[...Array(10)].map((_, i) => (
