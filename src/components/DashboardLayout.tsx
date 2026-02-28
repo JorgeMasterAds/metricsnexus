@@ -1,4 +1,4 @@
-import { ReactNode, useState, useCallback, useRef } from "react";
+import { ReactNode, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -495,31 +495,15 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
     </>
   );
 
-  const [rocketLaunching, setRocketLaunching] = useState(false);
-
-  const handleRefresh = useCallback(() => {
-    setRocketLaunching(true);
-    void queryClient.invalidateQueries();
-    setTimeout(() => setRocketLaunching(false), 1200);
-  }, [queryClient]);
-
   const RefreshButton = useCallback(() => (
     <button
-      onClick={handleRefresh}
-      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors relative overflow-hidden"
+      onClick={() => { void queryClient.invalidateQueries(); }}
+      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
       title="Atualizar dados"
-      disabled={rocketLaunching}
     >
-      <span
-        className={cn(
-          "inline-block transition-transform duration-700 ease-in-out",
-          rocketLaunching && "animate-[rocketUp_1s_ease-in-out_forwards]"
-        )}
-      >
-        🚀
-      </span>
+      <RefreshCw className="h-4 w-4" />
     </button>
-  ), [handleRefresh, rocketLaunching]);
+  ), [queryClient]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
