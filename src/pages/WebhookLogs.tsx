@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import ChartLoaderInline from "@/components/ChartLoaderInline";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -179,9 +180,7 @@ export default function WebhookLogs() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
+        <ChartLoaderInline text="Carregando logs..." />
       ) : logs.length === 0 ? (
         <div className="rounded-xl bg-card border border-border/50 card-shadow p-12 text-center text-muted-foreground text-sm">
           Nenhum webhook recebido no período.

@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { AccountProvider, useAccount } from "@/hooks/useAccount";
 import { I18nProvider } from "@/lib/i18n";
+import ChartLoader from "@/components/ChartLoader";
 
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -38,19 +39,11 @@ function RequireAccount({ children }: { children: React.ReactNode }) {
   const { accounts, isLoading, activeAccount } = useAccount();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <ChartLoader text="Carregando conta..." />;
   }
 
   if (accounts.length === 0 || !activeAccount) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">Carregando conta...</p>
-      </div>
-    );
+    return <ChartLoader text="Preparando seu ambiente..." />;
   }
 
   return (
@@ -64,11 +57,7 @@ function RequireProject({ children }: { children: React.ReactNode }) {
   const { projects, isLoading } = useProject();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <ChartLoader text="Carregando projetos..." />;
   }
 
   if (projects.length === 0) {
@@ -126,11 +115,7 @@ function AppRoutes() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <ChartLoader text="Iniciando..." />;
   }
 
   const Protected = ({ children }: { children: React.ReactNode }) =>
