@@ -579,52 +579,56 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
       <AnimatePresence>
         {rocketVisible && (
           <motion.div
-            className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center"
+            className="fixed inset-0 z-[9999] pointer-events-none"
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.3 }}
           >
+            {/* Glow trail */}
             <motion.div
-              className="absolute w-48 h-48 rounded-full"
+              className="absolute left-1/2 -translate-x-1/2 w-48 h-48 rounded-full"
               style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.32), transparent 68%)" }}
-              initial={{ scale: 0.4, opacity: 0.85 }}
-              animate={{ scale: [0.4, 1.1, 1.9], opacity: [0.85, 0.45, 0] }}
-              transition={{ duration: 1.55, ease: "easeOut" }}
+              initial={{ bottom: -100, scale: 0.6, opacity: 0.85 }}
+              animate={{ bottom: ["−100px", "40%", "110%"], scale: [0.6, 1.2, 1.8], opacity: [0.85, 0.5, 0] }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
             />
 
+            {/* Rocket */}
             <motion.img
               src={rocketImg}
               alt="Rocket"
-              className="w-28 h-28 object-contain"
+              className="absolute left-1/2 -translate-x-1/2 w-28 h-28 object-contain"
               style={{ filter: "drop-shadow(0 0 24px hsl(var(--primary) / 0.9)) drop-shadow(0 0 50px hsl(var(--primary) / 0.45))" }}
-              initial={{ y: 12, opacity: 1, scale: 1.05, rotate: -6 }}
+              initial={{ bottom: -120, opacity: 1, scale: 1.05, rotate: -6 }}
               animate={{
-                y: [12, -30, -120, -320],
-                opacity: [1, 1, 0.95, 0],
-                scale: [1.05, 1.2, 1.05, 0.75],
-                rotate: [-6, -2, 4, 0],
+                bottom: [-120, window.innerHeight * 0.4, window.innerHeight + 150],
+                opacity: [1, 1, 0.9],
+                scale: [1.05, 1.2, 0.85],
+                rotate: [-6, -2, 0],
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.45, ease: [0.22, 0.61, 0.36, 1], times: [0, 0.28, 0.62, 1] }}
+              transition={{ duration: 1.5, ease: [0.22, 0.61, 0.36, 1], times: [0, 0.35, 1] }}
             />
 
+            {/* Particles trailing behind */}
             {[...Array(10)].map((_, i) => (
               <motion.div
                 key={i}
-                className="absolute rounded-full"
+                className="absolute rounded-full left-1/2"
                 style={{
                   width: 5 + (i % 3),
                   height: 5 + (i % 3),
                   background: `hsl(var(--primary) / ${0.62 - i * 0.045})`,
+                  marginLeft: (i % 2 === 0 ? -1 : 1) * (5 + i * 4),
                 }}
-                initial={{ y: 85, opacity: 0.95, x: (i % 2 === 0 ? -1 : 1) * (5 + i * 4) }}
+                initial={{ bottom: -80, opacity: 0.95 }}
                 animate={{
-                  y: [85, 45 + i * 8, 118 + i * 13],
+                  bottom: [-80, window.innerHeight * 0.2 + i * 25, window.innerHeight * 0.5 + i * 35],
                   opacity: [0.95, 0.7, 0],
                   scale: [0.9, 1.2, 0.15],
                 }}
-                transition={{ duration: 1.1, delay: 0.05 + i * 0.04, ease: "easeOut" }}
+                transition={{ duration: 1.2, delay: 0.05 + i * 0.04, ease: "easeOut" }}
               />
             ))}
           </motion.div>
