@@ -147,9 +147,9 @@ export default function SharedViewManager() {
               <div key={t.id} className="flex items-center gap-2 p-2 border rounded-lg text-xs">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{t.label}</p>
-                  <p className="text-muted-foreground truncate">{getPublicUrl(t.token)}</p>
+                  <p className="text-muted-foreground break-all whitespace-normal leading-snug">{getPublicUrl(t.token)}</p>
                   <p className="text-muted-foreground">
-                    {isPermanentToken ? "Permanente" : isExpired ? "⚠️ Expirado" : `Expira: ${format(new Date(t.expires_at), "dd/MM/yyyy HH:mm")}`}
+                    {isPermanentToken ? "Permanente" : isExpired ? "⚠️ Expirado" : `${format(new Date(t.expires_at), "dd/MM/yyyy HH:mm")}`}
                   </p>
                 </div>
                 <Switch
