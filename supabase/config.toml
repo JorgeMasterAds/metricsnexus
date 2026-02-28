@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.agent-execute]
 verify_jwt = false
+
+[functions.survey-public]
+verify_jwt = false

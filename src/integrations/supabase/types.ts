@@ -2183,6 +2183,253 @@ export type Database = {
         }
         Relationships: []
       }
+      survey_answers: {
+        Row: {
+          account_id: string
+          answer_options: Json | null
+          answer_value: string | null
+          created_at: string
+          id: string
+          question_id: string
+          response_id: string
+          score: number | null
+        }
+        Insert: {
+          account_id: string
+          answer_options?: Json | null
+          answer_value?: string | null
+          created_at?: string
+          id?: string
+          question_id: string
+          response_id: string
+          score?: number | null
+        }
+        Update: {
+          account_id?: string
+          answer_options?: Json | null
+          answer_value?: string | null
+          created_at?: string
+          id?: string
+          question_id?: string
+          response_id?: string
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_answers_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "survey_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_answers_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "survey_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_questions: {
+        Row: {
+          account_id: string
+          config: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          is_required: boolean
+          logic: Json | null
+          options: Json | null
+          position: number
+          scoring: Json | null
+          survey_id: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          logic?: Json | null
+          options?: Json | null
+          position?: number
+          scoring?: Json | null
+          survey_id: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          logic?: Json | null
+          options?: Json | null
+          position?: number
+          scoring?: Json | null
+          survey_id?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_questions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_responses: {
+        Row: {
+          account_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          max_possible_score: number | null
+          metadata: Json | null
+          qualification: string | null
+          respondent_email: string | null
+          respondent_name: string | null
+          survey_id: string
+          total_score: number | null
+        }
+        Insert: {
+          account_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          max_possible_score?: number | null
+          metadata?: Json | null
+          qualification?: string | null
+          respondent_email?: string | null
+          respondent_name?: string | null
+          survey_id: string
+          total_score?: number | null
+        }
+        Update: {
+          account_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          max_possible_score?: number | null
+          metadata?: Json | null
+          qualification?: string | null
+          respondent_email?: string | null
+          respondent_name?: string | null
+          survey_id?: string
+          total_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_responses_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      surveys: {
+        Row: {
+          account_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          project_id: string
+          scoring_enabled: boolean
+          show_results: boolean
+          slug: string
+          thank_you_message: string | null
+          theme_color: string | null
+          title: string
+          type: string
+          updated_at: string
+          welcome_message: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          project_id: string
+          scoring_enabled?: boolean
+          show_results?: boolean
+          slug?: string
+          thank_you_message?: string | null
+          theme_color?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          project_id?: string
+          scoring_enabled?: boolean
+          show_results?: boolean
+          slug?: string
+          thank_you_message?: string | null
+          theme_color?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surveys_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surveys_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_announcement_reads: {
         Row: {
           announcement_id: string
