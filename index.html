@@ -31,26 +31,65 @@
   <body>
     <div id="root"></div>
     <script>
-      // Ultra-fast smartlink redirect — runs BEFORE React bundle loads
-      (function(){
-        var h = location.hostname;
-        if (h !== 'smartlink.jmads.com.br') return;
-        var slug = location.pathname.replace(/^\/+/, '').split('/')[0];
-        if (!slug) return;
-        // Show minimal loading indicator
-        document.getElementById('root').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh"><div style="width:24px;height:24px;border:2px solid #888;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite"></div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
-        var qs = location.search ? location.search + '&' : '?';
-        qs += 'slug=' + encodeURIComponent(slug) + '&domain=' + encodeURIComponent(h) + '&mode=json';
-        var edgeUrl = 'https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/redirect' + (qs.charAt(0) === '&' ? '?' + qs.substring(1) : qs);
-        fetch(edgeUrl).then(function(r){ return r.json(); }).then(function(d){
-          if (d && d.url) location.replace(d.url);
-        }).catch(function(){
-          // Fallback: 302 via edge function
-          var fb = 'https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/redirect?slug=' + encodeURIComponent(slug) + '&domain=' + encodeURIComponent(h) + location.search.replace('?','&');
-          location.replace(fb);
-        });
-        // Prevent React from loading
+      // Ultra-fast public smartlink redirect — runs BEFORE React bundle loads
+      (function () {
+        var host = location.hostname.toLowerCase();
+        var knownAppRoutes = {
+          auth: true,
+          'reset-password': true,
+          dashboard: true,
+          'smart-links': true,
+          'utm-report': true,
+          'webhook-logs': true,
+          integrations: true,
+          settings: true,
+          resources: true,
+          admin: true,
+          support: true,
+          novidades: true,
+          crm: true,
+          'ai-agents': true,
+          devices: true,
+        };
+
+        var segments = location.pathname.split('/').filter(Boolean);
+        if (segments.length !== 1) return;
+
+        var slug = segments[0];
+        if (!slug || knownAppRoutes[slug]) return;
+
+        // Prevent React from mounting ASAP
         window.__SMARTLINK_FAST_REDIRECT = true;
+
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh"><div style="width:24px;height:24px;border:2px solid #888;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite"></div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+        }
+
+        var params = new URLSearchParams(location.search);
+        params.set('slug', slug);
+        params.set('domain', host);
+        params.set('mode', 'json');
+
+        var base = 'https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/redirect';
+        fetch(base + '?' + params.toString(), { cache: 'no-store' })
+          .then(function (res) {
+            if (!res.ok) throw new Error('redirect lookup failed');
+            return res.json();
+          })
+          .then(function (data) {
+            if (data && data.url) {
+              location.replace(data.url);
+              return;
+            }
+            throw new Error('missing redirect url');
+          })
+          .catch(function () {
+            var fallbackParams = new URLSearchParams(location.search);
+            fallbackParams.set('slug', slug);
+            fallbackParams.set('domain', host);
+            location.replace(base + '?' + fallbackParams.toString());
+          });
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
