@@ -41,7 +41,7 @@ export function useAIAgents() {
     queryKey: ["whatsapp-devices", activeAccountId, activeProjectId],
     queryFn: async () => {
       const { data } = await (supabase as any)
-        .from("whatsapp_devices")
+        .from("whatsapp_devices_safe")
         .select("*")
         .eq("account_id", activeAccountId)
         .eq("project_id", activeProjectId)

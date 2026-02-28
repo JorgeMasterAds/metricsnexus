@@ -2631,6 +2631,44 @@ export type Database = {
       }
     }
     Views: {
+      ai_api_keys_safe: {
+        Row: {
+          account_id: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          label: string | null
+          provider: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          label?: string | null
+          provider?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          label?: string | null
+          provider?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_api_keys_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrations_safe: {
         Row: {
           account_id: string | null
@@ -2707,6 +2745,60 @@ export type Database = {
           price?: number | null
         }
         Relationships: []
+      }
+      whatsapp_devices_safe: {
+        Row: {
+          account_id: string | null
+          api_url: string | null
+          created_at: string | null
+          id: string | null
+          instance_name: string | null
+          last_seen_at: string | null
+          phone_number: string | null
+          project_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          id?: string | null
+          instance_name?: string | null
+          last_seen_at?: string | null
+          phone_number?: string | null
+          project_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          id?: string | null
+          instance_name?: string | null
+          last_seen_at?: string | null
+          phone_number?: string | null
+          project_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_devices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_devices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
