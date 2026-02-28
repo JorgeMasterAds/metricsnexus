@@ -574,15 +574,15 @@ export default function Dashboard() {
             />
 
             {/* Sales card with Total prominent */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
-              <div className="flex items-center justify-between mb-2">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col items-center text-center relative">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <ShoppingCart className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="text-xl font-bold flex-1 flex items-center">{computed.totalSales.toLocaleString("pt-BR")}</div>
-              <div className="flex items-center gap-3 mt-1">
+              <div className="text-xl font-bold flex-1 flex items-center justify-center">{computed.totalSales.toLocaleString("pt-BR")}</div>
+              <div className="flex items-center justify-center gap-3 mt-1">
                 <span className="text-[9px] text-muted-foreground">Vendas <span className="font-mono font-medium text-foreground/80">{computed.mainProductsCount}</span></span>
                 <span className="text-[9px] text-muted-foreground">OB <span className="font-mono font-medium text-foreground/80">{computed.orderBumpsCount}</span></span>
               </div>
@@ -593,8 +593,8 @@ export default function Dashboard() {
 
             <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" change={`${fmtChange(computed.comparison.convRate, true)} vs ${previousPeriodLabel}`} changeType={changeType(computed.comparison.convRate)} />
             {/* Investment card */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
-              <div className="flex items-center justify-between mb-2">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col items-center text-center relative">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <DollarSign className="h-3.5 w-3.5 text-primary" />
@@ -604,19 +604,19 @@ export default function Dashboard() {
                 value={investmentInput}
                 onChange={handleInvestmentChange}
                 placeholder="R$ 0,00"
-                className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px]"
+                className="text-lg font-bold bg-transparent outline-none w-full px-1 py-0 rounded border border-border/60 focus:border-primary/60 placeholder:text-muted-foreground/40 transition-colors h-[28px] text-center"
               />
             </div>
             <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" change={`${fmtChange(computed.comparison.revenue)} vs ${previousPeriodLabel}`} changeType={changeType(computed.comparison.revenue)} />
             {/* ROAS card */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
-              <div className="flex items-center justify-between mb-2">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[130px] flex flex-col items-center text-center">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
                   <TrendingUp className="h-3.5 w-3.5 text-primary" />
                 </div>
               </div>
-              <div className="text-lg font-bold font-mono flex-1 flex items-center" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
+              <div className="text-lg font-bold font-mono flex-1 flex items-center justify-center" style={{ color: investmentValue > 0 ? roasColor : undefined }}>
                 {investmentValue > 0 ? roas.toFixed(2) + "x" : "—"}
               </div>
             </div>
@@ -675,27 +675,27 @@ export default function Dashboard() {
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-border/30">
                   <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Produto</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">% Faturamento</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Tipo</th>
+                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
+                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
+                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Ticket</th>
+                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">% Faturamento</th>
+                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Tipo</th>
                 </tr></thead>
                 <tbody>
                   {computed.productData.map((p: any, i: number) => (
                     <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
                       <td className="px-5 py-3 font-medium text-xs">{p.name}</td>
-                      <td className="text-right px-5 py-3 text-xs">
+                      <td className="text-center px-5 py-3 text-xs">
                         <div className="font-mono">{p.vendas}</div>
                         <div><ComparisonBadge value={p.vendasChange} /></div>
                       </td>
-                      <td className="text-right px-5 py-3 text-xs">
+                      <td className="text-center px-5 py-3 text-xs">
                         <div className="font-mono">{fmt(p.receita)}</div>
                         <div><ComparisonBadge value={p.receitaChange} /></div>
                       </td>
-                      <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.ticket)}</td>
-                      <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{p.percentual.toFixed(1)}%</td>
-                      <td className="px-5 py-3">
+                      <td className="text-center px-5 py-3 font-mono text-xs">{fmt(p.ticket)}</td>
+                      <td className="text-center px-5 py-3 font-mono text-xs text-muted-foreground">{p.percentual.toFixed(1)}%</td>
+                      <td className="text-center px-5 py-3">
                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.isOrderBump ? "bg-accent text-accent-foreground" : "bg-primary/20 text-primary"}`}>
                            {p.isOrderBump ? "Order Bump" : "Principal"}
                          </span>
@@ -800,12 +800,12 @@ export default function Dashboard() {
                   <thead><tr className="border-b border-border/30">
                     <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Nome</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Slug</th>
-                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Views</th>
-                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
-                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">OB</th>
-                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
-                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Taxa</th>
-                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
+                    <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Views</th>
+                    <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
+                    <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">OB</th>
+                    <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
+                    <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Taxa</th>
+                    <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
                   </tr></thead>
                   <tbody>
                     {computed.linkStats.map((link: any) => {
@@ -815,12 +815,12 @@ export default function Dashboard() {
                           <tr className="border-b border-border/20 hover:bg-accent/20 transition-colors">
                             <td className="px-5 py-3 font-medium text-xs">{link.name}</td>
                             <td className="px-5 py-3 text-xs text-muted-foreground font-mono">/{link.slug}</td>
-                            <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-5 py-3 font-mono text-xs">{link.mainSales.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{link.obSales.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
-                            <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{link.rate.toFixed(2)}%</td>
-                            <td className="text-right px-5 py-3">
+                            <td className="text-center px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
+                            <td className="text-center px-5 py-3 font-mono text-xs">{link.mainSales.toLocaleString("pt-BR")}</td>
+                            <td className="text-center px-5 py-3 font-mono text-xs text-muted-foreground">{link.obSales.toLocaleString("pt-BR")}</td>
+                            <td className="text-center px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
+                            <td className="text-center px-5 py-3 font-mono text-xs text-muted-foreground">{link.rate.toFixed(2)}%</td>
+                            <td className="text-center px-5 py-3">
                               <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${link.is_active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
                                 <span className={`h-1.5 w-1.5 rounded-full ${link.is_active ? "bg-primary" : "bg-muted-foreground"}`} />
                                 {link.is_active ? "Ativo" : "Pausado"}
@@ -838,12 +838,12 @@ export default function Dashboard() {
                               <tr key={v.id} className="border-b border-border/10 bg-muted/10">
                                 <td className="px-5 py-2 text-xs text-muted-foreground pl-10">↳ {v.name}</td>
                                 <td className="px-5 py-2 text-xs text-muted-foreground font-mono truncate max-w-[140px]" title={v.url}>{v.url}</td>
-                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vClicks.toLocaleString("pt-BR")}</td>
-                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vMainSales.toLocaleString("pt-BR")}</td>
-                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vObSales.toLocaleString("pt-BR")}</td>
-                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{fmt(vRevenue)}</td>
-                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vRate}%</td>
-                                <td className="text-right px-5 py-2">
+                                <td className="text-center px-5 py-2 font-mono text-xs text-muted-foreground">{vClicks.toLocaleString("pt-BR")}</td>
+                                <td className="text-center px-5 py-2 font-mono text-xs text-muted-foreground">{vMainSales.toLocaleString("pt-BR")}</td>
+                                <td className="text-center px-5 py-2 font-mono text-xs text-muted-foreground">{vObSales.toLocaleString("pt-BR")}</td>
+                                <td className="text-center px-5 py-2 font-mono text-xs text-muted-foreground">{fmt(vRevenue)}</td>
+                                <td className="text-center px-5 py-2 font-mono text-xs text-muted-foreground">{vRate}%</td>
+                                <td className="text-center px-5 py-2">
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${v.is_active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                                     {v.is_active ? "Ativa" : "Inativa"}
                                   </span>
