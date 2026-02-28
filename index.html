@@ -5,101 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- TODO: Set the document title to the name of your application -->
     <title>Nexus Metrics</title>
-    <link rel="icon" href="/favicon-red.svg" type="image/svg+xml" />
-    <meta name="description" content="Lovable Generated Project">
+    <link rel="icon" type="image/svg+xml" href="/favicon-red.svg">
+    <meta name="description" content="Nexus Metrics, sua plataforma de análise para lançamentos e perpétuos">
     <meta name="author" content="Lovable" />
 
     <!-- TODO: Update og:title to match your application name -->
     
     
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/41b66aff-6e5c-49a8-acd7-b55f34729ea2/id-preview-bb8d33ac--18bfe08e-f368-41f8-a89c-9905ba5d7ecd.lovable.app-1771628503451.png">
+    <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a8fec0fd-dc58-4af9-9341-2ce5d4350ac4?Expires=1772260231&amp;GoogleAccessId=go-api-on-aws%40gpt-engineer-390607.iam.gserviceaccount.com&amp;Signature=yURxnNr6jVL8N6r83eLPKnUZq1kn86OrMUCbT57VTIvbybShF2on%2FuN%2BCP4jJbgQ%2BQ6R8zn2GoDtyW6ILSIEdvjmWyWv%2B%2B%2Fm7Nfo4UFS0dkB4yQwAafTkMGvgAYFOsr%2F4EwWQqCjoq6fbC6GXgRSmtDF5xtskc5fyRZQfSa1cilr5YwzjM5ZaVxydyyUdefTY3REHhEJZ02qk%2Bd4aHKFfn43sZBRvom30uIPQAP9GE1jsdeWJoG3hglg9%2FBx2YQcMffR5bCJib%2BNz8owV8IbAlzdALirlSANCfMEJLWmiipjXjOYPA40cTIHhr1N39RaBp%2Br7H5Zk4zHBoD50H3LGw%3D%3D">
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/41b66aff-6e5c-49a8-acd7-b55f34729ea2/id-preview-bb8d33ac--18bfe08e-f368-41f8-a89c-9905ba5d7ecd.lovable.app-1771628503451.png">
+    <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a8fec0fd-dc58-4af9-9341-2ce5d4350ac4?Expires=1772260231&amp;GoogleAccessId=go-api-on-aws%40gpt-engineer-390607.iam.gserviceaccount.com&amp;Signature=yURxnNr6jVL8N6r83eLPKnUZq1kn86OrMUCbT57VTIvbybShF2on%2FuN%2BCP4jJbgQ%2BQ6R8zn2GoDtyW6ILSIEdvjmWyWv%2B%2B%2Fm7Nfo4UFS0dkB4yQwAafTkMGvgAYFOsr%2F4EwWQqCjoq6fbC6GXgRSmtDF5xtskc5fyRZQfSa1cilr5YwzjM5ZaVxydyyUdefTY3REHhEJZ02qk%2Bd4aHKFfn43sZBRvom30uIPQAP9GE1jsdeWJoG3hglg9%2FBx2YQcMffR5bCJib%2BNz8owV8IbAlzdALirlSANCfMEJLWmiipjXjOYPA40cTIHhr1N39RaBp%2Br7H5Zk4zHBoD50H3LGw%3D%3D">
     
+  
+  
+  
+  
   
   
   
   <meta property="og:title" content="Nexus Metrics">
   <meta name="twitter:title" content="Nexus Metrics">
-  <meta property="og:description" content="Lovable Generated Project">
-  <meta name="twitter:description" content="Lovable Generated Project">
+  <meta property="og:description" content="Nexus Metrics, sua plataforma de análise para lançamentos e perpétuos">
+  <meta name="twitter:description" content="Nexus Metrics, sua plataforma de análise para lançamentos e perpétuos">
 </head>
 
   <body>
     <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Ultra-fast public smartlink redirect — runs BEFORE React bundle loads
-      (function () {
-        var host = location.hostname.toLowerCase();
-        var knownAppRoutes = {
-          auth: true,
-          'reset-password': true,
-          dashboard: true,
-          home: true,
-          'smart-links': true,
-          'utm-report': true,
-          'webhook-logs': true,
-          integrations: true,
-          settings: true,
-          resources: true,
-          admin: true,
-          support: true,
-          novidades: true,
-          crm: true,
-          'ai-agents': true,
-          devices: true,
-        };
-
-        var segments = location.pathname.split('/').filter(Boolean);
-        if (segments.length !== 1) return;
-
-        var slug = segments[0];
-        if (!slug || knownAppRoutes[slug]) return;
-
-        // Prevent React from mounting ASAP
-        window.__SMARTLINK_FAST_REDIRECT = true;
-
-        document.documentElement.style.background = '#000';
-        document.body.style.background = '#000';
-        var root = document.getElementById('root');
-        if (root) {
-          root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#000"><div style="width:20px;height:20px;border:2px solid #444;border-top-color:#fff;border-radius:50%;animation:spin .5s linear infinite"></div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
-        }
-
-        var params = new URLSearchParams(location.search);
-        params.set('slug', slug);
-        params.set('domain', host);
-        params.set('mode', 'json');
-
-        var base = 'https://fnpmuffrqrlofjvqytof.supabase.co/functions/v1/redirect';
-        fetch(base + '?' + params.toString(), { cache: 'no-store' })
-          .then(function (res) {
-            if (!res.ok) throw new Error('redirect lookup failed');
-            return res.json();
-          })
-          .then(function (data) {
-            if (data && data.url) {
-              location.replace(data.url);
-              return;
-            }
-            throw new Error('missing redirect url');
-          })
-          .catch(function () {
-            var fallbackParams = new URLSearchParams(location.search);
-            fallbackParams.set('slug', slug);
-            fallbackParams.set('domain', host);
-            location.replace(base + '?' + fallbackParams.toString());
-          });
-      })();
-    </script>
-    <script type="module">
-      // Only load the full React app if this is NOT a smartlink redirect
-      if (!window.__SMARTLINK_FAST_REDIRECT) {
-        import('/src/main.tsx');
-      }
+      // Security headers via meta tags (CSP)
     </script>
   </body>
 </html>
