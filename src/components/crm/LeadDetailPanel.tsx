@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, User, Clock, ShoppingCart, Tag, MessageSquare, ExternalLink, Trash2, Plus, Check } from "lucide-react";
+import { X, User, Clock, ShoppingCart, Tag, MessageSquare, ExternalLink, Trash2, Plus, Check, FileText, Thermometer } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,7 @@ interface Props {
 const TAG_COLORS = ["#6366f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#8b5cf6", "#14b8a6"];
 
 export default function LeadDetailPanel({ lead, onClose }: Props) {
-  const { history, notes, purchases } = useLeadDetail(lead.id);
+  const { history, notes, purchases, surveyResponses } = useLeadDetail(lead.id);
   const { addNote, tags, addTag, removeTag, createTag, updateLead, deleteLead } = useCRM();
   const [noteText, setNoteText] = useState("");
   const [editing, setEditing] = useState(false);
@@ -277,6 +277,60 @@ export default function LeadDetailPanel({ lead, onClose }: Props) {
                 </PopoverContent>
               </Popover>
 
+              {/* Survey Responses */}
+              {surveyResponses.length > 0 && (
+                <div className="rounded-xl border border-border p-4 space-y-3">
+                  <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-primary" /> Pesquisas Respondidas
+                  </h3>
+                  <div className="space-y-2">
+                    {surveyResponses.map((sr: any) => {
+                      const pct = sr.max_possible_score > 0 ? Math.round((sr.total_score / sr.max_possible_score) * 100) : null;
+                      return (
+                        <div key={sr.id} className="p-2.5 rounded-lg bg-muted/30 text-xs space-y-1.5">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium text-foreground">{sr.surveys?.title || "Pesquisa"}</p>
+                              <p className="text-muted-foreground">
+                                {sr.surveys?.type === "quiz" ? "Quiz" : "Pesquisa"} · {sr.completed_at ? new Date(sr.completed_at).toLocaleDateString("pt-BR") : "—"}
+                              </p>
+                            </div>
+                            {sr.qualification && (
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                  sr.qualification === "Qualificado"
+                                    ? "text-emerald-600 border-emerald-300 bg-emerald-50"
+                                    : sr.qualification === "Parcialmente Qualificado"
+                                    ? "text-yellow-600 border-yellow-300 bg-yellow-50"
+                                    : "text-red-600 border-red-300 bg-red-50"
+                                }`}
+                              >
+                                {sr.qualification}
+                              </Badge>
+                            )}
+                          </div>
+                          {pct !== null && (
+                            <div className="flex items-center gap-2">
+                              <Thermometer className={`h-3 w-3 ${pct >= 67 ? "text-red-500" : pct >= 34 ? "text-yellow-500" : "text-blue-500"}`} />
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    pct >= 67 ? "bg-red-500" : pct >= 34 ? "bg-yellow-500" : "bg-blue-500"
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-muted-foreground font-medium">{sr.total_score}/{sr.max_possible_score} pts ({pct}%)</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Notes */}
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <h3 className="text-xs font-semibold flex items-center gap-1.5">
@@ -394,6 +448,7 @@ function formatAction(action: string): string {
     cart_abandoned: "Carrinho abandonado",
     refund: "Reembolso",
     chargeback: "Chargeback",
+    survey_completed: "Pesquisa respondida",
   };
   return map[action] || action;
 }

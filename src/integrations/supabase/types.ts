@@ -2310,6 +2310,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           id: string
+          lead_id: string | null
           max_possible_score: number | null
           metadata: Json | null
           qualification: string | null
@@ -2323,6 +2324,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          lead_id?: string | null
           max_possible_score?: number | null
           metadata?: Json | null
           qualification?: string | null
@@ -2336,6 +2338,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          lead_id?: string | null
           max_possible_score?: number | null
           metadata?: Json | null
           qualification?: string | null
@@ -2350,6 +2353,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
           {

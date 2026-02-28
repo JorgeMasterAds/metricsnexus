@@ -11,8 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Plus, Trash2, GripVertical, Copy, Eye, Settings2,
   Type, AlignLeft, ListChecks, CheckSquare, ChevronDown, Gauge, Star,
-  Save, ExternalLink, BarChart3
+  Save, ExternalLink, BarChart3, Thermometer
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { useSurveyDetail, useSurveys, SurveyQuestion } from "@/hooks/useSurveys";
 import { toast } from "@/hooks/use-toast";
 import SurveyPreview from "@/components/surveys/SurveyPreview";
@@ -397,13 +398,16 @@ function QuestionEditor({
                 placeholder={`Opção ${idx + 1}`}
               />
               {scoringEnabled && (
-                <Input
-                  type="number"
-                  value={opt.score || 0}
-                  onChange={(e) => updateOption(idx, "score", parseInt(e.target.value) || 0)}
-                  className="text-sm w-20"
-                  placeholder="Pts"
-                />
+                <div className="flex items-center gap-1.5">
+                  <TemperatureIndicator score={opt.score || 0} />
+                  <Input
+                    type="number"
+                    value={opt.score || 0}
+                    onChange={(e) => updateOption(idx, "score", parseInt(e.target.value) || 0)}
+                    className="text-sm w-16"
+                    placeholder="Pts"
+                  />
+                </div>
               )}
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeOption(idx)}>
                 <Trash2 className="h-3 w-3" />
@@ -480,6 +484,49 @@ function QuestionEditor({
         <Button size="sm" onClick={save}>
           <Save className="h-4 w-4 mr-1" /> Salvar Pergunta
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Temperature Indicator ──
+function TemperatureIndicator({ score }: { score: number }) {
+  // Map score to a temperature color: 0 = cold (blue), 5 = warm (yellow), 10+ = hot (red)
+  const getColor = (s: number) => {
+    if (s <= 0) return "bg-blue-500";
+    if (s <= 2) return "bg-sky-400";
+    if (s <= 4) return "bg-emerald-400";
+    if (s <= 6) return "bg-yellow-400";
+    if (s <= 8) return "bg-orange-400";
+    return "bg-red-500";
+  };
+
+  const getLabel = (s: number) => {
+    if (s <= 0) return "Frio";
+    if (s <= 3) return "Morno";
+    if (s <= 6) return "Quente";
+    return "Muito Quente";
+  };
+
+  const getTextColor = (s: number) => {
+    if (s <= 0) return "text-blue-600";
+    if (s <= 3) return "text-sky-600";
+    if (s <= 6) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  return (
+    <div className="flex items-center gap-1" title={`${getLabel(score)} (${score} pts)`}>
+      <Thermometer className={`h-3.5 w-3.5 ${getTextColor(score)}`} />
+      <div className="flex gap-0.5">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className={`h-2.5 w-1 rounded-full transition-colors ${
+              score > i * 2 ? getColor(score) : "bg-muted"
+            }`}
+          />
+        ))}
       </div>
     </div>
   );
