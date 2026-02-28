@@ -359,9 +359,11 @@ export default function Dashboard() {
     const linkStats = smartLinks.map((link: any) => {
       const lv = clicks.filter((c: any) => c.smartlink_id === link.id).length;
       const lConvs = conversions.filter((c: any) => c.smartlink_id === link.id);
+      const lMainConvs = lConvs.filter((c: any) => !c.is_order_bump);
+      const lObConvs = lConvs.filter((c: any) => c.is_order_bump);
       const lc = lConvs.length;
       const lr = lConvs.reduce((s: number, c: any) => s + Number(c.amount), 0);
-      return { ...link, views: lv, sales: lc, revenue: lr, rate: lv > 0 ? (lc / lv) * 100 : 0, ticket: lc > 0 ? lr / lc : 0 };
+      return { ...link, views: lv, sales: lc, mainSales: lMainConvs.length, obSales: lObConvs.length, revenue: lr, rate: lv > 0 ? (lc / lv) * 100 : 0, ticket: lc > 0 ? lr / lc : 0 };
     });
 
     return {
@@ -661,6 +663,7 @@ export default function Dashboard() {
                     <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Slug</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Views</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Vendas</th>
+                    <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">OB</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Receita</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Taxa</th>
                     <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Status</th>
@@ -674,7 +677,8 @@ export default function Dashboard() {
                             <td className="px-5 py-3 font-medium text-xs">{link.name}</td>
                             <td className="px-5 py-3 text-xs text-muted-foreground font-mono">/{link.slug}</td>
                             <td className="text-right px-5 py-3 font-mono text-xs">{link.views.toLocaleString("pt-BR")}</td>
-                            <td className="text-right px-5 py-3 font-mono text-xs">{link.sales.toLocaleString("pt-BR")}</td>
+                            <td className="text-right px-5 py-3 font-mono text-xs">{link.mainSales.toLocaleString("pt-BR")}</td>
+                            <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{link.obSales.toLocaleString("pt-BR")}</td>
                             <td className="text-right px-5 py-3 font-mono text-xs">{fmt(link.revenue)}</td>
                             <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{link.rate.toFixed(2)}%</td>
                             <td className="text-right px-5 py-3">
@@ -687,15 +691,17 @@ export default function Dashboard() {
                           {variants.map((v: any) => {
                             const vClicks = clicks.filter((c: any) => c.variant_id === v.id).length;
                             const vConvs = conversions.filter((c: any) => c.variant_id === v.id);
-                            const vSales = vConvs.length;
+                            const vMainSales = vConvs.filter((c: any) => !c.is_order_bump).length;
+                            const vObSales = vConvs.filter((c: any) => c.is_order_bump).length;
                             const vRevenue = vConvs.reduce((s: number, c: any) => s + Number(c.amount), 0);
-                            const vRate = vClicks > 0 ? ((vSales / vClicks) * 100).toFixed(2) : "0.00";
+                            const vRate = vClicks > 0 ? (((vMainSales + vObSales) / vClicks) * 100).toFixed(2) : "0.00";
                             return (
                               <tr key={v.id} className="border-b border-border/10 bg-muted/10">
                                 <td className="px-5 py-2 text-xs text-muted-foreground pl-10">↳ {v.name}</td>
                                 <td className="px-5 py-2 text-xs text-muted-foreground font-mono truncate max-w-[140px]" title={v.url}>{v.url}</td>
                                 <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vClicks.toLocaleString("pt-BR")}</td>
-                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vSales.toLocaleString("pt-BR")}</td>
+                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vMainSales.toLocaleString("pt-BR")}</td>
+                                <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vObSales.toLocaleString("pt-BR")}</td>
                                 <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{fmt(vRevenue)}</td>
                                 <td className="text-right px-5 py-2 font-mono text-xs text-muted-foreground">{vRate}%</td>
                                 <td className="text-right px-5 py-2">
