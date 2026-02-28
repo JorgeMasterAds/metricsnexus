@@ -22,7 +22,7 @@ export default function ShareReportButton({ size = "default" }: ShareReportButto
           {size !== "icon" && <span className="hidden sm:inline">Compartilhar</span>}
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-2xl">
         <DialogHeader>
           <DialogTitle>Compartilhar Relatório</DialogTitle>
         </DialogHeader>
