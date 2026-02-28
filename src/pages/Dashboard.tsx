@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { exportToCsv } from "@/lib/csv";
 import ExportMenu from "@/components/ExportMenu";
+import ShareReportButton from "@/components/ShareReportButton";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 import { useDashboardLayout } from "@/hooks/useDashboardLayout";
@@ -767,23 +768,26 @@ export default function Dashboard() {
             <TabsTrigger value="dashboard" className="text-xs">Relatório</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
           </TabsList>
-          <ExportMenu
-            data={buildFullExportData()}
-            filename="dashboard-nexus"
-            title="Dashboard Completo — Nexus Metrics"
-            snapshotSelector="#dashboard-export-root"
-            periodLabel={`Período: ${periodLabel}`}
-            kpis={[
-              { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
-              { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
-              { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
-              { label: "Investimento", value: investmentValue > 0 ? fmt(investmentValue) : "—" },
-              { label: "Faturamento", value: fmt(computed.totalRevenue) },
-              { label: "ROAS", value: investmentValue > 0 ? (computed.totalRevenue / investmentValue).toFixed(2) + "x" : "—" },
-              { label: "Ticket Médio", value: fmt(computed.avgTicket) },
-            ]}
-            size="default"
-          />
+          <div className="flex items-center gap-2">
+            <ExportMenu
+              data={buildFullExportData()}
+              filename="dashboard-nexus"
+              title="Dashboard Completo — Nexus Metrics"
+              snapshotSelector="#dashboard-export-root"
+              periodLabel={`Período: ${periodLabel}`}
+              kpis={[
+                { label: "Views", value: computed.totalViews.toLocaleString("pt-BR") },
+                { label: "Vendas", value: computed.totalSales.toLocaleString("pt-BR") },
+                { label: "Taxa Conv.", value: computed.convRate.toFixed(2) + "%" },
+                { label: "Investimento", value: investmentValue > 0 ? fmt(investmentValue) : "—" },
+                { label: "Faturamento", value: fmt(computed.totalRevenue) },
+                { label: "ROAS", value: investmentValue > 0 ? (computed.totalRevenue / investmentValue).toFixed(2) + "x" : "—" },
+                { label: "Ticket Médio", value: fmt(computed.avgTicket) },
+              ]}
+              size="default"
+            />
+            <ShareReportButton />
+          </div>
         </div>
         <TabsContent value="dashboard">
 

@@ -480,8 +480,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
   );
 
   return (
-    <div className={cn("min-h-screen bg-background flex flex-col", showPreviewBar && "pt-10")}>
-      {showPreviewBar && <AdminRolePreviewBar />}
+    <div className="min-h-screen bg-background flex flex-col">
       <div className="flex flex-1">
       <aside className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-sidebar p-4 sticky top-0 h-screen overflow-y-auto">
         <SidebarContent />
@@ -526,6 +525,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                   >
                     <RefreshCw className="h-4 w-4" />
                   </button>
+                  {showPreviewBar && <AdminRolePreviewBar />}
                   <NotificationBell />
                 </div>
               </div>
