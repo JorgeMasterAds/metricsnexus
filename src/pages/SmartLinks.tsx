@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download, AlertTriangle, Clock, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Copy, ExternalLink, Download, AlertTriangle, Clock, Eraser } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -258,9 +258,16 @@ export default function SmartLinks() {
     },
   });
 
+  const [clearViewsTarget, setClearViewsTarget] = useState<any>(null);
+
   const handleClearViews = (link: any) => {
-    if (confirm(`⚠️ Atenção!\n\nVocê está prestes a limpar TODOS os views (cliques) do Smart Link "${link.name}".\n\nEssa ação é IRREVERSÍVEL e não tem como recuperar os dados.\n\nDeseja continuar?`)) {
-      clearViews.mutate(link.id);
+    setClearViewsTarget(link);
+  };
+
+  const confirmClearViews = () => {
+    if (clearViewsTarget) {
+      clearViews.mutate(clearViewsTarget.id);
+      setClearViewsTarget(null);
     }
   };
 
@@ -440,11 +447,6 @@ export default function SmartLinks() {
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                     )}
-                    {canEdit && (
-                      <button onClick={() => handleClearViews(link)} className="p-1.5 rounded hover:bg-warning/20 transition-colors text-muted-foreground hover:text-warning" title="Limpar views">
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      </button>
-                    )}
                     {(canDelete || isMember) && (
                       <button onClick={() => handleDelete(link)} className="p-1.5 rounded hover:bg-destructive/20 transition-colors text-muted-foreground hover:text-destructive" title={isMember && !canDelete ? "Solicitar exclusão" : "Excluir"}>
                         {isMember && !canDelete ? <Clock className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -455,9 +457,18 @@ export default function SmartLinks() {
 
                 {/* KPI cards for this SmartLink */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-5 pb-4">
-                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
+                  <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center relative group">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Views</div>
                     <div className="text-base font-bold mt-0.5 tabular-nums">{linkData.views.toLocaleString("pt-BR")}</div>
+                    {canEdit && (
+                      <button
+                        onClick={() => handleClearViews(link)}
+                        className="absolute top-1.5 right-1.5 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-warning/20 transition-all text-muted-foreground hover:text-warning"
+                        title="Limpar views"
+                      >
+                        <Eraser className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Vendas</div>
@@ -554,6 +565,39 @@ export default function SmartLinks() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Clear Views Confirmation Modal */}
+      {clearViewsTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-card border border-border/50 rounded-xl card-shadow p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <h3 className="text-base font-semibold">Limpar visualizações</h3>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Você está prestes a limpar <strong>todos os views (cliques)</strong> do Smart Link <strong>"{clearViewsTarget.name}"</strong>.
+            </p>
+            <p className="text-xs text-destructive/80">
+              ⚠️ Essa ação é irreversível e não tem como recuperar os dados.
+            </p>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" size="sm" onClick={() => setClearViewsTarget(null)}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={confirmClearViews}
+                disabled={clearViews.isPending}
+              >
+                {clearViews.isPending ? "Limpando..." : "Confirmar limpeza"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </DashboardLayout>

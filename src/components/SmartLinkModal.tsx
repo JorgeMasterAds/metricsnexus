@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberStepper } from "@/components/ui/number-stepper";
 import { X, Plus, Trash2 } from "lucide-react";
 
 interface Variant {
@@ -175,15 +176,13 @@ export default function SmartLinkModal({ link, accountId, projectId, onClose, on
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
                         <Label className="text-xs">Peso:</Label>
-                        <Input
-                          type="number"
+                        <NumberStepper
                           value={v.weight}
-                          onChange={(e) => updateVariant(i, "weight", parseInt(e.target.value) || 0)}
-                          className="w-16 h-8 text-xs font-mono text-center"
+                          onChange={(val) => updateVariant(i, "weight", val)}
                           min={0}
                           max={100}
+                          suffix="%"
                         />
-                        <span className="text-xs text-muted-foreground">%</span>
                       </div>
                       <button
                         onClick={() => updateVariant(i, "is_active", !v.is_active)}
