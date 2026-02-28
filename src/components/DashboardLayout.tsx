@@ -244,8 +244,8 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
           <TooltipContent side="right" className="text-xs">Em breve</TooltipContent>
         </Tooltip>
 
-        {/* Agente de IA - visible for super admins */}
-        {isSuperAdmin && (
+        {/* Agente de IA - visible only for super admins NOT in preview mode */}
+        {isSuperAdmin && !isPreviewActive && (
           <Link
             to="/ai-agents"
             onClick={() => setMobileOpen(false)}
@@ -554,7 +554,7 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                   )}
                   <RefreshButton />
                   <ThemeToggle />
-                  {showPreviewBar && <AdminRolePreviewBar />}
+                  {isSuperAdmin && <AdminRolePreviewBar />}
                   <NotificationBell />
                 </div>
               </div>
@@ -583,29 +583,49 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.15 }}
           >
+            {/* Glow backdrop */}
+            <motion.div
+              className="absolute w-24 h-24 rounded-full"
+              style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.3), transparent 70%)" }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: [0, 3, 4], opacity: [0, 0.6, 0] }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+            />
+            {/* Rocket image */}
             <motion.img
               src={rocketImg}
               alt="Rocket"
-              className="w-16 h-auto drop-shadow-[0_0_15px_rgba(255,41,36,0.5)]"
-              initial={{ y: 80, opacity: 0, scale: 0.4, rotate: 0 }}
-              animate={{ y: -300, opacity: [0, 1, 1, 0], scale: [0.4, 1, 0.9, 0.6], rotate: [0, -5, 5, 0] }}
+              className="w-12 h-12 object-contain"
+              style={{ filter: "drop-shadow(0 0 20px hsl(var(--primary) / 0.7)) drop-shadow(0 0 40px hsl(var(--primary) / 0.4))" }}
+              initial={{ y: 60, opacity: 0, scale: 0.3, rotate: -10 }}
+              animate={{
+                y: [60, 0, -80, -250],
+                opacity: [0, 1, 1, 0],
+                scale: [0.3, 1.1, 1, 0.7],
+                rotate: [-10, 0, 5, 0],
+              }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
+              transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94], times: [0, 0.25, 0.6, 1] }}
             />
-            {[...Array(6)].map((_, i) => (
+            {/* Trail particles */}
+            {[...Array(8)].map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute rounded-full"
                 style={{
-                  width: 6 - i * 0.5,
-                  height: 6 - i * 0.5,
-                  background: `hsl(${30 + i * 5}, 90%, ${60 + i * 5}%)`,
+                  width: 4 + Math.random() * 4,
+                  height: 4 + Math.random() * 4,
+                  background: `hsl(var(--primary) / ${0.6 - i * 0.05})`,
                 }}
-                initial={{ y: 80 + i * 15, opacity: 0, x: (i % 2 === 0 ? -1 : 1) * (5 + i * 3) }}
-                animate={{ y: -200 + i * 30, opacity: [0, 0.8, 0], scale: [0.5, 1, 0.3] }}
-                transition={{ duration: 1, delay: i * 0.06, ease: "easeOut" }}
+                initial={{ y: 80, opacity: 0, x: (i % 2 === 0 ? -1 : 1) * (3 + i * 4) }}
+                animate={{
+                  y: [80, 40 + i * 10, 100 + i * 15],
+                  opacity: [0, 0.7, 0],
+                  scale: [0.5, 1, 0.2],
+                }}
+                transition={{ duration: 0.9, delay: 0.15 + i * 0.05, ease: "easeOut" }}
               />
             ))}
           </motion.div>
