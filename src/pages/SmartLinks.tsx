@@ -53,6 +53,25 @@ export default function SmartLinks() {
   const sinceDate = dateRange.from.toISOString().split("T")[0];
   const untilDate = dateRange.to.toISOString().split("T")[0];
 
+  // Period comparison
+  const periodMs = dateRange.to.getTime() - dateRange.from.getTime();
+  const periodDays = Math.max(1, Math.round(periodMs / 86400000));
+  const prevUntil = new Date(dateRange.from.getTime() - 1);
+  const prevSince = new Date(prevUntil.getTime() - periodMs);
+  const prevSinceDate = prevSince.toISOString().split("T")[0];
+  const prevUntilDate = prevUntil.toISOString().split("T")[0];
+  const previousPeriodLabel = `${periodDays}d ant.`;
+
+  const pctChange = (curr: number, prev: number) => {
+    if (prev === 0) return curr > 0 ? 100 : 0;
+    return ((curr - prev) / prev) * 100;
+  };
+  const fmtPct = (val: number) => {
+    const sign = val > 0 ? "+" : "";
+    return `${sign}${val.toFixed(1).replace(".", ",")}%`;
+  };
+  const changeColor = (val: number) => val > 0 ? "text-success" : val < 0 ? "text-destructive" : "text-muted-foreground";
+
   const { data: smartLinks = [], isLoading } = useQuery({
     queryKey: ["smartlinks", activeAccountId, activeProjectId],
     queryFn: async () => {
@@ -95,6 +114,21 @@ export default function SmartLinks() {
         .select("smartlink_id, variant_id, views, conversions, revenue")
         .gte("date", sinceDate)
         .lte("date", untilDate)
+        .eq("account_id", activeAccountId);
+      return data || [];
+    },
+    staleTime: 60000,
+    enabled: !!activeAccountId,
+  });
+
+  const { data: prevMetrics = [] } = useQuery({
+    queryKey: ["sl-daily-metrics-prev", prevSinceDate, prevUntilDate, activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("daily_metrics")
+        .select("smartlink_id, variant_id, views, conversions, revenue")
+        .gte("date", prevSinceDate)
+        .lte("date", prevUntilDate)
         .eq("account_id", activeAccountId);
       return data || [];
     },
@@ -164,8 +198,20 @@ export default function SmartLinks() {
       }
     });
 
-    return { byLink, byVariant, productsByLink, obByLink, obByVariant };
-  }, [metrics, linkProducts]);
+    // Build prev metrics map for comparison
+    const prevByLink = new Map<string, { views: number; sales: number; revenue: number }>();
+    prevMetrics.forEach((m: any) => {
+      if (m.smartlink_id) {
+        const entry = prevByLink.get(m.smartlink_id) || { views: 0, sales: 0, revenue: 0 };
+        entry.views += Number(m.views);
+        entry.sales += Number(m.conversions);
+        entry.revenue += Number(m.revenue);
+        prevByLink.set(m.smartlink_id, entry);
+      }
+    });
+
+    return { byLink, byVariant, productsByLink, obByLink, obByVariant, prevByLink };
+  }, [metrics, linkProducts, prevMetrics]);
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
@@ -401,9 +447,12 @@ export default function SmartLinks() {
           {smartLinks.map((link: any) => {
             const isExpanded = !collapsedIds.has(link.id);
             const linkData = metricsMap.byLink.get(link.id) || { views: 0, sales: 0, revenue: 0 };
+            const prevLinkData = metricsMap.prevByLink.get(link.id) || { views: 0, sales: 0, revenue: 0 };
             const obData = metricsMap.obByLink.get(link.id) || { mainSales: 0, obSales: 0 };
             const convRate = linkData.views > 0 ? ((linkData.sales / linkData.views) * 100).toFixed(2) : "0.00";
+            const prevConvRate = prevLinkData.views > 0 ? ((prevLinkData.sales / prevLinkData.views) * 100) : 0;
             const ticket = linkData.sales > 0 ? (linkData.revenue / linkData.sales).toFixed(2) : "0.00";
+            const prevTicket = prevLinkData.sales > 0 ? (prevLinkData.revenue / prevLinkData.sales) : 0;
 
             return (
               <div key={link.id} className="rounded-xl bg-card border border-border/50 card-shadow overflow-hidden">
@@ -475,6 +524,7 @@ export default function SmartLinks() {
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center relative group">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Views</div>
                     <div className="text-base font-bold mt-0.5 tabular-nums">{linkData.views.toLocaleString("pt-BR")}</div>
+                    <div className={`text-[9px] font-normal ${changeColor(pctChange(linkData.views, prevLinkData.views))}`}>{fmtPct(pctChange(linkData.views, prevLinkData.views))}</div>
                     {canEdit && (
                       <button
                         onClick={() => handleClearViews(link)}
@@ -492,18 +542,22 @@ export default function SmartLinks() {
                       <div><p className="text-[9px] text-muted-foreground uppercase">OB</p><p className="text-sm font-bold tabular-nums">{obData.obSales.toLocaleString("pt-BR")}</p></div>
                       <div><p className="text-[9px] text-muted-foreground uppercase">Total</p><p className="text-sm font-bold tabular-nums">{(obData.mainSales + obData.obSales).toLocaleString("pt-BR")}</p></div>
                     </div>
+                    <div className={`text-[9px] font-normal mt-0.5 ${changeColor(pctChange(linkData.sales, prevLinkData.sales))}`}>{fmtPct(pctChange(linkData.sales, prevLinkData.sales))}</div>
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita</div>
                     <div className="text-base font-bold mt-0.5 tabular-nums">R$ {linkData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                    <div className={`text-[9px] font-normal ${changeColor(pctChange(linkData.revenue, prevLinkData.revenue))}`}>{fmtPct(pctChange(linkData.revenue, prevLinkData.revenue))}</div>
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Conv.</div>
                     <div className="text-base font-bold mt-0.5 tabular-nums text-success">{convRate}%</div>
+                    <div className={`text-[9px] font-normal ${changeColor(parseFloat(convRate) - prevConvRate)}`}>{fmtPct(pctChange(parseFloat(convRate), prevConvRate))}</div>
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ticket</div>
                     <div className="text-base font-bold mt-0.5 tabular-nums">R$ {ticket}</div>
+                    <div className={`text-[9px] font-normal ${changeColor(pctChange(parseFloat(ticket), prevTicket))}`}>{fmtPct(pctChange(parseFloat(ticket), prevTicket))}</div>
                   </div>
                 </div>
 

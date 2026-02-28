@@ -574,7 +574,7 @@ export default function Dashboard() {
             />
 
             {/* Sales card with Total prominent */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
@@ -593,7 +593,7 @@ export default function Dashboard() {
 
             <MetricWithTooltip label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} tooltipKey="conv_rate" change={`${fmtChange(computed.comparison.convRate, true)} vs ${previousPeriodLabel}`} changeType={changeType(computed.comparison.convRate)} />
             {/* Investment card */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col relative">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col relative">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Investimento</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
@@ -609,7 +609,7 @@ export default function Dashboard() {
             </div>
             <MetricWithTooltip label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} tooltipKey="revenue" change={`${fmtChange(computed.comparison.revenue)} vs ${previousPeriodLabel}`} changeType={changeType(computed.comparison.revenue)} />
             {/* ROAS card */}
-            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[100px] flex flex-col">
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ROAS</span>
                 <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
@@ -686,12 +686,12 @@ export default function Dashboard() {
                     <tr key={i} className="border-b border-border/20 hover:bg-accent/20 transition-colors">
                       <td className="px-5 py-3 font-medium text-xs">{p.name}</td>
                       <td className="text-right px-5 py-3 text-xs">
-                        <span className="font-mono">{p.vendas}</span>
-                        <span className="ml-1.5"><ComparisonBadge value={p.vendasChange} /></span>
+                        <div className="font-mono">{p.vendas}</div>
+                        <div><ComparisonBadge value={p.vendasChange} /></div>
                       </td>
                       <td className="text-right px-5 py-3 text-xs">
-                        <span className="font-mono">{fmt(p.receita)}</span>
-                        <span className="ml-1.5"><ComparisonBadge value={p.receitaChange} /></span>
+                        <div className="font-mono">{fmt(p.receita)}</div>
+                        <div><ComparisonBadge value={p.receitaChange} /></div>
                       </td>
                       <td className="text-right px-5 py-3 font-mono text-xs">{fmt(p.ticket)}</td>
                       <td className="text-right px-5 py-3 font-mono text-xs text-muted-foreground">{p.percentual.toFixed(1)}%</td>

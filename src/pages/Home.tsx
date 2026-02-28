@@ -237,11 +237,61 @@ export default function Home() {
   const maxLeads = planLimits?.max_leads ?? 100;
   const maxDevices = planLimits?.max_devices ?? 1;
 
+  // Period comparison
+  const periodMs = debouncedRange.to.getTime() - debouncedRange.from.getTime();
+  const periodDays = Math.max(1, Math.round(periodMs / 86400000));
+  const prevUntil = new Date(debouncedRange.from.getTime() - 1);
+  const prevSince = new Date(prevUntil.getTime() - periodMs);
+  const prevSinceISO = prevSince.toISOString();
+  const prevUntilISO = prevUntil.toISOString();
+  const previousPeriodLabel = `${periodDays} dia${periodDays > 1 ? "s" : ""} anteriores`;
+
+  const pctChange = (curr: number, prev: number) => {
+    if (prev === 0) return curr > 0 ? 100 : 0;
+    return ((curr - prev) / prev) * 100;
+  };
+  const fmtChange = (val: number) => {
+    const sign = val > 0 ? "+" : "";
+    return `${sign}${val.toFixed(1).replace(".", ",")}%`;
+  };
+  const changeColor = (val: number) => val > 0 ? "text-success" : val < 0 ? "text-destructive" : "text-muted-foreground";
+
+  const { data: prevConversions = [] } = useQuery({
+    queryKey: ["home-conversions-prev", prevSinceISO, prevUntilISO, activeAccountId, activeProjectId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("conversions")
+        .select("id, amount, is_order_bump")
+        .eq("status", "approved")
+        .gte("created_at", prevSinceISO)
+        .lte("created_at", prevUntilISO)
+        .eq("account_id", activeAccountId);
+      if (activeProjectId) q = q.eq("project_id", activeProjectId);
+      q = q.limit(1000);
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 300000,
+    enabled: !!activeAccountId,
+  });
+
   const computed = useMemo(() => {
     const tv = clicks.length;
     const ts = conversions.length;
     const tr = conversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
     const at = ts > 0 ? tr / ts : 0;
+    const mainCount = conversions.filter((c: any) => !c.is_order_bump).length;
+    const obCount = conversions.filter((c: any) => c.is_order_bump).length;
+
+    const prevTs = prevConversions.length;
+    const prevTr = prevConversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
+    const prevAt = prevTs > 0 ? prevTr / prevTs : 0;
+
+    const comparison = {
+      sales: pctChange(ts, prevTs),
+      revenue: pctChange(tr, prevTr),
+      ticket: pctChange(at, prevAt),
+    };
 
     const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)) + 1;
     const dayMap = new Map<string, { views: number; sales: number; revenue: number }>();
@@ -272,8 +322,8 @@ export default function Home() {
       .map(([name, v]) => ({ name, vendas: v.vendas, receita: v.receita, ticket: v.vendas > 0 ? v.receita / v.vendas : 0 }))
       .sort((a, b) => b.receita - a.receita);
 
-    return { totalViews: tv, totalSales: ts, totalRevenue: tr, avgTicket: at, chartData, productData };
-  }, [clicks, conversions, dateRange]);
+    return { totalViews: tv, totalSales: ts, totalRevenue: tr, avgTicket: at, chartData, productData, mainCount, obCount, comparison };
+  }, [clicks, conversions, dateRange, prevConversions]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -305,9 +355,46 @@ export default function Home() {
       case "metrics":
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-            <MiniMetric label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} />
-            <MiniMetric label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} />
-            <MiniMetric label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} />
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Vendas</span>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <ShoppingCart className="h-3.5 w-3.5 text-primary" />
+                </div>
+              </div>
+              <div className="text-xl font-bold flex-1 flex items-center">{computed.totalSales.toLocaleString("pt-BR")}</div>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-[9px] text-muted-foreground">Vendas <span className="font-mono font-medium text-foreground/80">{computed.mainCount}</span></span>
+                <span className="text-[9px] text-muted-foreground">OB <span className="font-mono font-medium text-foreground/80">{computed.obCount}</span></span>
+              </div>
+              <div className={`text-[10px] font-normal mt-0.5 ${changeColor(computed.comparison.sales)}`}>
+                {fmtChange(computed.comparison.sales)} vs {previousPeriodLabel}
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Faturamento</span>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <DollarSign className="h-3.5 w-3.5 text-primary" />
+                </div>
+              </div>
+              <div className="text-lg font-bold flex-1 flex items-center">{fmt(computed.totalRevenue)}</div>
+              <div className={`text-[10px] font-normal mt-0.5 ${changeColor(computed.comparison.revenue)}`}>
+                {fmtChange(computed.comparison.revenue)} vs {previousPeriodLabel}
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-card border border-border/50 card-shadow min-h-[120px] flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Ticket Médio</span>
+                <div className="h-7 w-7 rounded-lg gradient-bg-soft flex items-center justify-center">
+                  <Ticket className="h-3.5 w-3.5 text-primary" />
+                </div>
+              </div>
+              <div className="text-lg font-bold flex-1 flex items-center">{fmt(computed.avgTicket)}</div>
+              <div className={`text-[10px] font-normal mt-0.5 ${changeColor(computed.comparison.ticket)}`}>
+                {fmtChange(computed.comparison.ticket)} vs {previousPeriodLabel}
+              </div>
+            </div>
           </div>
         );
 
