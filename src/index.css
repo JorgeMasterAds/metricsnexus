@@ -156,3 +156,28 @@
   0% { background-position: 0% 0; }
   100% { background-position: 200% 0; }
 }
+
+/* Dark styled number input spinners */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+/* Custom number stepper wrapper */
+.number-stepper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.number-stepper input {
+  text-align: center;
+  padding-right: 1.25rem;
+}
