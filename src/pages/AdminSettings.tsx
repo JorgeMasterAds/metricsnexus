@@ -12,6 +12,10 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "react-router-dom";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -135,12 +139,19 @@ export default function AdminSettings() {
     } finally { setPromoting(false); }
   };
 
-  const removeSuperAdmin = async (id: string) => {
-    if (!confirm("Remover este Super Admin?")) return;
-    const { error } = await (supabase as any).from("super_admins").delete().eq("id", id);
+  const [removingSuperAdminId, setRemovingSuperAdminId] = useState<string | null>(null);
+
+  const confirmRemoveSuperAdmin = async () => {
+    if (!removingSuperAdminId) return;
+    const { error } = await (supabase as any).from("super_admins").delete().eq("id", removingSuperAdminId);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Super Admin removido" });
+    setRemovingSuperAdminId(null);
     refetchAdmins();
+  };
+
+  const removeSuperAdmin = async (id: string) => {
+    setRemovingSuperAdminId(id);
   };
 
   const [loginBgUrl, setLoginBgUrl] = useState("");
@@ -595,6 +606,24 @@ export default function AdminSettings() {
           </div>
         </div>
       )}
+
+      {/* Super Admin removal modal */}
+      <AlertDialog open={!!removingSuperAdminId} onOpenChange={(o) => !o && setRemovingSuperAdminId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Super Admin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá revogar os privilégios de super administrador deste usuário. Ele voltará aos limites do plano original.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveSuperAdmin} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

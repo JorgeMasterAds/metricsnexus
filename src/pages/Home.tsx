@@ -1,16 +1,17 @@
 import DashboardLayout from "@/components/DashboardLayout";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/useAccount";
 import { useActiveProject } from "@/hooks/useActiveProject";
 import { useDashboardLayout } from "@/hooks/useDashboardLayout";
 import { useUsageLimits } from "@/hooks/useSubscription";
 import {
-  ShoppingCart, Percent, DollarSign, Ticket, GitBranch, Package,
+  ShoppingCart, DollarSign, Ticket, GitBranch, Package,
   Webhook, FileCode, Smartphone, Users, TrendingUp, Pencil, Check,
-  HelpCircle, RotateCcw,
+  HelpCircle, RotateCcw, Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import DateFilter, { DateRange, getDefaultDateRange } from "@/components/DateFilter";
 import {
@@ -22,8 +23,13 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-ki
 import { SortableSection } from "@/components/SortableSection";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
+import GamificationBar from "@/components/GamificationBar";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
-const SECTION_IDS = ["metrics", "limits", "sales-chart", "products"];
+const SECTION_IDS = ["revenue-goal", "metrics", "limits", "sales-chart", "products"];
 
 const TOOLTIP_STYLE = {
   backgroundColor: "hsl(240, 6%, 10%)",
@@ -66,6 +72,11 @@ export default function Home() {
   const { maxSmartlinks, maxWebhooks } = useUsageLimits();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [goalInput, setGoalInput] = useState("");
 
   const handleDateChange = useCallback((range: DateRange) => {
     setDateRange(range);
@@ -88,6 +99,33 @@ export default function Home() {
       return data;
     },
   });
+
+  const { data: revenueGoal } = useQuery({
+    queryKey: ["revenue-goal", activeAccountId, activeProjectId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("revenue_goals")
+        .select("goal")
+        .eq("account_id", activeAccountId)
+        .eq("project_id", activeProjectId)
+        .maybeSingle();
+      return data?.goal ?? 1000000;
+    },
+    staleTime: 60000,
+    enabled: !!activeAccountId && !!activeProjectId,
+  });
+
+  const saveGoal = async () => {
+    const val = parseFloat(goalInput.replace(/[^\d.,]/g, "").replace(",", "."));
+    if (isNaN(val) || val <= 0) { toast({ title: "Valor inválido", variant: "destructive" }); return; }
+    const { error } = await (supabase as any)
+      .from("revenue_goals")
+      .upsert({ account_id: activeAccountId, project_id: activeProjectId, goal: val, updated_at: new Date().toISOString() }, { onConflict: "account_id,project_id" });
+    if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Meta salva!" });
+    qc.invalidateQueries({ queryKey: ["revenue-goal"] });
+    setGoalModalOpen(false);
+  };
 
   const { data: conversions = [] } = useQuery({
     queryKey: ["home-conversions", sinceDate, untilDate, activeAccountId, activeProjectId],
@@ -180,11 +218,27 @@ export default function Home() {
     enabled: !!activeAccountId,
   });
 
+  // Get plan limits for leads
+  const { data: planLimits } = useQuery({
+    queryKey: ["home-plan-limits", activeAccountId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("subscriptions")
+        .select("plans:plan_id(max_leads, max_devices, max_smartlinks, max_webhooks)")
+        .eq("account_id", activeAccountId)
+        .maybeSingle();
+      return data?.plans || null;
+    },
+    enabled: !!activeAccountId,
+  });
+
+  const maxLeads = planLimits?.max_leads ?? 100;
+  const maxDevices = planLimits?.max_devices ?? 1;
+
   const computed = useMemo(() => {
     const tv = clicks.length;
     const ts = conversions.length;
     const tr = conversions.reduce((s: number, c: any) => s + Number(c.amount), 0);
-    const cr = tv > 0 ? (ts / tv) * 100 : 0;
     const at = ts > 0 ? tr / ts : 0;
 
     const days = Math.max(1, Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)) + 1;
@@ -216,7 +270,7 @@ export default function Home() {
       .map(([name, v]) => ({ name, vendas: v.vendas, receita: v.receita, ticket: v.vendas > 0 ? v.receita / v.vendas : 0 }))
       .sort((a, b) => b.receita - a.receita);
 
-    return { totalViews: tv, totalSales: ts, totalRevenue: tr, convRate: cr, avgTicket: at, chartData, productData };
+    return { totalViews: tv, totalSales: ts, totalRevenue: tr, avgTicket: at, chartData, productData };
   }, [clicks, conversions, dateRange]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -234,14 +288,24 @@ export default function Home() {
 
   const renderSection = (id: string) => {
     switch (id) {
+      case "revenue-goal":
+        return (
+          <div className="mb-6">
+            <GamificationBar
+              since={sinceISO}
+              until={untilISO}
+              goal={revenueGoal ?? 1000000}
+              onEditGoal={() => { setGoalInput(String(revenueGoal ?? 1000000)); setGoalModalOpen(true); }}
+            />
+          </div>
+        );
+
       case "metrics":
         return (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             <MiniMetric label="Vendas" value={computed.totalSales.toLocaleString("pt-BR")} icon={ShoppingCart} />
-            <MiniMetric label="Taxa Conv." value={`${computed.convRate.toFixed(2)}%`} icon={Percent} />
             <MiniMetric label="Faturamento" value={fmt(computed.totalRevenue)} icon={DollarSign} />
             <MiniMetric label="Ticket Médio" value={fmt(computed.avgTicket)} icon={Ticket} />
-            <MiniMetric label="Smart Links" value={String(smartlinkCount)} icon={GitBranch} />
           </div>
         );
 
@@ -256,8 +320,8 @@ export default function Home() {
               <UsageItem label="Smart Links" used={smartlinkCount} max={maxSmartlinks} icon={GitBranch} />
               <UsageItem label="Webhooks" used={webhookCount} max={maxWebhooks} icon={Webhook} />
               <UsageItem label="Formulários" used={formCount} max={99} icon={FileCode} />
-              <UsageItem label="Dispositivos" used={deviceCount} max={5} icon={Smartphone} />
-              <UsageItem label="Leads" used={leadCount} max={1000} icon={Users} />
+              <UsageItem label="Dispositivos" used={deviceCount} max={maxDevices} icon={Smartphone} />
+              <UsageItem label="Leads" used={leadCount} max={maxLeads} icon={Users} />
             </div>
           </div>
         );
@@ -330,8 +394,8 @@ export default function Home() {
 
   return (
     <DashboardLayout
-      title={`Boas-vindas, ${firstName}`}
-      subtitle="Visão geral do seu projeto"
+      title=""
+      subtitle=""
       actions={
         <div className="flex items-center gap-2">
           {editMode && (
@@ -346,6 +410,13 @@ export default function Home() {
         </div>
       }
     >
+      {/* Large welcome heading */}
+      <div className="mb-8">
+        <p className="text-lg text-muted-foreground font-medium">Boas-vindas,</p>
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">{firstName}</h1>
+        <p className="text-sm text-muted-foreground mt-1">Visão geral do seu projeto</p>
+      </div>
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           {order.map(id => (
@@ -355,6 +426,21 @@ export default function Home() {
           ))}
         </SortableContext>
       </DndContext>
+
+      {/* Goal edit modal */}
+      <Dialog open={goalModalOpen} onOpenChange={setGoalModalOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Editar Meta de Faturamento</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input value={goalInput} onChange={(e) => setGoalInput(e.target.value)} placeholder="Ex: 1000000" />
+            <p className="text-xs text-muted-foreground">Insira o valor da meta em reais (sem R$).</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGoalModalOpen(false)}>Cancelar</Button>
+            <Button onClick={saveGoal}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
@@ -375,7 +461,7 @@ function MiniMetric({ label, value, icon: Icon }: { label: string; value: string
 
 function UsageItem({ label, used, max, icon: Icon }: { label: string; used: number; max: number; icon: any }) {
   const pct = max > 0 ? Math.min((used / max) * 100, 100) : 0;
-  const color = pct >= 90 ? "text-destructive" : pct >= 70 ? "text-warning" : "text-success";
+  const color = pct >= 90 ? "text-destructive" : pct >= 70 ? "text-warning" : "text-primary";
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">

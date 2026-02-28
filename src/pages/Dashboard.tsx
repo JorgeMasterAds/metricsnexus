@@ -501,7 +501,7 @@ export default function Dashboard() {
       case "traffic-chart":
         return (
           <div className="rounded-xl bg-card border border-border/50 p-3 sm:p-5 mb-6 card-shadow">
-            <ChartHeader title="Tráfego & Conversões" icon={<TrendingUp className="h-4 w-4 text-primary" />} tooltipKey="traffic-chart" />
+            <ChartHeader title="Vendas Diárias" icon={<TrendingUp className="h-4 w-4 text-primary" />} tooltipKey="traffic-chart" />
             {computed.chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={computed.chartData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
@@ -626,6 +626,13 @@ export default function Dashboard() {
                 <div className="p-3 rounded-lg bg-secondary/50 border border-border/30">
                   <p className="text-[11px] text-muted-foreground">Receita Order Bumps</p>
                   <p className="text-lg font-bold">{fmt(computed.obRevenue)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                  <p className="text-[11px] text-muted-foreground">Influência OB na Receita</p>
+                  <p className="text-lg font-bold text-primary">
+                    {computed.mainRevenue > 0 ? `+${((computed.obRevenue / computed.mainRevenue) * 100).toFixed(1)}%` : "0%"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Order Bumps adicionaram este % à receita principal</p>
                 </div>
               </div>
             </div>
