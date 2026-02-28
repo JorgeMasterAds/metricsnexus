@@ -536,11 +536,11 @@ export default function SmartLinks() {
                     )}
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border/30 p-3 text-center">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Vendas</div>
-                    <div className="grid grid-cols-3 gap-1 text-center">
-                      <div><p className="text-[9px] text-muted-foreground uppercase">Vendas</p><p className="text-sm font-bold tabular-nums">{obData.mainSales.toLocaleString("pt-BR")}</p></div>
-                      <div><p className="text-[9px] text-muted-foreground uppercase">OB</p><p className="text-sm font-bold tabular-nums">{obData.obSales.toLocaleString("pt-BR")}</p></div>
-                      <div><p className="text-[9px] text-muted-foreground uppercase">Total</p><p className="text-sm font-bold tabular-nums">{(obData.mainSales + obData.obSales).toLocaleString("pt-BR")}</p></div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Vendas</div>
+                    <div className="text-base font-bold mt-0.5 tabular-nums">{(obData.mainSales + obData.obSales).toLocaleString("pt-BR")}</div>
+                    <div className="flex items-center justify-center gap-3 mt-0.5">
+                      <span className="text-[9px] text-muted-foreground">Vendas <span className="font-mono font-medium text-foreground/80">{obData.mainSales}</span></span>
+                      <span className="text-[9px] text-muted-foreground">OB <span className="font-mono font-medium text-foreground/80">{obData.obSales}</span></span>
                     </div>
                     <div className={`text-[9px] font-normal mt-0.5 ${changeColor(pctChange(linkData.sales, prevLinkData.sales))}`}>{fmtPct(pctChange(linkData.sales, prevLinkData.sales))}</div>
                   </div>
@@ -576,13 +576,13 @@ export default function SmartLinks() {
                           <tr className="border-b border-border/20 bg-muted/30">
                             <th className="text-left px-5 py-2.5 text-xs font-medium text-muted-foreground">Variante</th>
                             <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">URL destino</th>
-                            <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Peso</th>
-                            <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Views</th>
-                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Vendas</th>
-                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">OB</th>
-                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Taxa</th>
-                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Receita</th>
-                             <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
+                            <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">Peso</th>
+                             <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">Views</th>
+                             <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">Vendas</th>
+                             <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">OB</th>
+                             <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">Taxa</th>
+                             <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">Receita</th>
+                             <th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -594,13 +594,13 @@ export default function SmartLinks() {
                               <tr key={v.id} className="border-b border-border/10 hover:bg-accent/10 transition-colors">
                                 <td className="px-5 py-3 font-medium text-xs">{v.name}</td>
                                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[200px]">{v.url}</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">{v.weight}%</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">{vData.views}</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">{vOb.mainSales}</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs text-muted-foreground">{vOb.obSales}</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs text-success">{vRate}%</td>
-                                <td className="text-right px-4 py-3 font-mono text-xs">R$ {vData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                                <td className="text-right px-4 py-3">
+                                <td className="text-center px-4 py-3 font-mono text-xs">{v.weight}%</td>
+                                <td className="text-center px-4 py-3 font-mono text-xs">{vData.views}</td>
+                                <td className="text-center px-4 py-3 font-mono text-xs">{vOb.mainSales}</td>
+                                <td className="text-center px-4 py-3 font-mono text-xs text-muted-foreground">{vOb.obSales}</td>
+                                <td className="text-center px-4 py-3 font-mono text-xs text-success">{vRate}%</td>
+                                <td className="text-center px-4 py-3 font-mono text-xs">R$ {vData.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                                <td className="text-center px-4 py-3">
                                   <button
                                     onClick={() => toggleVariant.mutate({ id: v.id, is_active: !v.is_active, smartLinkId: link.id })}
                                     className={cn("text-xs px-2 py-0.5 rounded-full cursor-pointer", v.is_active ? "bg-success/20 text-success" : "bg-muted text-muted-foreground")}
