@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -29,6 +29,7 @@ import {
   Home,
   Gift,
   Key,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -484,6 +485,13 @@ export default function DashboardLayout({ children, title, subtitle, actions }: 
                       {actions}
                     </div>
                   )}
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                    title="Atualizar página"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
                   <NotificationBell />
                 </div>
               </div>
